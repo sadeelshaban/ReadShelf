@@ -36,7 +36,7 @@ const features = [
   },
   {
     title: "Always in sync",
-    body: "Pick up on your phone where you left off on your laptop. Every mark saves to the cloud instantly.",
+    body: "Your shelf, progress, highlights, and notes stay saved in the cloud — open ReadShelf on any desktop and pick up where you left off.",
   },
 ];
 
@@ -74,12 +74,11 @@ export default function HomePage() {
               Your personal reading shelf
             </p>
             <h1 className="font-serif text-4xl font-semibold leading-tight text-text sm:text-5xl">
-              Your books, highlights, and notes — synced everywhere.
+              Your books, highlights, and notes — in one desktop app.
             </h1>
             <p className="max-w-xl text-lg text-text/80">
-              Upload PDFs, read in your browser, highlight freely, and leave notes
-              on any page. Install ReadShelf on phone or laptop and never lose
-              your place.
+              Upload PDFs, read with a focused viewer, highlight freely, and leave notes
+              on any page. A personal reading shelf built for desktop.
             </p>
             <div className="flex flex-wrap gap-3 pt-1">
               <Link href="/signup">

@@ -2,11 +2,15 @@
   "name": "readshelf-app",
   "version": "0.1.0",
   "private": true,
+  "main": "desktop/main.cjs",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "build:desktop": "next build && node scripts/prepare-desktop.mjs",
+    "desktop:dev": "concurrently -k \"next dev -H 127.0.0.1\" \"wait-on http://127.0.0.1:3000 && cross-env READSHELF_DEV_URL=http://127.0.0.1:3000 electron .\"",
+    "desktop:pack": "npm run build:desktop && electron-builder --win nsis",
     "setup:supabase": "powershell -ExecutionPolicy Bypass -File ./scripts/setup-supabase.ps1",
     "setup:r2": "powershell -ExecutionPolicy Bypass -File ./scripts/setup-r2.ps1",
     "setup:r2:auto": "powershell -ExecutionPolicy Bypass -File ./scripts/setup-r2-auto.ps1",
@@ -33,9 +37,41 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "concurrently": "^9.2.1",
+    "cross-env": "^7.0.3",
+    "electron": "^35.7.5",
+    "electron-builder": "^26.0.12",
     "eslint": "^9",
     "eslint-config-next": "16.2.9",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "wait-on": "^8.0.5"
+  },
+  "build": {
+    "appId": "com.readshelf.app",
+    "productName": "ReadShelf",
+    "directories": {
+      "output": "dist/desktop"
+    },
+    "files": [
+      "desktop/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": ".next/standalone",
+        "to": "standalone",
+        "filter": ["**/*"]
+      }
+    ],
+    "win": {
+      "target": ["nsis"],
+      "icon": "public/favicon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "shortcutName": "ReadShelf"
+    }
   }
 }

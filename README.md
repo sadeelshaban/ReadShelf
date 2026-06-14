@@ -2,7 +2,9 @@
 
 **Your personal digital reading shelf — PDFs, progress, highlights, and notes in one place.**
 
-ReadShelf is a Progressive Web App (PWA) built to solve a real, everyday problem: keeping PDF books organized, readable, and annotated across phone and laptop — without losing your place or your notes.
+ReadShelf is a **desktop-first** reading app (Windows installer via Electron) built to solve a real, everyday problem: keeping PDF books organized, readable, and annotated — without losing your place or your notes. It also runs in the browser for development and optional web hosting.
+
+> **Mobile / PWA install is intentionally removed for now** and may return in a later release.
 
 ---
 
@@ -31,9 +33,9 @@ ReadShelf gives you a focused reading environment:
 | Mark up content | Freehand highlights + positioned page notes |
 | Work offline | PDFs and annotations cache locally; changes sync when back online |
 | Keep a portable copy | Export a PDF with highlights and notes burned into the pages (Arabic-aware) |
-| Use like a native app | Install as a PWA on phone or desktop |
+| Run as a desktop app | Native Windows installer — full UI, offline cache, cloud sync |
 
-Everything runs in the browser. No app store required.
+The same Next.js app powers both the **desktop shell** and optional **web deploy**.
 
 ---
 
@@ -49,7 +51,7 @@ Everything runs in the browser. No app store required.
 - In-browser PDF reader with zoom and page navigation
 - Freehand highlight strokes with color presets
 - Draggable, resizable page notes with font size and text color
-- Touch-friendly controls for mobile; keyboard and trackpad on desktop
+- Keyboard and trackpad navigation on desktop
 - Progress saved automatically as you read
 
 ### Annotations & export
@@ -63,10 +65,11 @@ Everything runs in the browser. No app store required.
 - Offline reading after a book has been opened once online
 - Background sync queue pushes local changes when connectivity returns
 
-### PWA
-- Installable on phone and laptop (Add to Home Screen / Install app)
-- Service worker caches app shell for faster loads
-- Standalone display — feels like a dedicated reading app
+### Desktop app
+- **Electron** shell with embedded Next.js server
+- Windows `.exe` installer (NSIS)
+- All web features: auth, shelf, reader, highlights, notes, export, offline sync
+- Local-only server (`127.0.0.1`) — not exposed to the network
 
 ---
 
@@ -81,14 +84,16 @@ Everything runs in the browser. No app store required.
 | PDF rendering | pdfjs-dist |
 | PDF export | pdf-lib + @pdf-lib/fontkit |
 | Offline | IndexedDB + custom sync queue |
-| Deployment | Vercel-ready |
+| Desktop | Electron 35 + electron-builder |
+| Web deploy | Vercel-ready (optional) |
 
 ---
 
 ## Architecture overview
 
 ```
-Browser (PWA)
+Desktop (Electron)
+  ├── Embedded Next.js server (standalone build, localhost only)
   ├── Shelf UI ──────────────► Supabase (auth, books, highlights, notes)
   ├── PDF Reader ────────────► pdfjs-dist + canvas overlay
   ├── Offline layer ─────────► IndexedDB (PDF cache, annotations, sync queue)
@@ -209,6 +214,44 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ---
 
+## Desktop app (Windows)
+
+ReadShelf uses **Electron** (not Flutter) so the existing Next.js app, API routes, PDF export, and Supabase integration stay intact — no rewrite required.
+
+### Why Electron over Flutter?
+
+| | Electron | Flutter |
+|---|----------|---------|
+| Reuse current code | ✅ Full Next.js app | ❌ Full rewrite |
+| PDF reader + export | ✅ Already built | ❌ Rebuild from scratch |
+| Supabase + R2 | ✅ Working | ❌ Reintegrate everything |
+| Desktop installer | ✅ `.exe` via electron-builder | ✅ Yes, but months of work |
+
+### Run desktop in development
+
+Terminal 1 — or use the combined script:
+
+```bash
+npm run desktop:dev
+```
+
+This starts Next.js on `127.0.0.1:3000` and opens the Electron window.
+
+### Build a Windows installer
+
+1. Configure `.env.local` (Supabase + optional R2) — these values are bundled into the desktop build for personal use.
+2. Build and package:
+
+```bash
+npm run desktop:pack
+```
+
+3. Find the installer under `dist/desktop/` (`.exe` NSIS installer).
+
+The packaged app runs a local Next.js server on a random `127.0.0.1` port and loads it inside a native window. Your cloud data (Supabase + R2) stays online; only the app shell runs locally.
+
+---
+
 ## Deploy to Vercel
 
 1. Push this repository to GitHub.
@@ -223,17 +266,10 @@ After deploy:
 
 ---
 
-## Install as an app (PWA)
-
-1. Log in on your phone or laptop browser.
-2. Use **Install app** / **Add to Home Screen** from the browser menu.
-3. Launch ReadShelf from your home screen — same account, same shelf, same progress.
-
----
-
 ## Project structure
 
 ```
+desktop/                  # Electron main + preload
 src/
   app/                    # Next.js routes (landing, auth, shelf, reader, API)
   components/             # UI, shelf, reader, book, layout
@@ -247,10 +283,8 @@ src/
   types/                  # Shared TypeScript types
 supabase/
   migrations/             # SQL schema + RLS policies
-scripts/                  # Supabase & R2 setup helpers
-public/
-  manifest.json           # PWA manifest
-  sw.js                   # Service worker
+scripts/                  # Supabase, R2, desktop bundle helpers
+public/                   # Icons and favicon
 ```
 
 ---
@@ -260,6 +294,9 @@ public/
 | Command | Description |
 |---------|-------------|
 | `npm run dev` | Start development server |
+| `npm run desktop:dev` | Run Next.js + Electron desktop window |
+| `npm run build:desktop` | Production build + bundle for Electron |
+| `npm run desktop:pack` | Build Windows `.exe` installer |
 | `npm run build` | Production build |
 | `npm run start` | Start production server |
 | `npm run lint` | Run ESLint |
@@ -284,8 +321,9 @@ This is the **first public release**. Core reading, annotations, offline sync, a
 
 Planned improvements:
 
-- [ ] UI/UX polish (shelf layout, reader toolbar, mobile spacing)
+- [ ] UI/UX polish (shelf layout, reader toolbar)
 - [ ] Final QA pass on edge cases (large PDFs, long Arabic notes, sync conflicts)
+- [ ] Mobile / PWA install (deferred — desktop-first for now)
 - [ ] Additional features based on real usage (collections, reading goals, sharing)
 
 Contributions and feedback are welcome.

@@ -14,7 +14,8 @@ import {
   putLocalNote,
   seedBookAnnotations,
 } from "@/lib/offline/annotations-store";
-import { computeProgress } from "@/lib/pdf";
+import { updateCachedBookProgress } from "@/lib/offline/books-store";
+import { idbDelete, idbGetAll } from "@/lib/offline/db";
 import { isOnline } from "@/lib/offline/online";
 import { loadPdfBuffer } from "@/lib/offline/pdf-cache";
 import {
@@ -22,6 +23,7 @@ import {
   flushSyncQueue,
   removeSyncItemsForRecord,
 } from "@/lib/offline/sync-queue";
+import { computeProgress } from "@/lib/pdf";
 
 function newId() {
   return crypto.randomUUID();
@@ -33,6 +35,38 @@ async function syncIfOnline() {
   }
 }
 
+async function enqueueBookProgress(
+  bookId: string,
+  payload: Record<string, unknown>,
+) {
+  const pending = await idbGetAll<{
+    id: string;
+    entity: string;
+    recordId: string;
+    status: string;
+  }>("syncQueue");
+
+  await Promise.all(
+    pending
+      .filter(
+        (item) =>
+          item.entity === "book" &&
+          item.recordId === bookId &&
+          item.status === "pending",
+      )
+      .map((item) => idbDelete("syncQueue", item.id)),
+  );
+
+  await enqueueSync({
+    id: newId(),
+    entity: "book",
+    op: "update",
+    recordId: bookId,
+    payload,
+    createdAt: new Date().toISOString(),
+  });
+}
+
 export { loadPdfBuffer, seedBookAnnotations, loadBookAnnotations, flushSyncQueue };
 
 export async function saveReadingProgress(
@@ -40,19 +74,25 @@ export async function saveReadingProgress(
   currentPage: number,
   totalPages: number | null,
 ) {
-  if (!isOnline()) return;
-
   const progressPercent = computeProgress(currentPage, totalPages);
+  const payload = {
+    last_page: currentPage,
+    progress_percent: progressPercent,
+    last_opened_at: new Date().toISOString(),
+  };
 
-  const supabase = createClient();
-  await supabase
-    .from("books")
-    .update({
-      last_page: currentPage,
-      progress_percent: progressPercent,
-      last_opened_at: new Date().toISOString(),
-    })
-    .eq("id", bookId);
+  await updateCachedBookProgress(bookId, payload);
+
+  if (isOnline()) {
+    const supabase = createClient();
+    const { error } = await supabase.from("books").update(payload).eq("id", bookId);
+    if (error) {
+      await enqueueBookProgress(bookId, payload);
+    }
+    return;
+  }
+
+  await enqueueBookProgress(bookId, payload);
 }
 
 export async function insertHighlight(input: {

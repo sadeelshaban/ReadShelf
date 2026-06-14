@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Lora } from "next/font/google";
-import { ServiceWorkerRegister } from "@/components/pwa/ServiceWorkerRegister";
 import { OfflineSyncRegister } from "@/components/offline/OfflineSyncRegister";
 import { SetupBanner } from "@/components/layout/SetupBanner";
 import "./globals.css";
@@ -18,16 +17,9 @@ const lora = Lora({
 export const metadata: Metadata = {
   title: "ReadShelf — Your personal reading shelf",
   description:
-    "A personal digital shelf that saves books, reading progress, highlights, and notes across devices.",
-  manifest: "/manifest.json",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "default",
-    title: "ReadShelf",
-  },
+    "A personal digital shelf that saves books, reading progress, highlights, and notes.",
   icons: {
     icon: [{ url: "/favicon.png", type: "image/png" }],
-    apple: "/favicon.png",
     shortcut: "/favicon.png",
   },
 };
@@ -48,7 +40,6 @@ export default function RootLayout({
       <body className="min-h-full antialiased">
         <SetupBanner />
         {children}
-        <ServiceWorkerRegister />
         <OfflineSyncRegister />
       </body>
     </html>

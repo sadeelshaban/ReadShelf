@@ -1,5 +1,5 @@
 const DB_NAME = "readshelf";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 export function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -12,11 +12,6 @@ export function openDb(): Promise<IDBDatabase> {
 
     request.onupgradeneeded = (event) => {
       const db = request.result;
-      if (event.oldVersion < DB_VERSION) {
-        for (const name of Array.from(db.objectStoreNames)) {
-          db.deleteObjectStore(name);
-        }
-      }
 
       if (!db.objectStoreNames.contains("pdfs")) {
         db.createObjectStore("pdfs", { keyPath: "bookId" });
@@ -32,6 +27,9 @@ export function openDb(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains("syncQueue")) {
         const store = db.createObjectStore("syncQueue", { keyPath: "id" });
         store.createIndex("status", "status", { unique: false });
+      }
+      if (!db.objectStoreNames.contains("books")) {
+        db.createObjectStore("books", { keyPath: "id" });
       }
     };
 
