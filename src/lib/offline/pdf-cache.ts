@@ -1,4 +1,4 @@
-import { idbGet, idbPut } from "@/lib/offline/db";
+import { idbDelete, idbGet, idbPut } from "@/lib/offline/db";
 import { isOnline } from "@/lib/offline/online";
 
 type CachedPdf = {
@@ -20,6 +20,10 @@ export async function cachePdf(bookId: string, buffer: ArrayBuffer) {
 export async function getCachedPdf(bookId: string) {
   const row = await idbGet<CachedPdf>("pdfs", bookId);
   return row?.buffer;
+}
+
+export async function removeCachedPdf(bookId: string) {
+  await idbDelete("pdfs", bookId);
 }
 
 export async function loadPdfBuffer(bookId: string) {

@@ -468,21 +468,20 @@ export function PdfReader({
   goToNextPageRef.current = goToNextPage;
 
   function canNavigatePages() {
-    return (
-      toolRef.current === "read" &&
-      !editingNoteIdRef.current &&
-      !isDrawingRef.current
-    );
+    if (editingNoteIdRef.current || isDrawingRef.current) return false;
+    if (toolRef.current === "note") return false;
+    return true;
   }
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
-      const target = e.target as HTMLElement;
+      const target = e.target as HTMLElement | null;
       if (
-        target.tagName === "INPUT" ||
-        target.tagName === "TEXTAREA" ||
-        target.isContentEditable
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
       ) {
         return;
       }
@@ -492,8 +491,8 @@ export function PdfReader({
       else goToNextPageRef.current();
     }
 
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
   }, []);
 
   useEffect(() => {
@@ -988,6 +987,7 @@ export function PdfReader({
             <Button size="sm" variant="secondary" onClick={goToNextPage} disabled={page >= maxPage}>
               Next
             </Button>
+            <span className="hidden text-xs text-text/55 sm:inline">← → keys</span>
             <Button size="sm" variant="secondary" onClick={() => setScale((s) => Math.max(0.8, s - 0.2))}>Zoom −</Button>
             <Button size="sm" variant="secondary" onClick={() => setScale((s) => Math.min(2.5, s + 0.2))}>Zoom +</Button>
           </div>

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { ShelfGrid } from "@/components/shelf/ShelfGrid";
 import { ShelfStats } from "@/components/shelf/ShelfStats";
 import {
@@ -13,51 +14,59 @@ import { flushSyncQueue } from "@/lib/offline/reader-api";
 import type { BookWithCounts } from "@/types";
 
 export function ShelfPageClient() {
+  const pathname = usePathname();
   const [books, setBooks] = useState<BookWithCounts[]>([]);
   const [coverUrls, setCoverUrls] = useState<Record<string, string | null>>({});
   const [loading, setLoading] = useState(true);
   const [offline, setOffline] = useState(false);
+  const [reloadToken, setReloadToken] = useState(0);
+
+  const loadShelf = useCallback(async (cancelled: () => boolean) => {
+    setLoading(true);
+
+    if (isOnline()) {
+      try {
+        const fetched = await fetchBooksWithCountsClient();
+        if (cancelled()) return;
+
+        await cacheBooks(fetched);
+        const urls = await fetchCoverUrlsClient(fetched);
+        if (cancelled()) return;
+
+        setBooks(fetched);
+        setCoverUrls(urls);
+        setOffline(false);
+        void flushSyncQueue();
+        setLoading(false);
+        return;
+      } catch {
+        // Fall back to cached shelf when the network request fails.
+      }
+    }
+
+    const cached = await getCachedBooks();
+    if (cancelled()) return;
+    setBooks(cached);
+    setCoverUrls({});
+    setOffline(!isOnline());
+    setLoading(false);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
-
-    async function load() {
-      setLoading(true);
-
-      if (isOnline()) {
-        try {
-          const fetched = await fetchBooksWithCountsClient();
-          if (cancelled) return;
-
-          if (fetched.length > 0) {
-            await cacheBooks(fetched);
-            const urls = await fetchCoverUrlsClient(fetched);
-            if (cancelled) return;
-            setBooks(fetched);
-            setCoverUrls(urls);
-            setOffline(false);
-            void flushSyncQueue();
-            setLoading(false);
-            return;
-          }
-        } catch {
-          // Fall back to cached shelf when the network request fails.
-        }
-      }
-
-      const cached = await getCachedBooks();
-      if (cancelled) return;
-      setBooks(cached);
-      setCoverUrls({});
-      setOffline(!isOnline());
-      setLoading(false);
-    }
-
-    void load();
-
+    void loadShelf(() => cancelled);
     return () => {
       cancelled = true;
     };
+  }, [loadShelf, pathname, reloadToken]);
+
+  useEffect(() => {
+    function refreshShelf() {
+      setReloadToken((value) => value + 1);
+    }
+
+    window.addEventListener("focus", refreshShelf);
+    return () => window.removeEventListener("focus", refreshShelf);
   }, []);
 
   if (loading) {

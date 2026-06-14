@@ -1,4 +1,9 @@
-import { idbGet, idbGetAll, idbPut } from "@/lib/offline/db";
+import {
+  idbDelete,
+  idbGet,
+  idbGetAll,
+  idbPut,
+} from "@/lib/offline/db";
 import type { Book, BookWithCounts } from "@/types";
 
 type CachedBook = BookWithCounts & {
@@ -7,6 +12,15 @@ type CachedBook = BookWithCounts & {
 
 export async function cacheBooks(books: BookWithCounts[]) {
   const cachedAt = new Date().toISOString();
+  const incomingIds = new Set(books.map((book) => book.id));
+  const existing = await idbGetAll<CachedBook>("books");
+
+  await Promise.all(
+    existing
+      .filter((book) => !incomingIds.has(book.id))
+      .map((book) => idbDelete("books", book.id)),
+  );
+
   await Promise.all(
     books.map((book) =>
       idbPut<CachedBook>("books", {
@@ -29,6 +43,10 @@ export async function cacheBook(book: Book) {
     note_count: existing?.note_count ?? 0,
     cachedAt: new Date().toISOString(),
   });
+}
+
+export async function removeCachedBook(bookId: string) {
+  await idbDelete("books", bookId);
 }
 
 export async function getCachedBooks(): Promise<BookWithCounts[]> {
@@ -58,7 +76,6 @@ export async function updateCachedBookProgress(
 }
 
 export async function listCachedPdfBookIds(): Promise<string[]> {
-  const { idbGetAll: getAll } = await import("@/lib/offline/db");
-  const rows = await getAll<{ bookId: string }>("pdfs");
+  const rows = await idbGetAll<{ bookId: string }>("pdfs");
   return rows.map((row) => row.bookId);
 }

@@ -7,6 +7,7 @@ import { useState } from "react";
 import type { Book, Highlight, Note } from "@/types";
 import { getReadButtonLabel } from "@/lib/pdf";
 import { flushSyncQueue, loadBookAnnotations } from "@/lib/offline/reader-api";
+import { purgeBookFromLocalCache } from "@/lib/offline/purge-book-cache";
 import { noteTextCss } from "@/lib/reader/constants";
 import { Button } from "@/components/ui/Button";
 
@@ -165,6 +166,7 @@ export function BookDetailsClient({
       return;
     }
 
+    await purgeBookFromLocalCache(book.id);
     router.push("/shelf");
     router.refresh();
   }
