@@ -114,7 +114,7 @@ Each user's data is isolated with Supabase RLS policies. PDF files never appear 
 ### 1. Clone and install
 
 ```bash
-git clone https://github.com/sadeelshabanmedia/ReadShelf.git
+git clone https://github.com/sadeelshaban/ReadShelf.git
 cd ReadShelf
 npm install
 ```
