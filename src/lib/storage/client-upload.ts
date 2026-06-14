@@ -67,26 +67,33 @@ async function uploadToSupabaseStorage(
   }
 }
 
-async function uploadToPresignedUrl(
-  url: string,
+async function uploadViaAppServer(
   file: Blob | File,
+  path: string,
+  kind: UploadKind,
   contentType: string,
 ) {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("path", path);
+  formData.append("kind", kind);
+  formData.append("contentType", contentType);
+
   let response: Response;
   try {
-    response = await fetch(url, {
-      method: "PUT",
-      body: file,
-      headers: { "Content-Type": contentType },
+    response = await fetch("/api/books/upload-file", {
+      method: "POST",
+      body: formData,
     });
   } catch {
     throw new Error(
-      "Could not upload to storage. If you use R2, rerun npm run setup:r2 to refresh CORS.",
+      "Could not reach the upload server. Check your connection and try again.",
     );
   }
 
+  const body = (await response.json()) as { error?: string };
   if (!response.ok) {
-    throw new Error(`Storage upload failed (${response.status}).`);
+    throw new Error(body.error ?? "File upload failed.");
   }
 }
 
@@ -111,6 +118,5 @@ export async function uploadBookFileViaApi(
     return;
   }
 
-  const url = kind === "pdf" ? plan.pdfUploadUrl : plan.coverUploadUrl;
-  await uploadToPresignedUrl(url, file, contentType);
+  await uploadViaAppServer(file, path, kind, contentType);
 }
