@@ -8,9 +8,17 @@ export async function getClientCoverReadUrl(path: string | null) {
     return `${publicBase}/covers/${path}`;
   }
 
-  const supabase = createClient();
-  const { data } = await supabase.storage
-    .from("book-covers")
-    .createSignedUrl(path, 3600);
-  return data?.signedUrl ?? null;
+  let response: Response;
+  try {
+    response = await fetch(
+      `/api/books/cover-url?path=${encodeURIComponent(path)}`,
+    );
+  } catch {
+    return null;
+  }
+
+  if (!response.ok) return null;
+
+  const body = (await response.json()) as { url?: string };
+  return body.url ?? null;
 }

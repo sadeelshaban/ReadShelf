@@ -40,7 +40,6 @@ export function ShelfControls({
             className="rounded-xl border border-white/70 bg-white/55 px-3 py-2.5 text-sm text-text shadow-sm backdrop-blur-sm focus:border-primary/30 focus:outline-none focus:ring-4 focus:ring-primary/10"
           >
             <option value="recent">Recently opened</option>
-            <option value="title">Title A–Z</option>
             <option value="progress">Progress</option>
           </select>
         </div>

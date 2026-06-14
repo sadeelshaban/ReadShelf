@@ -2,10 +2,6 @@ import { createClient } from "@/lib/supabase/client";
 
 type UploadKind = "pdf" | "cover";
 
-type UploadPlan =
-  | { storage: "supabase" }
-  | { storage: "r2"; pdfUploadUrl: string; coverUploadUrl: string };
-
 type UploadContext = {
   bookId: string;
   pdfPath: string;
@@ -13,25 +9,41 @@ type UploadContext = {
   coverContentType: string;
 };
 
-let cachedPlan: UploadPlan | null = null;
+type UploadPlan =
+  | { storage: "supabase" }
+  | {
+      storage: "r2";
+      pdfUploadUrl: string;
+      coverUploadUrl: string;
+    };
+
 let cachedPlanKey: string | null = null;
+let cachedPlan: UploadPlan | null = null;
 
 export function resetUploadPlan() {
-  cachedPlan = null;
   cachedPlanKey = null;
+  cachedPlan = null;
 }
 
-async function getUploadPlan(context: UploadContext): Promise<UploadPlan> {
-  const key = `${context.bookId}:${context.pdfPath}:${context.coverPath}`;
-  if (cachedPlan && cachedPlanKey === key) {
-    return cachedPlan;
+async function readJsonError(response: Response, fallback: string) {
+  try {
+    const body = (await response.json()) as { error?: string };
+    return body.error ?? fallback;
+  } catch {
+    return fallback;
   }
+}
+
+async function ensureUploadPlan(context: UploadContext): Promise<UploadPlan> {
+  const key = `${context.bookId}:${context.pdfPath}:${context.coverPath}`;
+  if (cachedPlanKey === key && cachedPlan) return cachedPlan;
 
   let response: Response;
   try {
     response = await fetch("/api/books/upload-urls", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
       body: JSON.stringify(context),
     });
   } catch {
@@ -40,30 +52,69 @@ async function getUploadPlan(context: UploadContext): Promise<UploadPlan> {
     );
   }
 
-  const body = (await response.json()) as UploadPlan & { error?: string };
   if (!response.ok) {
-    throw new Error(body.error ?? "Could not prepare upload.");
+    throw new Error(await readJsonError(response, "Could not prepare upload."));
   }
 
-  cachedPlan = body;
+  const plan = (await response.json()) as UploadPlan;
   cachedPlanKey = key;
-  return body;
+  cachedPlan = plan;
+  return plan;
 }
 
-async function uploadToSupabaseStorage(
-  bucket: "book-pdfs" | "book-covers",
-  path: string,
+function toUploadBody(
   file: Blob | File,
+  kind: UploadKind,
   contentType: string,
-  upsert: boolean,
+): Blob {
+  if (file instanceof File && file.name) return file;
+  const name = kind === "pdf" ? "book.pdf" : "cover.jpg";
+  return new File([file], name, {
+    type: contentType || file.type || "application/octet-stream",
+  });
+}
+
+async function uploadViaSupabaseStorage(
+  file: Blob | File,
+  path: string,
+  kind: UploadKind,
+  contentType: string,
 ) {
   const supabase = createClient();
-  const { error } = await supabase.storage.from(bucket).upload(path, file, {
+  const bucket = kind === "pdf" ? "book-pdfs" : "book-covers";
+  const body = toUploadBody(file, kind, contentType);
+  const { error } = await supabase.storage.from(bucket).upload(path, body, {
     contentType,
-    upsert,
+    upsert: true,
   });
+
   if (error) {
     throw new Error(error.message);
+  }
+}
+
+async function uploadViaPresignedUrl(
+  url: string,
+  file: Blob | File,
+  kind: UploadKind,
+  contentType: string,
+) {
+  const body = toUploadBody(file, kind, contentType);
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: "PUT",
+      headers: { "Content-Type": contentType },
+      body,
+    });
+  } catch {
+    throw new Error(
+      "Could not reach storage. Check your connection and try again.",
+    );
+  }
+
+  if (!response.ok) {
+    throw new Error(`File upload failed (${response.status}).`);
   }
 }
 
@@ -73,8 +124,9 @@ async function uploadViaAppServer(
   kind: UploadKind,
   contentType: string,
 ) {
+  const uploadFile = toUploadBody(file, kind, contentType);
   const formData = new FormData();
-  formData.append("file", file);
+  formData.append("file", uploadFile);
   formData.append("path", path);
   formData.append("kind", kind);
   formData.append("contentType", contentType);
@@ -83,6 +135,7 @@ async function uploadViaAppServer(
   try {
     response = await fetch("/api/books/upload-file", {
       method: "POST",
+      credentials: "same-origin",
       body: formData,
     });
   } catch {
@@ -91,9 +144,8 @@ async function uploadViaAppServer(
     );
   }
 
-  const body = (await response.json()) as { error?: string };
   if (!response.ok) {
-    throw new Error(body.error ?? "File upload failed.");
+    throw new Error(await readJsonError(response, "File upload failed."));
   }
 }
 
@@ -104,19 +156,26 @@ export async function uploadBookFileViaApi(
   contentType: string,
   context: UploadContext,
 ) {
-  const plan = await getUploadPlan(context);
+  const plan = await ensureUploadPlan(context);
 
-  if (plan.storage === "supabase") {
-    const bucket = kind === "pdf" ? "book-pdfs" : "book-covers";
-    await uploadToSupabaseStorage(
-      bucket,
-      path,
-      file,
-      contentType,
-      kind === "cover",
-    );
+  if (plan.storage === "r2") {
+    const url = kind === "pdf" ? plan.pdfUploadUrl : plan.coverUploadUrl;
+    await uploadViaPresignedUrl(url, file, kind, contentType);
     return;
   }
 
-  await uploadViaAppServer(file, path, kind, contentType);
+  try {
+    await uploadViaSupabaseStorage(file, path, kind, contentType);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "File upload failed.";
+    if (
+      message.includes("Load failed") ||
+      message.includes("Failed to fetch") ||
+      message.includes("NetworkError")
+    ) {
+      await uploadViaAppServer(file, path, kind, contentType);
+      return;
+    }
+    throw error;
+  }
 }

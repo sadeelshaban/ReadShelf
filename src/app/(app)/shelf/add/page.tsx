@@ -52,12 +52,14 @@ export default function AddBookPage() {
 
     try {
       const supabase = createClient();
+      await supabase.auth.refreshSession();
       const {
         data: { user },
+        error: authError,
       } = await supabase.auth.getUser();
 
-      if (!user) {
-        setError("You must be logged in.");
+      if (authError || !user) {
+        setError("You must be logged in. Try logging out and back in.");
         setLoading(false);
         return;
       }
@@ -70,8 +72,12 @@ export default function AddBookPage() {
       const { totalPages, coverBlob: generatedCoverBlob } =
         await extractPdfMetadata(pdfFile);
 
+      if (!coverFile && (!generatedCoverBlob || generatedCoverBlob.size === 0)) {
+        throw new Error("Could not generate a cover from the first page of this PDF.");
+      }
+
       const coverPath = `${user.id}/${bookId}-cover.jpg`;
-      const coverUploadBody = coverFile ?? generatedCoverBlob;
+      const coverUploadBody = coverFile ?? generatedCoverBlob!;
       const coverContentType = coverFile?.type || "image/jpeg";
       const uploadContext = {
         bookId,
@@ -116,7 +122,9 @@ export default function AddBookPage() {
         last_opened_at: null,
       });
 
-      if (insertError) throw insertError;
+      if (insertError) {
+        throw new Error(insertError.message || "Could not save book to your shelf.");
+      }
 
       router.push(`/book/${bookId}`);
       router.refresh();

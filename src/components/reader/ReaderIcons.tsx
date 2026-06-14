@@ -4,6 +4,41 @@ type IconProps = {
   className?: string;
 };
 
+export function MenuIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={cn("h-[18px] w-[18px]", className)} aria-hidden>
+      <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function HomeIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={cn("h-[18px] w-[18px]", className)} aria-hidden>
+      <path
+        d="M4 10.5 12 4l8 6.5V19a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1v-8.5z"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+export function SaveIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={cn("h-[18px] w-[18px]", className)} aria-hidden>
+      <path
+        d="M5 5h12l2 2v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+      />
+      <path d="M8 5V3h8v2M8 13h8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 export function CursorIcon({ className }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" className={cn("h-[18px] w-[18px]", className)} aria-hidden>
@@ -12,28 +47,27 @@ export function CursorIcon({ className }: IconProps) {
   );
 }
 
+export function HandIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={cn("h-[18px] w-[18px]", className)} aria-hidden>
+      <path
+        d="M8 11V6.5a1.5 1.5 0 0 1 3 0V11M11 11V5.5a1.5 1.5 0 0 1 3 0V11M14 11V6.5a1.5 1.5 0 0 1 3 0V12a5 5 0 0 1-4.5 4.98L9 20.5"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 /** Slanted marker body — wide highlighter tip */
 export function HighlighterIcon({ className }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={cn("h-[18px] w-[18px]", className)} aria-hidden>
-      <path
-        d="M3.5 19.5 12 11l6.5 6.5-2 2.5H5.5l-2-0.5z"
-        fill="currentColor"
-        opacity="0.35"
-      />
-      <path
-        d="M11.5 8.5 16 4l4 4-4.5 4.5-4-4z"
-        fill="currentColor"
-      />
-      <rect
-        x="2.5"
-        y="18.5"
-        width="10"
-        height="3.5"
-        rx="1.2"
-        fill="currentColor"
-        opacity="0.85"
-      />
+      <path d="M3.5 19.5 12 11l6.5 6.5-2 2.5H5.5l-2-0.5z" fill="currentColor" opacity="0.35" />
+      <path d="M11.5 8.5 16 4l4 4-4.5 4.5-4-4z" fill="currentColor" />
+      <rect x="2.5" y="18.5" width="10" height="3.5" rx="1.2" fill="currentColor" opacity="0.85" />
     </svg>
   );
 }
@@ -48,12 +82,7 @@ export function PenIcon({ className }: IconProps) {
         strokeWidth="1.6"
         strokeLinejoin="round"
       />
-      <path
-        d="M14 4l6 6"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-      />
+      <path d="M14 4l6 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
       <circle cx="5.5" cy="20.5" r="1.2" fill="currentColor" />
     </svg>
   );

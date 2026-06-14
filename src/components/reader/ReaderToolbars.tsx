@@ -12,6 +12,7 @@ import {
   ChevronDownIcon,
   ChevronUpIcon,
   CursorIcon,
+  HandIcon,
   HighlighterIcon,
   NoteIcon,
   PenIcon,
@@ -35,7 +36,7 @@ function ToolButton({ active, label, onClick, children }: ToolButtonProps) {
       aria-pressed={active}
       data-active={active}
       onClick={onClick}
-      className="reader-tool-btn flex h-9 w-9 items-center justify-center rounded-lg"
+      className="acrobat-tool-btn flex h-9 w-9 items-center justify-center rounded"
     >
       {children}
     </button>
@@ -57,7 +58,7 @@ function SideButton({ label, onClick, disabled, children }: SideButtonProps) {
       aria-label={label}
       disabled={disabled}
       onClick={onClick}
-      className="reader-tool-btn flex h-9 w-9 items-center justify-center rounded-lg disabled:cursor-not-allowed disabled:opacity-35"
+      className="acrobat-tool-btn flex h-8 w-8 items-center justify-center rounded disabled:cursor-not-allowed disabled:opacity-35"
     >
       {children}
     </button>
@@ -99,10 +100,16 @@ export function LeftToolbar({
   return (
     <aside
       id="left-toolbar"
-      className="reader-toolbar flex w-[52px] shrink-0 flex-col items-center gap-0.5 rounded-xl py-2.5"
+      className="acrobat-toolbar pointer-events-auto absolute left-3 top-1/2 z-20 flex w-11 -translate-y-1/2 flex-col items-center gap-0.5 rounded py-2"
     >
       <ToolButton active={tool === "read"} label="Select" onClick={() => onSelectTool("read")}>
         <CursorIcon />
+      </ToolButton>
+      <ToolButton active={tool === "pan"} label="Pan" onClick={() => onSelectTool("pan")}>
+        <HandIcon />
+      </ToolButton>
+      <ToolButton active={tool === "note"} label="Comment" onClick={() => onSelectTool("note")}>
+        <NoteIcon />
       </ToolButton>
       <ToolButton
         active={tool === "highlight"}
@@ -111,25 +118,22 @@ export function LeftToolbar({
       >
         <HighlighterIcon />
       </ToolButton>
-      <ToolButton active={tool === "pen"} label="Pen" onClick={() => onSelectTool("pen")}>
+      <ToolButton active={tool === "pen"} label="Draw" onClick={() => onSelectTool("pen")}>
         <PenIcon />
-      </ToolButton>
-      <ToolButton active={tool === "note"} label="Note" onClick={() => onSelectTool("note")}>
-        <NoteIcon />
       </ToolButton>
 
       {showDrawColors && (
-        <div className="mt-2 flex flex-col items-center gap-1.5 border-t border-soft-gray/20 pt-2">
+        <div className="mt-1.5 flex flex-col items-center gap-1 border-t border-white/10 pt-1.5">
           {HIGHLIGHT_PRESETS.slice(0, 5).map((preset) => (
             <button
               key={preset.name}
               type="button"
               title={preset.name}
               className={cn(
-                "h-4 w-4 rounded-full border transition hover:scale-110",
+                "h-3.5 w-3.5 rounded-full border transition hover:scale-110",
                 highlightColor.toLowerCase() === preset.value.toLowerCase()
-                  ? "border-primary ring-2 ring-primary/25"
-                  : "border-soft-gray/35",
+                  ? "border-white ring-1 ring-[#0a84ff]"
+                  : "border-white/25",
               )}
               style={{ backgroundColor: preset.value }}
               onClick={() => onPickHighlightColor(preset.value)}
@@ -141,10 +145,10 @@ export function LeftToolbar({
               type="button"
               title="Recent color"
               className={cn(
-                "h-4 w-4 rounded-full border transition hover:scale-110",
+                "h-3.5 w-3.5 rounded-full border transition hover:scale-110",
                 highlightColor.toLowerCase() === color.toLowerCase()
-                  ? "border-primary ring-2 ring-primary/25"
-                  : "border-soft-gray/35",
+                  ? "border-white ring-1 ring-[#0a84ff]"
+                  : "border-white/25",
               )}
               style={{ backgroundColor: color }}
               onClick={() => onPickHighlightColor(color)}
@@ -152,9 +156,9 @@ export function LeftToolbar({
           ))}
           <label
             title="Custom color"
-            className="relative flex h-4 w-4 cursor-pointer items-center justify-center rounded-full border border-dashed border-soft-gray/45 bg-white/60"
+            className="relative flex h-3.5 w-3.5 cursor-pointer items-center justify-center rounded-full border border-dashed border-white/30"
           >
-            <span className="pointer-events-none text-[8px] text-text/50">+</span>
+            <span className="pointer-events-none text-[7px] text-white/60">+</span>
             <input
               type="color"
               value={highlightColor}
@@ -169,7 +173,7 @@ export function LeftToolbar({
       {showNoteColors && (
         <div
           id="note-toolbar"
-          className="mt-2 flex flex-col items-center gap-1.5 border-t border-soft-gray/20 pt-2"
+          className="mt-1.5 flex flex-col items-center gap-1 border-t border-white/10 pt-1.5"
           onMouseDown={(e) => e.preventDefault()}
         >
           {NOTE_TEXT_COLORS.map((c) => (
@@ -178,10 +182,10 @@ export function LeftToolbar({
               type="button"
               title={c.name}
               className={cn(
-                "h-4 w-4 rounded-full border transition hover:scale-110",
+                "h-3.5 w-3.5 rounded-full border transition hover:scale-110",
                 noteTextColor === c.value
-                  ? "border-primary ring-2 ring-primary/25"
-                  : "border-soft-gray/35",
+                  ? "border-white ring-1 ring-[#0a84ff]"
+                  : "border-white/25",
               )}
               style={{ backgroundColor: c.css }}
               onClick={() => onPickNoteColor(c.value)}
@@ -190,17 +194,17 @@ export function LeftToolbar({
           <button
             type="button"
             title="Smaller text"
-            className="reader-tool-btn flex h-6 w-6 items-center justify-center rounded-md text-[10px] font-medium"
+            className="acrobat-tool-btn flex h-5 w-5 items-center justify-center rounded text-[9px]"
             onClick={() => onAdjustNoteFontSize(-2)}
             disabled={noteFontSize <= MIN_NOTE_FONT_SIZE}
           >
             A−
           </button>
-          <span className="text-[10px] tabular-nums text-text/45">{noteFontSize}</span>
+          <span className="text-[9px] tabular-nums text-white/50">{noteFontSize}</span>
           <button
             type="button"
             title="Larger text"
-            className="reader-tool-btn flex h-6 w-6 items-center justify-center rounded-md text-[10px] font-medium"
+            className="acrobat-tool-btn flex h-5 w-5 items-center justify-center rounded text-[9px]"
             onClick={() => onAdjustNoteFontSize(2)}
             disabled={noteFontSize >= MAX_NOTE_FONT_SIZE}
           >
@@ -240,7 +244,7 @@ export function RightToolbar({
   return (
     <aside
       id="right-toolbar"
-      className="reader-toolbar flex w-[52px] shrink-0 flex-col items-center gap-2 rounded-xl py-2.5"
+      className="acrobat-toolbar pointer-events-auto absolute right-3 top-1/2 z-20 flex w-11 -translate-y-1/2 flex-col items-center gap-1.5 rounded py-2.5"
     >
       <form
         className="flex flex-col items-center gap-0.5"
@@ -259,19 +263,16 @@ export function RightToolbar({
           defaultValue={page}
           key={page}
           title="Page number"
-          className="w-10 rounded-lg border border-soft-gray/25 bg-white/75 px-1 py-1 text-center text-xs tabular-nums text-text shadow-sm"
+          className="acrobat-page-input"
         />
-        <span className="text-[10px] tabular-nums text-text/45">/ {maxPage}</span>
+        <span className="text-[10px] tabular-nums text-white/45">/ {maxPage}</span>
       </form>
 
-      <div
-        className="rounded-lg border border-soft-gray/25 bg-white/75 px-1.5 py-1 text-[11px] tabular-nums text-text/70 shadow-sm"
-        title="Zoom level"
-      >
+      <div className="acrobat-zoom-badge" title="Zoom level">
         {zoomPercent}%
       </div>
 
-      <div className="mt-0.5 flex flex-col items-center gap-0.5 border-t border-soft-gray/20 pt-2">
+      <div className="flex flex-col items-center gap-0.5 border-t border-white/10 pt-1.5">
         <SideButton label="Previous page" disabled={prevDisabled} onClick={onPrevPage}>
           <ChevronUpIcon />
         </SideButton>
@@ -280,7 +281,7 @@ export function RightToolbar({
         </SideButton>
       </div>
 
-      <div className="flex flex-col items-center gap-0.5 border-t border-soft-gray/20 pt-2">
+      <div className="flex flex-col items-center gap-0.5 border-t border-white/10 pt-1.5">
         <SideButton label="Zoom in" onClick={onZoomIn}>
           <ZoomInIcon />
         </SideButton>

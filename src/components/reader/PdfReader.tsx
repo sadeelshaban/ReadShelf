@@ -53,10 +53,12 @@ import {
 } from "@/lib/offline/reader-api";
 import { isOnline } from "@/lib/offline/online";
 import { LeftToolbar, RightToolbar } from "@/components/reader/ReaderToolbars";
+import { ReaderTopBar } from "@/components/reader/ReaderTopBar";
 import { cn } from "@/lib/utils";
 
 type PdfReaderProps = {
   bookId: string;
+  bookTitle: string;
   userId: string;
   initialPage: number;
   totalPages: number | null;
@@ -68,6 +70,8 @@ const STROKE_WIDTH = 28;
 const PEN_STROKE_WIDTH = 3;
 const SWIPE_THRESHOLD_PX = 48;
 const WHEEL_NAV_THRESHOLD = 90;
+const MIN_ZOOM = 0.25;
+const MAX_ZOOM = 4;
 
 function drawStroke(
   ctx: CanvasRenderingContext2D,
@@ -423,6 +427,7 @@ function PageNote({
 
 export function PdfReader({
   bookId,
+  bookTitle,
   userId,
   initialPage,
   totalPages,
@@ -455,6 +460,13 @@ export function PdfReader({
   );
   const renderGenerationRef = useRef(0);
   const fitScaleTimerRef = useRef<number | null>(null);
+  const panRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    scrollLeft: number;
+    scrollTop: number;
+  } | null>(null);
 
   const [page, setPage] = useState(initialPage);
   const [fitScale, setFitScale] = useState(1);
@@ -473,6 +485,8 @@ export function PdfReader({
   const [recentColors, setRecentColors] = useState(loadRecentHighlightColors);
   const [isTouch] = useState(isTouchDevice);
   const [offline, setOffline] = useState(() => !isOnline());
+  const [saving, setSaving] = useState(false);
+  const [saveLabel, setSaveLabel] = useState<string | null>(null);
   const [canvasDisplayWidth, setCanvasDisplayWidth] = useState(0);
   const [pageViewport, setPageViewport] = useState<ViewportSize>({
     width: 0,
@@ -500,7 +514,7 @@ export function PdfReader({
   function canNavigatePages() {
     if (editingNoteIdRef.current || isDrawingRef.current) return false;
     const activeTool = toolRef.current;
-    if (activeTool === "note" || activeTool === "highlight" || activeTool === "pen") {
+    if (activeTool === "note" || activeTool === "highlight" || activeTool === "pen" || activeTool === "pan") {
       return false;
     }
     return true;
@@ -535,6 +549,15 @@ export function PdfReader({
     let wheelDeltaX = 0;
 
     function onWheel(e: WheelEvent) {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? -0.08 : 0.08;
+        setZoomMultiplier((current) =>
+          Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Number((current + delta).toFixed(2)))),
+        );
+        return;
+      }
+
       if (!canNavigatePages()) return;
       if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
 
@@ -632,7 +655,8 @@ export function PdfReader({
         target.closest(".note-root") ||
         target.closest("#note-toolbar") ||
         target.closest("#left-toolbar") ||
-        target.closest("#right-toolbar")
+        target.closest("#right-toolbar") ||
+        target.closest("#reader-top-bar")
       ) {
         return;
       }
@@ -668,14 +692,20 @@ export function PdfReader({
     const pdfPage = await pdf.getPage(pageNumber);
     if (generation !== renderGenerationRef.current) return;
 
-    const viewport = pdfPage.getViewport({ scale: zoom });
+    const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
+    const renderScale = zoom * dpr;
+    const viewport = pdfPage.getViewport({ scale: renderScale });
     const context = canvas.getContext("2d");
     if (!context) return;
 
     canvas.width = viewport.width;
     canvas.height = viewport.height;
+    canvas.style.width = `${viewport.width / dpr}px`;
+    canvas.style.height = `${viewport.height / dpr}px`;
     drawLayer.width = viewport.width;
     drawLayer.height = viewport.height;
+    drawLayer.style.width = `${viewport.width / dpr}px`;
+    drawLayer.style.height = `${viewport.height / dpr}px`;
 
     setPageViewport({ width: viewport.width, height: viewport.height });
 
@@ -1017,13 +1047,16 @@ export function PdfReader({
   }
 
   function handleContainerPointerDown(e: ReactPointerEvent<HTMLDivElement>) {
+    if (tool === "pan") return;
+
     if (editingNoteId) {
       const target = e.target as Element;
       if (
         !target.closest(".note-root") &&
         !target.closest("#note-toolbar") &&
-        !target.closest("#left-toolbar") &&
-        !target.closest("#right-toolbar")
+      !target.closest("#left-toolbar") &&
+      !target.closest("#right-toolbar") &&
+      !target.closest("#reader-top-bar")
       ) {
         void finishNoteRef.current(editingNoteId, editingDraftRef.current);
       }
@@ -1116,22 +1149,75 @@ export function PdfReader({
     setTool("read");
   }
 
+  async function handleSave() {
+    setSaving(true);
+    setSaveLabel(null);
+    try {
+      await flushSyncQueue();
+      await saveProgress(page);
+      setSaveLabel("Saved");
+      window.setTimeout(() => setSaveLabel(null), 2000);
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Could not save");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function handleViewerPointerDown(e: ReactPointerEvent<HTMLDivElement>) {
+    if (tool !== "pan" || editingNoteId) return;
+    const viewer = viewerRef.current;
+    if (!viewer) return;
+    panRef.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      scrollLeft: viewer.scrollLeft,
+      scrollTop: viewer.scrollTop,
+    };
+    viewer.setPointerCapture(e.pointerId);
+  }
+
+  function handleViewerPointerMove(e: ReactPointerEvent<HTMLDivElement>) {
+    const pan = panRef.current;
+    const viewer = viewerRef.current;
+    if (!pan || !viewer || pan.pointerId !== e.pointerId) return;
+    viewer.scrollLeft = pan.scrollLeft - (e.clientX - pan.startX);
+    viewer.scrollTop = pan.scrollTop - (e.clientY - pan.startY);
+  }
+
+  function handleViewerPointerUp(e: ReactPointerEvent<HTMLDivElement>) {
+    const pan = panRef.current;
+    const viewer = viewerRef.current;
+    if (!pan || pan.pointerId !== e.pointerId) return;
+    panRef.current = null;
+    if (viewer?.hasPointerCapture(e.pointerId)) {
+      viewer.releasePointerCapture(e.pointerId);
+    }
+  }
+
   return (
-    <div className="flex flex-col gap-3">
-      {offline && (
-        <p className="rounded-xl border border-soft-gray/20 bg-background-elevated/80 px-3 py-2 text-sm text-text/75">
-          Offline mode — read, highlight, and take notes. Progress syncs when you
-          are back online.
-        </p>
+    <div className="acrobat-reader fixed inset-0 z-40 flex flex-col">
+      <ReaderTopBar
+        bookId={bookId}
+        title={bookTitle}
+        saving={saving}
+        saveLabel={saveLabel}
+        onSave={() => void handleSave()}
+      />
+
+      {(offline || message) && (
+        <div className="shrink-0 space-y-1 border-b border-white/10 px-3 py-1.5 text-xs">
+          {offline && (
+            <p className="text-white/60">
+              Offline — changes sync when you are back online.
+            </p>
+          )}
+          {message && <p className="text-amber-300">{message}</p>}
+        </div>
       )}
 
-      {message && (
-        <p className="rounded-xl border border-amber-200/60 bg-amber-50/90 px-3 py-2 text-sm text-amber-900">
-          {message}
-        </p>
-      )}
-
-      <div className="reader-shell flex h-[calc(100vh-10.5rem)] min-h-[500px] gap-2 rounded-2xl p-2">
+      <div className="relative min-h-0 flex-1">
         <LeftToolbar
           tool={tool}
           onSelectTool={selectTool}
@@ -1149,20 +1235,29 @@ export function PdfReader({
 
         <div
           ref={viewerRef}
-          className="reader-viewport relative flex min-w-0 flex-1 items-center justify-center overflow-hidden rounded-xl"
+          className={cn(
+            "acrobat-viewport h-full overflow-auto",
+            tool === "pan" && "cursor-grab active:cursor-grabbing",
+          )}
+          onPointerDown={handleViewerPointerDown}
+          onPointerMove={handleViewerPointerMove}
+          onPointerUp={handleViewerPointerUp}
+          onPointerCancel={handleViewerPointerUp}
         >
           {loading && (
-            <p className="absolute text-sm text-text/55">Loading PDF...</p>
+            <p className="flex h-full items-center justify-center text-sm text-white/55">
+              Loading PDF...
+            </p>
           )}
           {error && (
-            <p className="absolute max-w-sm rounded-xl border border-red-200/70 bg-red-50/95 px-4 py-3 text-center text-sm text-red-700">
+            <p className="flex h-full items-center justify-center px-6 text-center text-sm text-red-300">
               {error}
             </p>
           )}
           <div
             ref={containerRef}
             className={cn(
-              "relative w-fit",
+              "relative mx-auto w-fit min-h-full py-6",
               tool === "note" && !editingNoteId && "cursor-crosshair",
             )}
             style={{ visibility: loading || error ? "hidden" : "visible" }}
@@ -1172,7 +1267,7 @@ export function PdfReader({
               swipeRef.current = null;
             }}
           >
-            <canvas ref={canvasRef} className="reader-page-shadow block rounded-sm bg-white" />
+            <canvas ref={canvasRef} className="acrobat-page-panel block bg-white" />
             <canvas
               ref={drawLayerRef}
               className={cn(
@@ -1221,8 +1316,16 @@ export function PdfReader({
           onPageChange={(value) => setPage(Math.min(maxPage, Math.max(1, value)))}
           onPrevPage={goToPrevPage}
           onNextPage={goToNextPage}
-          onZoomIn={() => setZoomMultiplier((z) => Math.min(2.5, Number((z + 0.1).toFixed(2))))}
-          onZoomOut={() => setZoomMultiplier((z) => Math.max(0.5, Number((z - 0.1).toFixed(2))))}
+          onZoomIn={() =>
+            setZoomMultiplier((z) =>
+              Math.min(MAX_ZOOM, Number((z + 0.1).toFixed(2))),
+            )
+          }
+          onZoomOut={() =>
+            setZoomMultiplier((z) =>
+              Math.max(MIN_ZOOM, Number((z - 0.1).toFixed(2))),
+            )
+          }
           prevDisabled={page <= 1}
           nextDisabled={page >= maxPage}
         />

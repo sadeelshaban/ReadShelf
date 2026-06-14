@@ -38,11 +38,23 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid upload path." }, { status: 403 });
   }
 
-  const upload = await createBookUploadUrls({
-    pdfPath: body.pdfPath,
-    coverPath: body.coverPath,
-    coverContentType: body.coverContentType ?? "image/jpeg",
-  });
+  try {
+    const upload = await createBookUploadUrls({
+      pdfPath: body.pdfPath,
+      coverPath: body.coverPath,
+      coverContentType: body.coverContentType ?? "image/jpeg",
+    });
 
-  return NextResponse.json(upload);
+    return NextResponse.json(upload);
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Could not prepare storage upload.",
+      },
+      { status: 500 },
+    );
+  }
 }

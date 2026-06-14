@@ -7,6 +7,7 @@ import { PdfReader } from "@/components/reader/PdfReader";
 
 type ReaderWrapperProps = {
   bookId: string;
+  bookTitle: string;
   userId: string;
   initialPage: number;
   totalPages: number | null;
@@ -28,7 +29,13 @@ function ReaderWithPageParam(props: ReaderWrapperProps) {
 
 export function ReaderWrapper(props: ReaderWrapperProps) {
   return (
-    <Suspense fallback={<p className="text-sm text-text/70">Loading reader...</p>}>
+    <Suspense
+      fallback={
+        <div className="acrobat-reader fixed inset-0 z-40 flex items-center justify-center">
+          <p className="text-sm text-white/60">Loading reader...</p>
+        </div>
+      }
+    >
       <ReaderWithPageParam {...props} />
     </Suspense>
   );

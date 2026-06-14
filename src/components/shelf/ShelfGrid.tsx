@@ -9,9 +9,10 @@ import type { BookWithCounts, SortOption } from "@/types";
 type ShelfGridProps = {
   books: BookWithCounts[];
   coverUrls: Record<string, string | null>;
+  loading?: boolean;
 };
 
-export function ShelfGrid({ books, coverUrls }: ShelfGridProps) {
+export function ShelfGrid({ books, coverUrls, loading = false }: ShelfGridProps) {
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortOption>("recent");
 
@@ -28,7 +29,6 @@ export function ShelfGrid({ books, coverUrls }: ShelfGridProps) {
     }
 
     return [...result].sort((a, b) => {
-      if (sort === "title") return a.title.localeCompare(b.title);
       if (sort === "progress") return b.progress_percent - a.progress_percent;
       const aTime = a.last_opened_at ? new Date(a.last_opened_at).getTime() : 0;
       const bTime = b.last_opened_at ? new Date(b.last_opened_at).getTime() : 0;
@@ -37,6 +37,7 @@ export function ShelfGrid({ books, coverUrls }: ShelfGridProps) {
   }, [books, search, sort]);
 
   if (books.length === 0) {
+    if (loading) return null;
     return <EmptyShelf />;
   }
 

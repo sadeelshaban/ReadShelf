@@ -72,6 +72,6 @@ export type BookWithCounts = Book & {
   note_count: number;
 };
 
-export type SortOption = "recent" | "title" | "progress";
+export type SortOption = "recent" | "progress";
 
-export type ReaderTool = "read" | "highlight" | "pen" | "note";
+export type ReaderTool = "read" | "pan" | "highlight" | "pen" | "note";

@@ -71,7 +71,9 @@ export function BookCard({ book, coverUrl }: BookCardProps) {
       </Link>
 
       <p className="mt-1.5 text-center text-[10px] text-text-muted opacity-0 transition-opacity group-hover:opacity-100">
-        {book.progress_percent}% · {book.highlight_count} hl · {book.note_count} notes
+        {book.total_pages
+          ? `${book.progress_percent}% · ${book.last_page}/${book.total_pages}`
+          : `${book.progress_percent}% · p. ${book.last_page}`}
       </p>
     </article>
   );

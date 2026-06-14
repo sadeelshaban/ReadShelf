@@ -69,10 +69,6 @@ export function ShelfPageClient() {
     return () => window.removeEventListener("focus", refreshShelf);
   }, []);
 
-  if (loading) {
-    return <p className="text-sm text-text/70">Loading your shelf...</p>;
-  }
-
   return (
     <div className="space-y-6">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -94,7 +90,7 @@ export function ShelfPageClient() {
         </p>
       )}
 
-      <ShelfGrid books={books} coverUrls={coverUrls} />
+      <ShelfGrid books={books} coverUrls={coverUrls} loading={loading} />
     </div>
   );
 }

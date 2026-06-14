@@ -32,7 +32,7 @@ export async function uploadSupabasePdf(path: string, body: Buffer, contentType:
   const supabase = await createClient();
   const { error } = await supabase.storage.from("book-pdfs").upload(path, body, {
     contentType,
-    upsert: false,
+    upsert: true,
   });
   if (error) throw new Error(error.message);
 }

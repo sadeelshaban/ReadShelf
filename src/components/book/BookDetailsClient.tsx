@@ -160,17 +160,23 @@ export function BookDetailsClient({
     }
 
     setDeleting(true);
-    const response = await fetch(`/api/books/${book.id}`, { method: "DELETE" });
-    if (!response.ok) {
-      const body = (await response.json()) as { error?: string };
-      setMessage(body.error ?? "Could not delete book.");
-      setDeleting(false);
-      return;
-    }
+    try {
+      await flushSyncQueue();
+      const response = await fetch(`/api/books/${book.id}`, { method: "DELETE" });
+      if (!response.ok) {
+        const body = (await response.json()) as { error?: string };
+        setMessage(body.error ?? "Could not delete book.");
+        return;
+      }
 
-    await purgeBookFromLocalCache(book.id);
-    router.push("/shelf");
-    router.refresh();
+      await purgeBookFromLocalCache(book.id);
+      router.push("/shelf");
+      router.refresh();
+    } catch {
+      setMessage("Could not delete book.");
+    } finally {
+      setDeleting(false);
+    }
   }
 
   return (

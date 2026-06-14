@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ReaderWrapper } from "@/components/reader/ReaderWrapper";
 import {
@@ -116,16 +115,17 @@ export function ReadPageClient({ bookId }: ReadPageClientProps) {
   }, [bookId]);
 
   if (loading) {
-    return <p className="text-sm text-text/70">Loading reader...</p>;
+    return (
+      <div className="acrobat-reader fixed inset-0 z-40 flex items-center justify-center">
+        <p className="text-sm text-white/60">Loading reader...</p>
+      </div>
+    );
   }
 
   if (error || !loaded) {
     return (
-      <div className="space-y-3">
-        <Link href="/shelf" className="text-sm text-primary hover:underline">
-          ← Back to shelf
-        </Link>
-        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+      <div className="acrobat-reader fixed inset-0 z-40 flex flex-col items-center justify-center gap-3 px-6">
+        <p className="text-center text-sm text-red-300">
           {error ?? "Could not load this book."}
         </p>
       </div>
@@ -133,27 +133,14 @@ export function ReadPageClient({ bookId }: ReadPageClientProps) {
   }
 
   return (
-    <div>
-      <div className="mb-4">
-        <Link
-          href={`/book/${loaded.book.id}`}
-          className="text-sm text-primary/85 transition hover:text-primary hover:underline"
-        >
-          ← Back to book
-        </Link>
-        <h1 className="mt-1.5 font-serif text-2xl font-semibold tracking-tight text-text">
-          {loaded.book.title}
-        </h1>
-      </div>
-
-      <ReaderWrapper
-        bookId={loaded.book.id}
-        userId={loaded.userId}
-        initialPage={loaded.book.last_page || 1}
-        totalPages={loaded.book.total_pages}
-        initialHighlights={loaded.highlights}
-        initialNotes={loaded.notes}
-      />
-    </div>
+    <ReaderWrapper
+      bookId={loaded.book.id}
+      bookTitle={loaded.book.title}
+      userId={loaded.userId}
+      initialPage={loaded.book.last_page || 1}
+      totalPages={loaded.book.total_pages}
+      initialHighlights={loaded.highlights}
+      initialNotes={loaded.notes}
+    />
   );
 }

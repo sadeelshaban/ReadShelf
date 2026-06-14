@@ -24,7 +24,7 @@ export async function POST(request: Request) {
   const kind = formData.get("kind");
   const contentType = formData.get("contentType");
 
-  if (!(file instanceof File) || typeof path !== "string" || typeof kind !== "string") {
+  if (!(file instanceof Blob) || file.size === 0 || typeof path !== "string" || typeof kind !== "string") {
     return NextResponse.json({ error: "Missing upload fields." }, { status: 400 });
   }
 

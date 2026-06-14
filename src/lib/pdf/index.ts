@@ -18,35 +18,41 @@ export async function getPdfDocument(data: ArrayBuffer): Promise<PDFDocumentProx
 
 export async function extractPdfMetadata(file: File) {
   const buffer = await file.arrayBuffer();
-  const pdf = await getPdfDocument(buffer);
-  const totalPages = pdf.numPages;
+  let pdf: PDFDocumentProxy | null = null;
 
-  const page = await pdf.getPage(1);
-  const viewport = page.getViewport({ scale: 1.5 });
-  const canvas = document.createElement("canvas");
-  const context = canvas.getContext("2d");
+  try {
+    pdf = await getPdfDocument(buffer);
+    const totalPages = pdf.numPages;
 
-  if (!context) {
-    await pdf.cleanup();
-    throw new Error("Could not create canvas context");
+    const page = await pdf.getPage(1);
+    const viewport = page.getViewport({ scale: 2 });
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d");
+
+    if (!context) {
+      throw new Error("Could not create canvas context.");
+    }
+
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+
+    await page.render({ canvasContext: context, viewport, canvas }).promise;
+
+    const coverBlob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(
+        (blob) =>
+          blob
+            ? resolve(blob)
+            : reject(new Error("Could not create cover from the first PDF page.")),
+        "image/jpeg",
+        0.92,
+      );
+    });
+
+    return { totalPages, coverBlob };
+  } finally {
+    await pdf?.cleanup();
   }
-
-  canvas.width = viewport.width;
-  canvas.height = viewport.height;
-
-  await page.render({ canvasContext: context, viewport, canvas }).promise;
-
-  const coverBlob = await new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob(
-      (blob) => (blob ? resolve(blob) : reject(new Error("Cover export failed"))),
-      "image/jpeg",
-      0.85,
-    );
-  });
-
-  await pdf.cleanup();
-
-  return { totalPages, coverBlob };
 }
 
 export function getReadButtonLabel(book: {
