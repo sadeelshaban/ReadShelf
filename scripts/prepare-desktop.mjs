@@ -12,6 +12,11 @@ if (!existsSync(path.join(standaloneDir, "server.js"))) {
   process.exit(1);
 }
 
+if (!existsSync(path.join(standaloneDir, "node_modules", "next"))) {
+  console.error("Missing .next/standalone/node_modules/next — run `npm run build` first.");
+  process.exit(1);
+}
+
 const targetStatic = path.join(standaloneDir, ".next", "static");
 const targetPublic = path.join(standaloneDir, "public");
 
