@@ -22,7 +22,10 @@ export async function getBooksWithCounts(): Promise<BookWithCounts[]> {
   if (bookIds.length === 0) return [];
 
   const [{ data: highlights }, { data: notes }] = await Promise.all([
-    supabase.from("highlights").select("book_id").in("book_id", bookIds),
+    supabase
+      .from("highlights")
+      .select("book_id, highlight_type")
+      .in("book_id", bookIds),
     supabase.from("notes").select("book_id").in("book_id", bookIds),
   ]);
 
@@ -30,6 +33,7 @@ export async function getBooksWithCounts(): Promise<BookWithCounts[]> {
   const noteCounts = new Map<string, number>();
 
   highlights?.forEach((h) => {
+    if (h.highlight_type === "pen") return;
     highlightCounts.set(h.book_id, (highlightCounts.get(h.book_id) ?? 0) + 1);
   });
 

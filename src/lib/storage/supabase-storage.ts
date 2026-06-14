@@ -27,3 +27,21 @@ export async function createSupabaseCoverReadUrl(path: string, expiresIn = 3600)
     .createSignedUrl(path, expiresIn);
   return data?.signedUrl ?? null;
 }
+
+export async function uploadSupabasePdf(path: string, body: Buffer, contentType: string) {
+  const supabase = await createClient();
+  const { error } = await supabase.storage.from("book-pdfs").upload(path, body, {
+    contentType,
+    upsert: false,
+  });
+  if (error) throw new Error(error.message);
+}
+
+export async function uploadSupabaseCover(path: string, body: Buffer, contentType: string) {
+  const supabase = await createClient();
+  const { error } = await supabase.storage.from("book-covers").upload(path, body, {
+    contentType,
+    upsert: true,
+  });
+  if (error) throw new Error(error.message);
+}

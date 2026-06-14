@@ -52,7 +52,7 @@ import {
   updateNoteText,
 } from "@/lib/offline/reader-api";
 import { isOnline } from "@/lib/offline/online";
-import { Button } from "@/components/ui/Button";
+import { LeftToolbar, RightToolbar } from "@/components/reader/ReaderToolbars";
 import { cn } from "@/lib/utils";
 
 type PdfReaderProps = {
@@ -65,6 +65,7 @@ type PdfReaderProps = {
 };
 
 const STROKE_WIDTH = 28;
+const PEN_STROKE_WIDTH = 3;
 const SWIPE_THRESHOLD_PX = 48;
 const WHEEL_NAV_THRESHOLD = 90;
 
@@ -89,6 +90,27 @@ function drawStroke(
   ctx.restore();
 }
 
+function drawPenStroke(
+  ctx: CanvasRenderingContext2D,
+  stroke: HighlightStroke,
+  colorHex: string,
+) {
+  if (stroke.points.length < 2) return;
+  ctx.save();
+  ctx.strokeStyle = colorHex;
+  ctx.lineWidth = stroke.width;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.globalCompositeOperation = "source-over";
+  ctx.beginPath();
+  ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
+  for (let i = 1; i < stroke.points.length; i++) {
+    ctx.lineTo(stroke.points[i].x, stroke.points[i].y);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
 function redrawHighlightLayer(
   canvas: HTMLCanvasElement,
   highlights: Highlight[],
@@ -101,11 +123,13 @@ function redrawHighlightLayer(
     .filter((h) => h.page_number === page)
     .forEach((highlight) => {
       const color = highlight.color || HIGHLIGHT_PRESETS[0].value;
+      const isPen = highlight.highlight_type === "pen";
       const refW = highlight.position?.viewportWidth ?? canvas.width;
       const refH = highlight.position?.viewportHeight ?? canvas.height;
       highlight.position?.strokes?.forEach((stroke) => {
         const scaled = scaleStroke(stroke, refW, refH, canvas.width, canvas.height);
-        drawStroke(ctx, scaled, color);
+        if (isPen) drawPenStroke(ctx, scaled, color);
+        else drawStroke(ctx, scaled, color);
       });
     });
 }
@@ -426,9 +450,15 @@ export function PdfReader({
   const goToPrevPageRef = useRef<() => void>(() => {});
   const goToNextPageRef = useRef<() => void>(() => {});
   const viewerRef = useRef<HTMLDivElement>(null);
+  const renderTaskRef = useRef<{ cancel: () => void; promise: Promise<void> } | null>(
+    null,
+  );
+  const renderGenerationRef = useRef(0);
+  const fitScaleTimerRef = useRef<number | null>(null);
 
   const [page, setPage] = useState(initialPage);
-  const [scale, setScale] = useState(1.35);
+  const [fitScale, setFitScale] = useState(1);
+  const [zoomMultiplier, setZoomMultiplier] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tool, setTool] = useState<ReaderTool>("read");
@@ -469,7 +499,10 @@ export function PdfReader({
 
   function canNavigatePages() {
     if (editingNoteIdRef.current || isDrawingRef.current) return false;
-    if (toolRef.current === "note") return false;
+    const activeTool = toolRef.current;
+    if (activeTool === "note" || activeTool === "highlight" || activeTool === "pen") {
+      return false;
+    }
     return true;
   }
 
@@ -544,7 +577,50 @@ export function PdfReader({
     });
     observer.observe(canvas);
     return () => observer.disconnect();
-  }, [loading, page, scale]);
+  }, [loading, page, fitScale, zoomMultiplier]);
+
+  const computeFitScale = useCallback(async (pageNumber: number) => {
+    const pdf = pdfRef.current;
+    const viewer = viewerRef.current;
+    if (!pdf || !viewer) return 1;
+
+    const pdfPage = await pdf.getPage(pageNumber);
+    const base = pdfPage.getViewport({ scale: 1 });
+    const padding = 12;
+    const width = viewer.clientWidth - padding;
+    const height = viewer.clientHeight - padding;
+    if (width <= 0 || height <= 0) return 1;
+
+    return Math.min(width / base.width, height / base.height, 3);
+  }, []);
+
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    if (!viewer || loading || !pdfRef.current) return;
+
+    let cancelled = false;
+    void computeFitScale(page).then((next) => {
+      if (!cancelled) setFitScale(next);
+    });
+
+    const observer = new ResizeObserver(() => {
+      if (fitScaleTimerRef.current) {
+        window.clearTimeout(fitScaleTimerRef.current);
+      }
+      fitScaleTimerRef.current = window.setTimeout(() => {
+        void computeFitScale(page).then(setFitScale);
+      }, 120);
+    });
+    observer.observe(viewer);
+
+    return () => {
+      cancelled = true;
+      observer.disconnect();
+      if (fitScaleTimerRef.current) {
+        window.clearTimeout(fitScaleTimerRef.current);
+      }
+    };
+  }, [page, loading, computeFitScale]);
 
   useEffect(() => {
     if (!editingNoteId || isTouch) return;
@@ -552,7 +628,14 @@ export function PdfReader({
 
     function handleOutsidePointerDown(e: PointerEvent) {
       const target = e.target as Element;
-      if (target.closest(".note-root") || target.closest("#note-toolbar")) return;
+      if (
+        target.closest(".note-root") ||
+        target.closest("#note-toolbar") ||
+        target.closest("#left-toolbar") ||
+        target.closest("#right-toolbar")
+      ) {
+        return;
+      }
       finishNoteRef.current(noteId, editingDraftRef.current);
     }
 
@@ -575,7 +658,16 @@ export function PdfReader({
     const drawLayer = drawLayerRef.current;
     if (!pdf || !canvas || !drawLayer) return;
 
+    const generation = ++renderGenerationRef.current;
+
+    if (renderTaskRef.current) {
+      renderTaskRef.current.cancel();
+      renderTaskRef.current = null;
+    }
+
     const pdfPage = await pdf.getPage(pageNumber);
+    if (generation !== renderGenerationRef.current) return;
+
     const viewport = pdfPage.getViewport({ scale: zoom });
     const context = canvas.getContext("2d");
     if (!context) return;
@@ -587,7 +679,22 @@ export function PdfReader({
 
     setPageViewport({ width: viewport.width, height: viewport.height });
 
-    await pdfPage.render({ canvasContext: context, viewport, canvas }).promise;
+    const renderTask = pdfPage.render({ canvasContext: context, viewport, canvas });
+    renderTaskRef.current = renderTask;
+
+    try {
+      await renderTask.promise;
+    } catch (err) {
+      const name = err instanceof Error ? err.name : "";
+      if (name === "RenderingCancelledException") return;
+      throw err;
+    } finally {
+      if (renderTaskRef.current === renderTask) {
+        renderTaskRef.current = null;
+      }
+    }
+
+    if (generation !== renderGenerationRef.current) return;
     redrawHighlightLayer(drawLayer, highlightsRef.current, pageNumber);
   }, []);
 
@@ -612,7 +719,6 @@ export function PdfReader({
           return;
         }
         pdfRef.current = pdf;
-        await renderPage(initialPage, 1.35);
         setLoading(false);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load PDF");
@@ -623,17 +729,22 @@ export function PdfReader({
     init();
     return () => {
       active = false;
+      renderGenerationRef.current += 1;
+      renderTaskRef.current?.cancel();
+      renderTaskRef.current = null;
       pdfRef.current?.cleanup();
       pdfRef.current = null;
     };
-  }, [bookId, initialHighlights, initialNotes, initialPage, renderPage]);
+  }, [bookId, initialHighlights, initialNotes, initialPage]);
 
   useEffect(() => {
-    if (!pdfRef.current) return;
-    renderPage(page, scale).catch((err) => {
-      setError(err instanceof Error ? err.message : "Failed to render page");
-    });
-  }, [page, scale, renderPage]);
+    if (!pdfRef.current || loading) return;
+    renderPage(page, fitScale * zoomMultiplier)
+      .then(() => setError(null))
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : "Failed to render page");
+      });
+  }, [page, fitScale, zoomMultiplier, renderPage, loading]);
 
   useEffect(() => {
     const drawLayer = drawLayerRef.current;
@@ -709,6 +820,17 @@ export function PdfReader({
     commitHighlightColor(color);
   }
 
+  function selectTool(next: ReaderTool) {
+    if (editingNoteId) {
+      void finishNoteRef.current(editingNoteId, editingDraftRef.current);
+    }
+    setTool((current) => (current === next ? "read" : next));
+  }
+
+  function isDrawingTool(activeTool: ReaderTool) {
+    return activeTool === "highlight" || activeTool === "pen";
+  }
+
   function startEditingNote(id: string) {
     const note = notes.find((entry) => entry.id === id);
     if (note) {
@@ -771,7 +893,7 @@ export function PdfReader({
     return { viewportWidth: canvas.width, viewportHeight: canvas.height };
   }
 
-  async function saveStroke(stroke: HighlightStroke) {
+  async function saveStroke(stroke: HighlightStroke, highlightType: "freeform" | "pen") {
     const viewport = getViewportSize();
     try {
       const data = await saveHighlightStroke({
@@ -781,6 +903,7 @@ export function PdfReader({
         color: highlightColor,
         stroke,
         viewport: viewport ?? {},
+        highlightType,
       });
       pickHighlightColor(highlightColor);
       setHighlights((prev) => {
@@ -788,7 +911,7 @@ export function PdfReader({
         return [...prev, data];
       });
     } catch (err) {
-      setMessage(err instanceof Error ? err.message : "Could not save highlight");
+      setMessage(err instanceof Error ? err.message : "Could not save mark");
     }
   }
 
@@ -797,15 +920,16 @@ export function PdfReader({
   }
 
   function handleDrawPointerDown(e: ReactPointerEvent<HTMLCanvasElement>) {
-    if (tool !== "highlight") return;
+    if (!isDrawingTool(tool)) return;
     isDrawingRef.current = true;
     const point = getCanvasPoint(e);
-    currentStrokeRef.current = { points: [point], width: STROKE_WIDTH };
+    const width = tool === "pen" ? PEN_STROKE_WIDTH : STROKE_WIDTH;
+    currentStrokeRef.current = { points: [point], width };
     e.currentTarget.setPointerCapture(e.pointerId);
   }
 
   function handleDrawPointerMove(e: ReactPointerEvent<HTMLCanvasElement>) {
-    if (!isDrawingRef.current || tool !== "highlight") return;
+    if (!isDrawingRef.current || !isDrawingTool(tool)) return;
     const stroke = currentStrokeRef.current;
     const canvas = drawLayerRef.current;
     const ctx = canvas?.getContext("2d");
@@ -814,6 +938,20 @@ export function PdfReader({
     const point = getCanvasPoint(e);
     const last = stroke.points[stroke.points.length - 1];
     stroke.points.push(point);
+
+    if (tool === "pen") {
+      ctx.save();
+      ctx.strokeStyle = highlightColor;
+      ctx.lineWidth = stroke.width;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.beginPath();
+      ctx.moveTo(last.x, last.y);
+      ctx.lineTo(point.x, point.y);
+      ctx.stroke();
+      ctx.restore();
+      return;
+    }
 
     ctx.save();
     ctx.strokeStyle = hexToRgba(highlightColor, HIGHLIGHT_DRAW_ALPHA);
@@ -829,9 +967,10 @@ export function PdfReader({
   }
 
   async function handleDrawPointerUp(e: ReactPointerEvent<HTMLCanvasElement>) {
-    if (!isDrawingRef.current || tool !== "highlight") return;
+    if (!isDrawingRef.current || !isDrawingTool(tool)) return;
     isDrawingRef.current = false;
     const stroke = currentStrokeRef.current;
+    const highlightType = tool === "pen" ? "pen" : "freeform";
     currentStrokeRef.current = null;
 
     const canvas = e.currentTarget ?? drawLayerRef.current;
@@ -840,7 +979,7 @@ export function PdfReader({
     }
 
     if (stroke && stroke.points.length > 1) {
-      await saveStroke(stroke);
+      await saveStroke(stroke, highlightType);
     }
   }
 
@@ -878,6 +1017,19 @@ export function PdfReader({
   }
 
   function handleContainerPointerDown(e: ReactPointerEvent<HTMLDivElement>) {
+    if (editingNoteId) {
+      const target = e.target as Element;
+      if (
+        !target.closest(".note-root") &&
+        !target.closest("#note-toolbar") &&
+        !target.closest("#left-toolbar") &&
+        !target.closest("#right-toolbar")
+      ) {
+        void finishNoteRef.current(editingNoteId, editingDraftRef.current);
+      }
+      return;
+    }
+
     if (tool === "note" && !editingNoteId) {
       void handlePageClick(e);
       return;
@@ -965,227 +1117,115 @@ export function PdfReader({
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-3 rounded-xl border border-soft-gray/30 bg-card p-3">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex flex-wrap items-center gap-2">
-            <Button size="sm" variant="secondary" onClick={goToPrevPage} disabled={page <= 1}>
-              Prev
-            </Button>
-            <form
-              className="flex items-center gap-1"
-              onSubmit={(e) => {
-                e.preventDefault();
-                const input = (e.currentTarget.elements.namedItem("page") as HTMLInputElement);
-                const value = Number.parseInt(input.value, 10);
-                if (Number.isFinite(value)) setPage(Math.min(maxPage, Math.max(1, value)));
-              }}
-            >
-              <input name="page" type="number" min={1} max={maxPage} defaultValue={page} key={page} className="w-16 rounded-lg border border-soft-gray/50 bg-background px-2 py-1.5 text-sm" />
-              <span className="text-sm">/ {maxPage}</span>
-            </form>
-            <Button size="sm" variant="secondary" onClick={goToNextPage} disabled={page >= maxPage}>
-              Next
-            </Button>
-            <span className="hidden text-xs text-text/55 sm:inline">← → keys</span>
-            <Button size="sm" variant="secondary" onClick={() => setScale((s) => Math.max(0.8, s - 0.2))}>Zoom −</Button>
-            <Button size="sm" variant="secondary" onClick={() => setScale((s) => Math.min(2.5, s + 0.2))}>Zoom +</Button>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <Button size="sm" variant={tool === "highlight" ? "primary" : "secondary"} onClick={() => setTool(tool === "highlight" ? "read" : "highlight")}>
-              Highlighter
-            </Button>
-            <Button size="sm" variant={tool === "note" ? "primary" : "secondary"} onClick={() => setTool(tool === "note" ? "read" : "note")}>
-              Add Note
-            </Button>
-          </div>
-        </div>
-
-        {tool === "highlight" && (
-          <div className="flex flex-wrap items-center gap-2 border-t border-soft-gray/20 pt-3">
-            <span className="text-xs font-medium text-text/70">Highlighter color:</span>
-            {HIGHLIGHT_PRESETS.map((preset) => (
-              <button
-                key={preset.name}
-                type="button"
-                title={preset.name}
-                className={cn(
-                  "h-7 w-7 rounded-full border-2 transition hover:scale-110",
-                  highlightColor.toLowerCase() === preset.value.toLowerCase()
-                    ? "border-primary ring-2 ring-primary/30"
-                    : "border-soft-gray/40",
-                )}
-                style={{ backgroundColor: preset.value }}
-                onClick={() => pickHighlightColor(preset.value)}
-              />
-            ))}
-            {recentColors.map((color, index) => (
-              <button
-                key={`${index}-${color}`}
-                type="button"
-                title="Recent color"
-                className={cn(
-                  "h-7 w-7 rounded-full border-2 transition hover:scale-110",
-                  highlightColor.toLowerCase() === color.toLowerCase()
-                    ? "border-primary ring-2 ring-primary/30"
-                    : "border-soft-gray/40",
-                )}
-                style={{ backgroundColor: color }}
-                onClick={() => pickHighlightColor(color)}
-              />
-            ))}
-            <label className="flex items-center gap-1 text-xs text-text/70">
-              Custom
-              <input
-                type="color"
-                value={highlightColor}
-                onChange={(e) => setHighlightColor(e.target.value)}
-                onBlur={(e) => commitHighlightColor(e.target.value)}
-                className="h-7 w-10 cursor-pointer rounded border border-soft-gray/40 bg-transparent"
-              />
-            </label>
-          </div>
-        )}
-
-        {(tool === "note" || editingNoteId) && (
-          <div
-            id="note-toolbar"
-            className="flex flex-wrap items-center gap-2 border-t border-soft-gray/20 pt-3"
-            onMouseDown={(e) => e.preventDefault()}
-          >
-            <span className="text-xs font-medium text-text/70">Note color:</span>
-            {NOTE_TEXT_COLORS.map((c) => (
-              <button
-                key={c.value}
-                type="button"
-                title={c.name}
-                className={cn(
-                  "h-7 w-7 rounded-full border-2 transition hover:scale-110",
-                  noteTextColor === c.value
-                    ? "border-primary ring-2 ring-primary/30"
-                    : "border-soft-gray/40",
-                )}
-                style={{ backgroundColor: c.css }}
-                onClick={() => pickNoteColor(c.value)}
-              />
-            ))}
-            <span className="text-xs font-medium text-text/70">Text size:</span>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => adjustNoteFontSize(-2)}
-              disabled={noteFontSize <= MIN_NOTE_FONT_SIZE}
-            >
-              A−
-            </Button>
-            <span className="min-w-[2.5rem] text-center text-xs tabular-nums text-text/70">
-              {noteFontSize}px
-            </span>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => adjustNoteFontSize(2)}
-              disabled={noteFontSize >= MAX_NOTE_FONT_SIZE}
-            >
-              A+
-            </Button>
-          </div>
-        )}
-      </div>
-
-      {tool === "highlight" && (
-        <p className="rounded-lg bg-accent/15 px-3 py-2 text-sm text-text">
-          Draw on the page. Pick a preset or choose an exact shade with Custom.
-        </p>
-      )}
-
-      {tool === "note" && !editingNoteId && (
-        <p className="rounded-lg bg-accent/15 px-3 py-2 text-sm text-text">
-          Click anywhere on the page to place a note.
-        </p>
-      )}
-
-      {editingNoteId && (
-        <p className="rounded-lg bg-accent/15 px-3 py-2 text-sm text-text">
-          Write your message.
-          {isTouch
-            ? " Pinch with two fingers to resize text. Dismiss the keyboard to save."
-            : " Press Enter to save. Shift+Enter for a new line."}
-          {" "}Blank new notes disappear if you tap elsewhere without typing.
-        </p>
-      )}
-
+    <div className="flex flex-col gap-3">
       {offline && (
-        <p className="rounded-lg bg-slate-100 px-3 py-2 text-sm text-slate-800">
-          Offline mode — read, highlight, and take notes. Progress, notes, and
-          highlights sync when you are back online.
+        <p className="rounded-xl border border-soft-gray/20 bg-background-elevated/80 px-3 py-2 text-sm text-text/75">
+          Offline mode — read, highlight, and take notes. Progress syncs when you
+          are back online.
         </p>
       )}
 
       {message && (
-        <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">{message}</p>
+        <p className="rounded-xl border border-amber-200/60 bg-amber-50/90 px-3 py-2 text-sm text-amber-900">
+          {message}
+        </p>
       )}
 
-      <div
-        ref={viewerRef}
-        className="overflow-auto rounded-xl border border-soft-gray/30 bg-[#ddd6c8] p-4"
-      >
-        {loading && <p className="text-sm text-text/70">Loading PDF...</p>}
-        {error && <p className="text-sm text-red-600">{error}</p>}
+      <div className="reader-shell flex h-[calc(100vh-10.5rem)] min-h-[500px] gap-2 rounded-2xl p-2">
+        <LeftToolbar
+          tool={tool}
+          onSelectTool={selectTool}
+          highlightColor={highlightColor}
+          recentColors={recentColors}
+          onPickHighlightColor={pickHighlightColor}
+          onCommitHighlightColor={commitHighlightColor}
+          onHighlightColorChange={setHighlightColor}
+          noteTextColor={noteTextColor}
+          noteFontSize={noteFontSize}
+          editingNote={Boolean(editingNoteId)}
+          onPickNoteColor={pickNoteColor}
+          onAdjustNoteFontSize={adjustNoteFontSize}
+        />
+
         <div
-          ref={containerRef}
-          className={cn(
-            "relative mx-auto w-fit",
-            tool === "note" && !editingNoteId && "cursor-crosshair",
-          )}
-          style={{ visibility: loading ? "hidden" : "visible" }}
-          onPointerDown={handleContainerPointerDown}
-          onPointerUp={handleContainerPointerUp}
-          onPointerCancel={() => {
-            swipeRef.current = null;
-          }}
+          ref={viewerRef}
+          className="reader-viewport relative flex min-w-0 flex-1 items-center justify-center overflow-hidden rounded-xl"
         >
-          <canvas ref={canvasRef} className="block shadow-md" />
-          <canvas
-            ref={drawLayerRef}
+          {loading && (
+            <p className="absolute text-sm text-text/55">Loading PDF...</p>
+          )}
+          {error && (
+            <p className="absolute max-w-sm rounded-xl border border-red-200/70 bg-red-50/95 px-4 py-3 text-center text-sm text-red-700">
+              {error}
+            </p>
+          )}
+          <div
+            ref={containerRef}
             className={cn(
-              "absolute left-0 top-0 touch-none",
-              tool === "highlight" ? "cursor-crosshair" : "pointer-events-none",
+              "relative w-fit",
+              tool === "note" && !editingNoteId && "cursor-crosshair",
             )}
-            onPointerDown={handleDrawPointerDown}
-            onPointerMove={handleDrawPointerMove}
-            onPointerUp={handleDrawPointerUp}
-            onPointerLeave={handleDrawPointerUp}
-          />
-          {pageNotes.map((note) => (
-            <PageNote
-              key={
-                editingNoteId === note.id ? `${note.id}:edit` : note.id
-              }
-              note={note}
-              editing={editingNoteId === note.id}
-              showMenu={noteMenuId === note.id}
-              isTouch={isTouch}
-              liveFontSize={
-                editingNoteId === note.id ? noteFontSize : undefined
-              }
-              liveTextColor={
-                editingNoteId === note.id ? noteTextColor : undefined
-              }
-              onFinish={finishNote}
-              onDelete={deleteNote}
-              onMove={moveNote}
-              onStartEdit={startEditingNote}
-              onShowMenu={setNoteMenuId}
-              onFontSizeChange={applyNoteFontSize}
-              onDraftChange={syncNoteDraft}
-              canvasRef={canvasRef}
-              canvasDisplayWidth={canvasDisplayWidth}
-              pageViewport={pageViewport}
+            style={{ visibility: loading || error ? "hidden" : "visible" }}
+            onPointerDown={handleContainerPointerDown}
+            onPointerUp={handleContainerPointerUp}
+            onPointerCancel={() => {
+              swipeRef.current = null;
+            }}
+          >
+            <canvas ref={canvasRef} className="reader-page-shadow block rounded-sm bg-white" />
+            <canvas
+              ref={drawLayerRef}
+              className={cn(
+                "absolute left-0 top-0 touch-none",
+                isDrawingTool(tool) ? "cursor-crosshair" : "pointer-events-none",
+              )}
+              onPointerDown={handleDrawPointerDown}
+              onPointerMove={handleDrawPointerMove}
+              onPointerUp={handleDrawPointerUp}
+              onPointerLeave={handleDrawPointerUp}
             />
-          ))}
+            {pageNotes.map((note) => (
+              <PageNote
+                key={
+                  editingNoteId === note.id ? `${note.id}:edit` : note.id
+                }
+                note={note}
+                editing={editingNoteId === note.id}
+                showMenu={noteMenuId === note.id}
+                isTouch={isTouch}
+                liveFontSize={
+                  editingNoteId === note.id ? noteFontSize : undefined
+                }
+                liveTextColor={
+                  editingNoteId === note.id ? noteTextColor : undefined
+                }
+                onFinish={finishNote}
+                onDelete={deleteNote}
+                onMove={moveNote}
+                onStartEdit={startEditingNote}
+                onShowMenu={setNoteMenuId}
+                onFontSizeChange={applyNoteFontSize}
+                onDraftChange={syncNoteDraft}
+                canvasRef={canvasRef}
+                canvasDisplayWidth={canvasDisplayWidth}
+                pageViewport={pageViewport}
+              />
+            ))}
+          </div>
         </div>
+
+        <RightToolbar
+          page={page}
+          maxPage={maxPage}
+          zoomPercent={Math.round(zoomMultiplier * 100)}
+          onPageChange={(value) => setPage(Math.min(maxPage, Math.max(1, value)))}
+          onPrevPage={goToPrevPage}
+          onNextPage={goToNextPage}
+          onZoomIn={() => setZoomMultiplier((z) => Math.min(2.5, Number((z + 0.1).toFixed(2))))}
+          onZoomOut={() => setZoomMultiplier((z) => Math.max(0.5, Number((z - 0.1).toFixed(2))))}
+          prevDisabled={page <= 1}
+          nextDisabled={page >= maxPage}
+        />
       </div>
     </div>
   );

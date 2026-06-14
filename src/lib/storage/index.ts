@@ -5,11 +5,15 @@ import {
   createR2PdfUploadUrl,
   deleteR2Objects,
   downloadR2Pdf,
+  uploadR2Cover,
+  uploadR2Pdf,
 } from "@/lib/storage/r2";
 import {
   createSupabaseCoverReadUrl,
   deleteSupabaseObjects,
   downloadSupabasePdf,
+  uploadSupabaseCover,
+  uploadSupabasePdf,
 } from "@/lib/storage/supabase-storage";
 
 export async function downloadBookPdf(path: string) {
@@ -50,4 +54,26 @@ export async function createBookUploadUrls(input: {
     pdfUploadUrl,
     coverUploadUrl,
   };
+}
+
+export async function uploadBookFile(input: {
+  path: string;
+  kind: "pdf" | "cover";
+  contentType: string;
+  body: Buffer;
+}) {
+  if (isR2Storage()) {
+    if (input.kind === "pdf") {
+      await uploadR2Pdf(input.path, input.body, input.contentType);
+      return;
+    }
+    await uploadR2Cover(input.path, input.body, input.contentType);
+    return;
+  }
+
+  if (input.kind === "pdf") {
+    await uploadSupabasePdf(input.path, input.body, input.contentType);
+    return;
+  }
+  await uploadSupabaseCover(input.path, input.body, input.contentType);
 }

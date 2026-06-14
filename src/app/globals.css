@@ -67,6 +67,51 @@ body {
   pointer-events: none;
 }
 
+.reader-shell {
+  background: var(--card);
+  backdrop-filter: blur(18px) saturate(1.25);
+  -webkit-backdrop-filter: blur(18px) saturate(1.25);
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  box-shadow: var(--shadow-soft);
+}
+
+.reader-toolbar {
+  background: rgba(250, 246, 240, 0.92);
+  border: 1px solid rgba(168, 152, 136, 0.22);
+  box-shadow: 0 1px 2px rgba(31, 22, 16, 0.04);
+}
+
+.reader-viewport {
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 40%, rgba(255, 252, 247, 0.55), transparent),
+    #e8dfd2;
+}
+
+.reader-tool-btn {
+  color: rgba(31, 22, 16, 0.5);
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.reader-tool-btn:hover {
+  background: rgba(111, 69, 40, 0.06);
+  color: rgba(31, 22, 16, 0.78);
+}
+
+.reader-tool-btn[data-active="true"] {
+  background: rgba(111, 69, 40, 0.12);
+  color: var(--primary);
+  box-shadow: inset 0 0 0 1px rgba(111, 69, 40, 0.18);
+}
+
+.reader-page-shadow {
+  box-shadow:
+    0 1px 2px rgba(31, 22, 16, 0.06),
+    0 12px 32px rgba(31, 22, 16, 0.1);
+}
+
 .pdf-text-layer {
   line-height: 1;
   text-size-adjust: none;

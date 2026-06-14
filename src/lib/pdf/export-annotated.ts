@@ -136,13 +136,14 @@ function drawHighlightsOnPage(
       if (!path) continue;
 
       const thickness = (stroke.width / viewport.width) * width;
+      const isPen = highlight.highlight_type === "pen";
 
       page.drawSvgPath(path, {
         x: 0,
         y: height,
         borderColor: color,
         borderWidth: thickness,
-        borderOpacity: HIGHLIGHT_DRAW_ALPHA,
+        borderOpacity: isPen ? 1 : HIGHLIGHT_DRAW_ALPHA,
         borderLineCap: LineCapStyle.Round,
       });
     }

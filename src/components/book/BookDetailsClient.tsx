@@ -96,7 +96,9 @@ export function BookDetailsClient({
   const [deleting, setDeleting] = useState(false);
   const [downloading, setDownloading] = useState(false);
 
-  const highlightGroups = groupHighlightsByPage(highlights);
+  const highlightGroups = groupHighlightsByPage(
+    highlights.filter((h) => h.highlight_type !== "pen"),
+  );
   const noteGroups = groupNotesByPage(notes);
 
   async function downloadPdf() {

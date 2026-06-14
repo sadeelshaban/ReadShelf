@@ -98,3 +98,27 @@ export async function createR2CoverReadUrl(path: string, expiresIn = 3600) {
   });
   return getSignedUrl(getClient(), command, { expiresIn });
 }
+
+export async function uploadR2Pdf(path: string, body: Buffer, contentType = "application/pdf") {
+  const { bucketName } = getR2Config();
+  await getClient().send(
+    new PutObjectCommand({
+      Bucket: bucketName,
+      Key: pdfObjectKey(path),
+      Body: body,
+      ContentType: contentType,
+    }),
+  );
+}
+
+export async function uploadR2Cover(path: string, body: Buffer, contentType: string) {
+  const { bucketName } = getR2Config();
+  await getClient().send(
+    new PutObjectCommand({
+      Bucket: bucketName,
+      Key: coverObjectKey(path),
+      Body: body,
+      ContentType: contentType,
+    }),
+  );
+}

@@ -74,4 +74,4 @@ export type BookWithCounts = Book & {
 
 export type SortOption = "recent" | "title" | "progress";
 
-export type ReaderTool = "read" | "highlight" | "note";
+export type ReaderTool = "read" | "highlight" | "pen" | "note";

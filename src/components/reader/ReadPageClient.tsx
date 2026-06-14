@@ -134,14 +134,14 @@ export function ReadPageClient({ bookId }: ReadPageClientProps) {
 
   return (
     <div>
-      <div className="mb-6">
+      <div className="mb-4">
         <Link
           href={`/book/${loaded.book.id}`}
-          className="text-sm text-primary hover:underline"
+          className="text-sm text-primary/85 transition hover:text-primary hover:underline"
         >
           ← Back to book
         </Link>
-        <h1 className="mt-2 font-serif text-2xl font-semibold text-text">
+        <h1 className="mt-1.5 font-serif text-2xl font-semibold tracking-tight text-text">
           {loaded.book.title}
         </h1>
       </div>

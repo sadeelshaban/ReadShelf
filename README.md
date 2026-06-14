@@ -2,9 +2,7 @@
 
 **Your personal digital reading shelf — PDFs, progress, highlights, and notes in one place.**
 
-ReadShelf is a **desktop-first** reading app (Windows installer via Electron) built to solve a real, everyday problem: keeping PDF books organized, readable, and annotated — without losing your place or your notes. It also runs in the browser for development and optional web hosting.
-
-> **Mobile / PWA install is intentionally removed for now** and may return in a later release.
+ReadShelf is a web app for keeping PDF books organized, readable, and annotated — without losing your place or your notes. Open it in your browser, build your shelf, and pick up where you left off from any device.
 
 ---
 
@@ -18,24 +16,7 @@ If you read PDFs for study, work, or personal learning, you have probably run in
 - Generic PDF viewers that feel like tools, not a **personal shelf**
 - Arabic and mixed-language PDFs that break when you try to **export** annotated copies
 
-ReadShelf started as a solution to that personal workflow — a single private shelf where every book, bookmark, highlight, and note stays tied to your account and follows you wherever you open the app.
-
----
-
-## The solution
-
-ReadShelf gives you a focused reading environment:
-
-| Need | How ReadShelf handles it |
-|------|--------------------------|
-| Organize PDFs | Upload to your private shelf with auto-generated cover art |
-| Pick up where you left off | Reading progress syncs per book |
-| Mark up content | Freehand highlights + positioned page notes |
-| Work offline | PDFs and annotations cache locally; changes sync when back online |
-| Keep a portable copy | Export a PDF with highlights and notes burned into the pages (Arabic-aware) |
-| Run as a desktop app | Native Windows installer — full UI, offline cache, cloud sync |
-
-The same Next.js app powers both the **desktop shell** and optional **web deploy**.
+ReadShelf gives you a single private shelf where every book, bookmark, highlight, and note stays tied to your account.
 
 ---
 
@@ -49,9 +30,8 @@ The same Next.js app powers both the **desktop shell** and optional **web deploy
 
 ### Reader
 - In-browser PDF reader with zoom and page navigation
-- Freehand highlight strokes with color presets
-- Draggable, resizable page notes with font size and text color
-- Keyboard and trackpad navigation on desktop
+- Freehand highlights, pen strokes, and positioned page notes
+- Keyboard and trackpad navigation
 - Progress saved automatically as you read
 
 ### Annotations & export
@@ -65,12 +45,6 @@ The same Next.js app powers both the **desktop shell** and optional **web deploy
 - Offline reading after a book has been opened once online
 - Background sync queue pushes local changes when connectivity returns
 
-### Desktop app
-- **Electron** shell with embedded Next.js server
-- Windows `.exe` installer (NSIS)
-- All web features: auth, shelf, reader, highlights, notes, export, offline sync
-- Local-only server (`127.0.0.1`) — not exposed to the network
-
 ---
 
 ## Tech stack
@@ -80,20 +54,18 @@ The same Next.js app powers both the **desktop shell** and optional **web deploy
 | Framework | Next.js 16 (App Router), React 19, TypeScript |
 | Styling | Tailwind CSS 4 |
 | Auth & database | Supabase (Auth, PostgreSQL, Row Level Security) |
-| File storage | Supabase Storage (default) or Cloudflare R2 (optional, recommended) |
+| File storage | Supabase Storage (default) or Cloudflare R2 (optional) |
 | PDF rendering | pdfjs-dist |
 | PDF export | pdf-lib + @pdf-lib/fontkit |
 | Offline | IndexedDB + custom sync queue |
-| Desktop | Electron 35 + electron-builder |
-| Web deploy | Vercel-ready (optional) |
+| Deploy | Vercel-ready |
 
 ---
 
 ## Architecture overview
 
 ```
-Desktop (Electron)
-  ├── Embedded Next.js server (standalone build, localhost only)
+Browser (Next.js)
   ├── Shelf UI ──────────────► Supabase (auth, books, highlights, notes)
   ├── PDF Reader ────────────► pdfjs-dist + canvas overlay
   ├── Offline layer ─────────► IndexedDB (PDF cache, annotations, sync queue)
@@ -124,77 +96,19 @@ cd ReadShelf
 npm install
 ```
 
-### 2. Supabase setup
+### 2. Environment variables
 
-**Create a project**
+Copy `.env.local.example` to `.env.local` and fill in your Supabase keys.
 
-1. Sign up at [supabase.com](https://supabase.com) and create a new project.
-2. Copy from **Project Settings → API**:
-   - Project URL
-   - `anon` public key
-
-**Enable email auth**
-
-1. **Authentication → Providers → Email** — enable Email.
-2. For local dev, you may disable **Confirm email** so sign-up works immediately.
-
-**Run the database migration**
-
-1. Open **SQL Editor** in Supabase.
-2. Run the contents of [`supabase/migrations/001_initial_schema.sql`](supabase/migrations/001_initial_schema.sql).
-3. If bucket creation fails in SQL, create these buckets manually under **Storage**:
-   - `book-pdfs` (private)
-   - `book-covers` (private)
-
-**Or use the setup script (Windows)**
+### 3. Supabase setup
 
 ```bash
 npm run setup:supabase
 ```
 
-### 3. Environment variables
+Apply migrations from `supabase/migrations/` in your Supabase SQL editor.
 
-```bash
-cp .env.local.example .env.local
-```
-
-Minimum required:
-
-```env
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-```
-
-### 4. Optional — Cloudflare R2
-
-Supabase free storage is ~1 GB. For a larger personal library, point PDF/cover storage to R2:
-
-```env
-R2_ACCOUNT_ID=your-account-id
-R2_ACCESS_KEY_ID=your-access-key
-R2_SECRET_ACCESS_KEY=your-secret-key
-R2_BUCKET_NAME=readshelf
-```
-
-Add CORS on the R2 bucket so browser uploads work:
-
-```json
-{
-  "rules": [
-    {
-      "allowed": {
-        "origins": ["http://localhost:3000", "https://your-app.vercel.app"],
-        "methods": ["PUT", "GET", "HEAD"],
-        "headers": ["*"]
-      },
-      "exposeHeaders": ["ETag"],
-      "maxAgeSeconds": 3600
-    }
-  ]
-}
-```
-
-Setup helpers:
+### 4. Optional: Cloudflare R2
 
 ```bash
 npm run setup:r2        # guided setup
@@ -211,44 +125,6 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
-
----
-
-## Desktop app (Windows)
-
-ReadShelf uses **Electron** (not Flutter) so the existing Next.js app, API routes, PDF export, and Supabase integration stay intact — no rewrite required.
-
-### Why Electron over Flutter?
-
-| | Electron | Flutter |
-|---|----------|---------|
-| Reuse current code | ✅ Full Next.js app | ❌ Full rewrite |
-| PDF reader + export | ✅ Already built | ❌ Rebuild from scratch |
-| Supabase + R2 | ✅ Working | ❌ Reintegrate everything |
-| Desktop installer | ✅ `.exe` via electron-builder | ✅ Yes, but months of work |
-
-### Run desktop in development
-
-Terminal 1 — or use the combined script:
-
-```bash
-npm run desktop:dev
-```
-
-This starts Next.js on `127.0.0.1:3000` and opens the Electron window.
-
-### Build a Windows installer
-
-1. Configure `.env.local` (Supabase + optional R2) — these values are bundled into the desktop build for personal use.
-2. Build and package:
-
-```bash
-npm run desktop:pack
-```
-
-3. Find the installer under `dist/desktop/` (`.exe` NSIS installer).
-
-The packaged app runs a local Next.js server on a random `127.0.0.1` port and loads it inside a native window. Your cloud data (Supabase + R2) stays online; only the app shell runs locally.
 
 ---
 
@@ -269,7 +145,6 @@ After deploy:
 ## Project structure
 
 ```
-desktop/                  # Electron main + preload
 src/
   app/                    # Next.js routes (landing, auth, shelf, reader, API)
   components/             # UI, shelf, reader, book, layout
@@ -283,8 +158,8 @@ src/
   types/                  # Shared TypeScript types
 supabase/
   migrations/             # SQL schema + RLS policies
-scripts/                  # Supabase, R2, desktop bundle helpers
-public/                   # Icons and favicon
+scripts/                  # Supabase and R2 setup helpers
+public/                   # Icons, favicon, pdf.js worker
 ```
 
 ---
@@ -294,9 +169,6 @@ public/                   # Icons and favicon
 | Command | Description |
 |---------|-------------|
 | `npm run dev` | Start development server |
-| `npm run desktop:dev` | Run Next.js + Electron desktop window |
-| `npm run build:desktop` | Production build + bundle for Electron |
-| `npm run desktop:pack` | Build Windows `.exe` installer |
 | `npm run build` | Production build |
 | `npm run start` | Start production server |
 | `npm run lint` | Run ESLint |
@@ -311,22 +183,6 @@ public/                   # Icons and favicon
 - **PDF size limit:** 50 MB per upload (MVP)
 - **Scanned PDFs:** Image-only PDFs may not support text selection; highlights still work via freehand drawing
 - **Storage:** Without R2, Supabase free tier storage is ~1 GB
-- **UI polish:** Shelf and reader styling is functional but still being refined in v0.1
-
----
-
-## Roadmap (v0.1 → next)
-
-This is the **first public release**. Core reading, annotations, offline sync, and annotated PDF export are working end-to-end.
-
-Planned improvements:
-
-- [ ] UI/UX polish (shelf layout, reader toolbar)
-- [ ] Final QA pass on edge cases (large PDFs, long Arabic notes, sync conflicts)
-- [ ] Mobile / PWA install (deferred — desktop-first for now)
-- [ ] Additional features based on real usage (collections, reading goals, sharing)
-
-Contributions and feedback are welcome.
 
 ---
 

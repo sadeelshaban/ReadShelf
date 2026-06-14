@@ -101,6 +101,7 @@ export async function insertHighlight(input: {
   pageNumber: number;
   color: string;
   position: HighlightPosition;
+  highlightType?: "freeform" | "pen";
 }) {
   const now = new Date().toISOString();
   const row: Highlight = {
@@ -110,7 +111,7 @@ export async function insertHighlight(input: {
     page_number: input.pageNumber,
     selected_text: "",
     color: input.color,
-    highlight_type: "freeform",
+    highlight_type: input.highlightType ?? "freeform",
     position: input.position,
     created_at: now,
   };
@@ -345,6 +346,7 @@ export async function saveHighlightStroke(input: {
   color: string;
   stroke: HighlightStroke;
   viewport: { viewportWidth?: number; viewportHeight?: number };
+  highlightType?: "freeform" | "pen";
 }) {
   const position: HighlightPosition = {
     strokes: [input.stroke],
@@ -357,5 +359,6 @@ export async function saveHighlightStroke(input: {
     pageNumber: input.pageNumber,
     color: input.color,
     position,
+    highlightType: input.highlightType,
   });
 }
