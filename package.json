@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "postinstall": "node scripts/copy-pdf-worker.mjs",
     "start": "next start",
     "lint": "eslint",
     "build:desktop": "next build && node scripts/prepare-desktop.mjs",

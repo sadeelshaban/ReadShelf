@@ -9,8 +9,8 @@ import {
   MAX_PDF_SIZE_BYTES,
 } from "@/lib/pdf";
 import {
-  requestUploadPlan,
-  uploadViaPresignedUrl,
+  resetUploadPlan,
+  uploadBookFileViaApi,
 } from "@/lib/storage/client-upload";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -48,6 +48,7 @@ export default function AddBookPage() {
     setLoading(true);
     setProgress("Preparing upload...");
     setUploadPercent(5);
+    resetUploadPlan();
 
     try {
       const supabase = createClient();
@@ -72,50 +73,32 @@ export default function AddBookPage() {
       const coverPath = `${user.id}/${bookId}-cover.jpg`;
       const coverUploadBody = coverFile ?? generatedCoverBlob;
       const coverContentType = coverFile?.type || "image/jpeg";
-
-      setProgress("Uploading PDF...");
-      setUploadPercent(45);
-
-      const uploadPlan = await requestUploadPlan({
+      const uploadContext = {
         bookId,
         pdfPath,
         coverPath,
         coverContentType,
-      });
+      };
 
-      if (uploadPlan.storage === "r2") {
-        await uploadViaPresignedUrl(
-          uploadPlan.pdfUploadUrl,
-          pdfFile,
-          "application/pdf",
-        );
-        setProgress(coverFile ? "Uploading cover..." : "Using first page as cover...");
-        setUploadPercent(70);
-        await uploadViaPresignedUrl(
-          uploadPlan.coverUploadUrl,
-          coverUploadBody,
-          coverContentType,
-        );
-      } else {
-        const { error: pdfError } = await supabase.storage
-          .from("book-pdfs")
-          .upload(pdfPath, pdfFile, {
-            contentType: "application/pdf",
-            upsert: false,
-          });
+      setProgress("Uploading PDF...");
+      setUploadPercent(45);
+      await uploadBookFileViaApi(
+        pdfFile,
+        pdfPath,
+        "pdf",
+        "application/pdf",
+        uploadContext,
+      );
 
-        if (pdfError) throw pdfError;
-
-        setProgress(coverFile ? "Uploading cover..." : "Using first page as cover...");
-        setUploadPercent(70);
-        const { error: coverUploadError } = await supabase.storage
-          .from("book-covers")
-          .upload(coverPath, coverUploadBody, {
-            contentType: coverContentType,
-            upsert: true,
-          });
-        if (coverUploadError) throw coverUploadError;
-      }
+      setProgress(coverFile ? "Uploading cover..." : "Using first page as cover...");
+      setUploadPercent(70);
+      await uploadBookFileViaApi(
+        coverUploadBody,
+        coverPath,
+        "cover",
+        coverContentType,
+        uploadContext,
+      );
 
       setProgress("Saving book...");
       setUploadPercent(90);

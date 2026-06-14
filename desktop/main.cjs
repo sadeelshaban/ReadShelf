@@ -6,6 +6,7 @@ const net = require("net");
 
 const isDev = !app.isPackaged;
 const DEV_URL = process.env.READSHELF_DEV_URL || "http://127.0.0.1:3000";
+const DESKTOP_PORT = Number.parseInt(process.env.READSHELF_PORT || "38472", 10);
 
 let serverProcess = null;
 let mainWindow = null;
@@ -148,7 +149,7 @@ if (!gotLock) {
         return;
       }
 
-      const port = await getFreePort();
+      const port = DESKTOP_PORT;
       const url = `http://127.0.0.1:${port}`;
       startStandaloneServer(port);
       await waitForServer(url);
