@@ -36,9 +36,14 @@ import {
   noteTextCss,
   saveRecentHighlightColor,
 } from "@/lib/reader/constants";
+import {
+  findHighlightAtPoint,
+  findNoteAtPoint,
+} from "@/lib/reader/hit-test";
 import { getPdfDocument } from "@/lib/pdf";
 import {
   clearNoteText,
+  deleteHighlight as deleteHighlightApi,
   deleteNote as deleteNoteApi,
   flushSyncQueue,
   insertNote,
@@ -68,10 +73,20 @@ type PdfReaderProps = {
 
 const STROKE_WIDTH = 28;
 const PEN_STROKE_WIDTH = 3;
-const SWIPE_THRESHOLD_PX = 48;
-const WHEEL_NAV_THRESHOLD = 90;
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 4;
+const PAGE_SCROLL_LOCK_MS = 1200;
+
+function scrollViewerToPage(
+  viewer: HTMLDivElement,
+  pageWrap: HTMLElement,
+  behavior: ScrollBehavior = "smooth",
+) {
+  const viewerRect = viewer.getBoundingClientRect();
+  const pageRect = pageWrap.getBoundingClientRect();
+  const nextTop = viewer.scrollTop + (pageRect.top - viewerRect.top) - 8;
+  viewer.scrollTo({ top: Math.max(0, nextTop), behavior });
+}
 
 function drawStroke(
   ctx: CanvasRenderingContext2D,
@@ -138,6 +153,26 @@ function redrawHighlightLayer(
     });
 }
 
+function bindMapRef<T>(map: { current: Map<number, T> }, key: number) {
+  return (el: T | null) => {
+    if (el) map.current.set(key, el);
+    else map.current.delete(key);
+  };
+}
+
+function canvasRefForPage(
+  map: { current: Map<number, HTMLCanvasElement> },
+  pageNumber: number,
+): { current: HTMLCanvasElement | null } {
+  return {
+    get current() {
+      return map.current.get(pageNumber) ?? null;
+    },
+    set current(_value: HTMLCanvasElement | null) {
+      // read-only view into the page canvas map
+    },
+  };
+}
 function isTouchDevice() {
   if (typeof window === "undefined") return false;
   return (
@@ -166,7 +201,7 @@ type PageNoteProps = {
   onShowMenu: (id: string | null) => void;
   onFontSizeChange: (size: number) => void;
   onDraftChange: (id: string, text: string) => void;
-  canvasRef: React.RefObject<HTMLCanvasElement | null>;
+  canvasRef: { current: HTMLCanvasElement | null };
   canvasDisplayWidth: number;
   pageViewport: ViewportSize;
 };
@@ -434,9 +469,11 @@ export function PdfReader({
   initialHighlights,
   initialNotes,
 }: PdfReaderProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const drawLayerRef = useRef<HTMLCanvasElement>(null);
+  const pageWrapRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+  const canvasRefs = useRef<Map<number, HTMLCanvasElement>>(new Map());
+  const drawLayerRefs = useRef<Map<number, HTMLCanvasElement>>(new Map());
+  const renderTasksRef = useRef<Map<number, { cancel: () => void }>>(new Map());
+  const renderGenRef = useRef<Map<number, number>>(new Map());
   const pdfRef = useRef<Awaited<ReturnType<typeof getPdfDocument>> | null>(null);
   const currentStrokeRef = useRef<HighlightStroke | null>(null);
   const isDrawingRef = useRef(false);
@@ -444,21 +481,14 @@ export function PdfReader({
   const editingDraftRef = useRef("");
   const noteHadContentRef = useRef(false);
   const finishNoteRef = useRef<(id: string, text: string) => void>(() => {});
-  const swipeRef = useRef<{
-    startX: number;
-    startY: number;
-    pointerId: number;
-  } | null>(null);
   const toolRef = useRef<ReaderTool>("read");
   const editingNoteIdRef = useRef<string | null>(null);
   const maxPageRef = useRef(initialPage);
   const goToPrevPageRef = useRef<() => void>(() => {});
   const goToNextPageRef = useRef<() => void>(() => {});
+  const pageRef = useRef(initialPage);
+  const scrollLockUntilRef = useRef(0);
   const viewerRef = useRef<HTMLDivElement>(null);
-  const renderTaskRef = useRef<{ cancel: () => void; promise: Promise<void> } | null>(
-    null,
-  );
-  const renderGenerationRef = useRef(0);
   const fitScaleTimerRef = useRef<number | null>(null);
   const panRef = useRef<{
     pointerId: number;
@@ -469,8 +499,16 @@ export function PdfReader({
   } | null>(null);
 
   const [page, setPage] = useState(initialPage);
+  const [renderedPages, setRenderedPages] = useState<Set<number>>(
+    () => new Set([initialPage]),
+  );
+  const [pageSlotSize, setPageSlotSize] = useState<{ width: number; height: number } | null>(
+    null,
+  );
   const [fitScale, setFitScale] = useState(1);
-  const [zoomMultiplier, setZoomMultiplier] = useState(1);
+  const [fitScaleReady, setFitScaleReady] = useState(false);
+  const [zoomMultiplier, setZoomMultiplier] = useState(0.5);
+  const [pdfNumPages, setPdfNumPages] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tool, setTool] = useState<ReaderTool>("read");
@@ -496,17 +534,46 @@ export function PdfReader({
   highlightsRef.current = highlights;
   toolRef.current = tool;
   editingNoteIdRef.current = editingNoteId;
+  pageRef.current = page;
 
-  const maxPage = totalPages ?? pdfRef.current?.numPages ?? page;
+  const maxPage = pdfNumPages ?? totalPages ?? page;
   maxPageRef.current = maxPage;
 
-  const goToPrevPage = useCallback(() => {
-    setPage((current) => Math.max(1, current - 1));
+  const scrollToPage = useCallback((target: number, behavior: ScrollBehavior = "smooth") => {
+    const clamped = Math.min(maxPageRef.current, Math.max(1, target));
+    scrollLockUntilRef.current = Date.now() + PAGE_SCROLL_LOCK_MS;
+
+    setRenderedPages((prev) => {
+      const next = new Set(prev);
+      next.add(clamped);
+      if (clamped > 1) next.add(clamped - 1);
+      if (clamped < maxPageRef.current) next.add(clamped + 1);
+      return next;
+    });
+    setPage(clamped);
+
+    const attemptScroll = (retriesLeft: number) => {
+      const viewer = viewerRef.current;
+      const pageWrap = pageWrapRefs.current.get(clamped);
+      if (viewer && pageWrap) {
+        scrollViewerToPage(viewer, pageWrap, behavior);
+        return;
+      }
+      if (retriesLeft > 0) {
+        requestAnimationFrame(() => attemptScroll(retriesLeft - 1));
+      }
+    };
+
+    requestAnimationFrame(() => attemptScroll(12));
   }, []);
 
+  const goToPrevPage = useCallback(() => {
+    scrollToPage(pageRef.current - 1);
+  }, [scrollToPage]);
+
   const goToNextPage = useCallback(() => {
-    setPage((current) => Math.min(maxPageRef.current, current + 1));
-  }, []);
+    scrollToPage(pageRef.current + 1);
+  }, [scrollToPage]);
 
   goToPrevPageRef.current = goToPrevPage;
   goToNextPageRef.current = goToNextPage;
@@ -522,7 +589,7 @@ export function PdfReader({
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
       const target = e.target as HTMLElement | null;
       if (
         target &&
@@ -534,7 +601,7 @@ export function PdfReader({
       }
       if (!canNavigatePages()) return;
       e.preventDefault();
-      if (e.key === "ArrowLeft") goToPrevPageRef.current();
+      if (e.key === "ArrowUp") goToPrevPageRef.current();
       else goToNextPageRef.current();
     }
 
@@ -546,28 +613,13 @@ export function PdfReader({
     const viewer = viewerRef.current;
     if (!viewer) return;
 
-    let wheelDeltaX = 0;
-
     function onWheel(e: WheelEvent) {
-      if (e.ctrlKey || e.metaKey) {
-        e.preventDefault();
-        const delta = e.deltaY > 0 ? -0.08 : 0.08;
-        setZoomMultiplier((current) =>
-          Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Number((current + delta).toFixed(2)))),
-        );
-        return;
-      }
-
-      if (!canNavigatePages()) return;
-      if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
-
-      wheelDeltaX += e.deltaX;
-      if (Math.abs(wheelDeltaX) < WHEEL_NAV_THRESHOLD) return;
-
+      if (!e.ctrlKey && !e.metaKey) return;
       e.preventDefault();
-      if (wheelDeltaX > 0) goToNextPageRef.current();
-      else goToPrevPageRef.current();
-      wheelDeltaX = 0;
+      const delta = e.deltaY > 0 ? -0.08 : 0.08;
+      setZoomMultiplier((current) =>
+        Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Number((current + delta).toFixed(2)))),
+      );
     }
 
     viewer.addEventListener("wheel", onWheel, { passive: false });
@@ -591,7 +643,7 @@ export function PdfReader({
   }, []);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
+    const canvas = canvasRefs.current.get(page);
     if (!canvas) return;
 
     const observer = new ResizeObserver((entries) => {
@@ -600,7 +652,7 @@ export function PdfReader({
     });
     observer.observe(canvas);
     return () => observer.disconnect();
-  }, [loading, page, fitScale, zoomMultiplier]);
+  }, [loading, page, fitScale, zoomMultiplier, renderedPages]);
 
   const computeFitScale = useCallback(async (pageNumber: number) => {
     const pdf = pdfRef.current;
@@ -609,12 +661,11 @@ export function PdfReader({
 
     const pdfPage = await pdf.getPage(pageNumber);
     const base = pdfPage.getViewport({ scale: 1 });
-    const padding = 12;
+    const padding = 24;
     const width = viewer.clientWidth - padding;
-    const height = viewer.clientHeight - padding;
-    if (width <= 0 || height <= 0) return 1;
+    if (width <= 0) return 1;
 
-    return Math.min(width / base.width, height / base.height, 3);
+    return Math.min(width / base.width, 3);
   }, []);
 
   useEffect(() => {
@@ -622,8 +673,12 @@ export function PdfReader({
     if (!viewer || loading || !pdfRef.current) return;
 
     let cancelled = false;
+    setFitScaleReady(false);
     void computeFitScale(page).then((next) => {
-      if (!cancelled) setFitScale(next);
+      if (!cancelled) {
+        setFitScale(next);
+        setFitScaleReady(true);
+      }
     });
 
     const observer = new ResizeObserver(() => {
@@ -631,7 +686,10 @@ export function PdfReader({
         window.clearTimeout(fitScaleTimerRef.current);
       }
       fitScaleTimerRef.current = window.setTimeout(() => {
-        void computeFitScale(page).then(setFitScale);
+        void computeFitScale(page).then((next) => {
+          setFitScale(next);
+          setFitScaleReady(true);
+        });
       }, 120);
     });
     observer.observe(viewer);
@@ -667,8 +725,6 @@ export function PdfReader({
     return () => window.removeEventListener("pointerdown", handleOutsidePointerDown);
   }, [editingNoteId, isTouch]);
 
-  const pageNotes = notes.filter((n) => n.page_number === page);
-
   const saveProgress = useCallback(
     async (currentPage: number) => {
       await saveReadingProgress(bookId, currentPage, totalPages);
@@ -678,19 +734,17 @@ export function PdfReader({
 
   const renderPage = useCallback(async (pageNumber: number, zoom: number) => {
     const pdf = pdfRef.current;
-    const canvas = canvasRef.current;
-    const drawLayer = drawLayerRef.current;
+    const canvas = canvasRefs.current.get(pageNumber);
+    const drawLayer = drawLayerRefs.current.get(pageNumber);
     if (!pdf || !canvas || !drawLayer) return;
 
-    const generation = ++renderGenerationRef.current;
+    const generation = (renderGenRef.current.get(pageNumber) ?? 0) + 1;
+    renderGenRef.current.set(pageNumber, generation);
 
-    if (renderTaskRef.current) {
-      renderTaskRef.current.cancel();
-      renderTaskRef.current = null;
-    }
+    renderTasksRef.current.get(pageNumber)?.cancel();
 
     const pdfPage = await pdf.getPage(pageNumber);
-    if (generation !== renderGenerationRef.current) return;
+    if (generation !== renderGenRef.current.get(pageNumber)) return;
 
     const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
     const renderScale = zoom * dpr;
@@ -707,10 +761,15 @@ export function PdfReader({
     drawLayer.style.width = `${viewport.width / dpr}px`;
     drawLayer.style.height = `${viewport.height / dpr}px`;
 
-    setPageViewport({ width: viewport.width, height: viewport.height });
+    const displayWidth = viewport.width / dpr;
+    const displayHeight = viewport.height / dpr;
+    setPageSlotSize({ width: displayWidth, height: displayHeight });
+    if (pageNumber === page) {
+      setPageViewport({ width: viewport.width, height: viewport.height });
+    }
 
     const renderTask = pdfPage.render({ canvasContext: context, viewport, canvas });
-    renderTaskRef.current = renderTask;
+    renderTasksRef.current.set(pageNumber, renderTask);
 
     try {
       await renderTask.promise;
@@ -719,14 +778,14 @@ export function PdfReader({
       if (name === "RenderingCancelledException") return;
       throw err;
     } finally {
-      if (renderTaskRef.current === renderTask) {
-        renderTaskRef.current = null;
+      if (renderTasksRef.current.get(pageNumber) === renderTask) {
+        renderTasksRef.current.delete(pageNumber);
       }
     }
 
-    if (generation !== renderGenerationRef.current) return;
+    if (generation !== renderGenRef.current.get(pageNumber)) return;
     redrawHighlightLayer(drawLayer, highlightsRef.current, pageNumber);
-  }, []);
+  }, [page]);
 
   useEffect(() => {
     let active = true;
@@ -749,6 +808,18 @@ export function PdfReader({
           return;
         }
         pdfRef.current = pdf;
+        setPdfNumPages(pdf.numPages);
+        setFitScaleReady(false);
+        void computeFitScale(initialPage).then((next) => {
+          if (!active) return;
+          setFitScale(next);
+          setFitScaleReady(true);
+        });
+        const startPages = new Set<number>([initialPage]);
+        if (initialPage > 1) startPages.add(initialPage - 1);
+        if (totalPages && initialPage < totalPages) startPages.add(initialPage + 1);
+        else if (pdf.numPages > initialPage) startPages.add(initialPage + 1);
+        setRenderedPages(startPages);
         setLoading(false);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load PDF");
@@ -759,27 +830,86 @@ export function PdfReader({
     init();
     return () => {
       active = false;
-      renderGenerationRef.current += 1;
-      renderTaskRef.current?.cancel();
-      renderTaskRef.current = null;
+      renderTasksRef.current.forEach((task) => task.cancel());
+      renderTasksRef.current.clear();
+      renderGenRef.current.clear();
       pdfRef.current?.cleanup();
       pdfRef.current = null;
     };
-  }, [bookId, initialHighlights, initialNotes, initialPage]);
+  }, [bookId, initialHighlights, initialNotes, initialPage, totalPages, computeFitScale]);
 
   useEffect(() => {
-    if (!pdfRef.current || loading) return;
-    renderPage(page, fitScale * zoomMultiplier)
-      .then(() => setError(null))
-      .catch((err) => {
-        setError(err instanceof Error ? err.message : "Failed to render page");
-      });
-  }, [page, fitScale, zoomMultiplier, renderPage, loading]);
+    if (!pdfRef.current || loading || !fitScaleReady) return;
+    const zoom = fitScale * zoomMultiplier;
+    for (const pageNumber of renderedPages) {
+      renderPage(pageNumber, zoom)
+        .then(() => setError(null))
+        .catch((err) => {
+          setError(err instanceof Error ? err.message : "Failed to render page");
+        });
+    }
+  }, [renderedPages, fitScale, fitScaleReady, zoomMultiplier, renderPage, loading]);
 
   useEffect(() => {
-    const drawLayer = drawLayerRef.current;
-    if (drawLayer) redrawHighlightLayer(drawLayer, highlights, page);
-  }, [highlights, page]);
+    for (const pageNumber of renderedPages) {
+      const drawLayer = drawLayerRefs.current.get(pageNumber);
+      if (drawLayer) redrawHighlightLayer(drawLayer, highlights, pageNumber);
+    }
+  }, [highlights, renderedPages]);
+
+  useEffect(() => {
+    if (loading) return;
+    scrollLockUntilRef.current = Date.now() + PAGE_SCROLL_LOCK_MS;
+    requestAnimationFrame(() => {
+      const viewer = viewerRef.current;
+      const pageWrap = pageWrapRefs.current.get(initialPage);
+      if (viewer && pageWrap) {
+        scrollViewerToPage(viewer, pageWrap, "auto");
+      }
+    });
+  }, [loading, initialPage]);
+
+  useEffect(() => {
+    if (loading || maxPage <= 0) return;
+    const viewer = viewerRef.current;
+    if (!viewer) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (Date.now() < scrollLockUntilRef.current) return;
+
+        let visiblePage = pageRef.current;
+        let bestRatio = 0;
+
+        for (const entry of entries) {
+          const pageNumber = Number((entry.target as HTMLElement).dataset.page);
+          if (!Number.isFinite(pageNumber)) continue;
+
+          if (entry.isIntersecting) {
+            setRenderedPages((prev) => {
+              const next = new Set(prev);
+              next.add(pageNumber);
+              if (pageNumber > 1) next.add(pageNumber - 1);
+              if (pageNumber < maxPageRef.current) next.add(pageNumber + 1);
+              return next;
+            });
+            if (entry.intersectionRatio > bestRatio) {
+              bestRatio = entry.intersectionRatio;
+              visiblePage = pageNumber;
+            }
+          }
+        }
+
+        if (bestRatio >= 0.35) {
+          setPage((current) => (current === visiblePage ? current : visiblePage));
+        }
+      },
+      { root: viewer, threshold: [0, 0.25, 0.5, 0.75, 1] },
+    );
+
+    viewer.querySelectorAll("[data-page]").forEach((node) => observer.observe(node));
+    return () => observer.disconnect();
+  }, [loading, maxPage, fitScale, zoomMultiplier, pageSlotSize]);
 
   useEffect(() => {
     const timer = setTimeout(() => saveProgress(page), 500);
@@ -861,6 +991,14 @@ export function PdfReader({
     return activeTool === "highlight" || activeTool === "pen";
   }
 
+  function isEraserTool(activeTool: ReaderTool) {
+    return activeTool === "eraser";
+  }
+
+  function isInteractiveDrawLayer(activeTool: ReaderTool) {
+    return isDrawingTool(activeTool) || isEraserTool(activeTool);
+  }
+
   function startEditingNote(id: string) {
     const note = notes.find((entry) => entry.id === id);
     if (note) {
@@ -917,19 +1055,39 @@ export function PdfReader({
     applyNoteFontSize(noteFontSize + delta);
   }
 
-  function getViewportSize() {
-    const canvas = drawLayerRef.current;
+  function getViewportSize(pageNumber: number) {
+    const canvas = drawLayerRefs.current.get(pageNumber);
     if (!canvas) return null;
     return { viewportWidth: canvas.width, viewportHeight: canvas.height };
   }
 
-  async function saveStroke(stroke: HighlightStroke, highlightType: "freeform" | "pen") {
-    const viewport = getViewportSize();
+  async function eraseHighlight(id: string, pageNumber: number) {
+    try {
+      await deleteHighlightApi(id);
+      setHighlights((prev) => {
+        const next = prev.filter((entry) => entry.id !== id);
+        const drawLayer = drawLayerRefs.current.get(pageNumber);
+        if (drawLayer) {
+          redrawHighlightLayer(drawLayer, next, pageNumber);
+        }
+        return next;
+      });
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Could not erase mark");
+    }
+  }
+
+  async function saveStroke(
+    pageNumber: number,
+    stroke: HighlightStroke,
+    highlightType: "freeform" | "pen",
+  ) {
+    const viewport = getViewportSize(pageNumber);
     try {
       const data = await saveHighlightStroke({
         bookId,
         userId,
-        pageNumber: page,
+        pageNumber,
         color: highlightColor,
         stroke,
         viewport: viewport ?? {},
@@ -949,7 +1107,24 @@ export function PdfReader({
     return canvasPointFromClient(e.clientX, e.clientY, e.currentTarget);
   }
 
-  function handleDrawPointerDown(e: ReactPointerEvent<HTMLCanvasElement>) {
+  function handleDrawPointerDown(
+    e: ReactPointerEvent<HTMLCanvasElement>,
+    pageNumber: number,
+  ) {
+    if (tool === "eraser") {
+      const point = getCanvasPoint(e);
+      const highlight = findHighlightAtPoint(
+        highlightsRef.current,
+        pageNumber,
+        point,
+        e.currentTarget,
+      );
+      if (highlight) {
+        void eraseHighlight(highlight.id, pageNumber);
+      }
+      return;
+    }
+
     if (!isDrawingTool(tool)) return;
     isDrawingRef.current = true;
     const point = getCanvasPoint(e);
@@ -961,8 +1136,8 @@ export function PdfReader({
   function handleDrawPointerMove(e: ReactPointerEvent<HTMLCanvasElement>) {
     if (!isDrawingRef.current || !isDrawingTool(tool)) return;
     const stroke = currentStrokeRef.current;
-    const canvas = drawLayerRef.current;
-    const ctx = canvas?.getContext("2d");
+    const canvas = e.currentTarget;
+    const ctx = canvas.getContext("2d");
     if (!stroke || !canvas || !ctx) return;
 
     const point = getCanvasPoint(e);
@@ -996,27 +1171,43 @@ export function PdfReader({
     ctx.restore();
   }
 
-  async function handleDrawPointerUp(e: ReactPointerEvent<HTMLCanvasElement>) {
+  async function handleDrawPointerUp(
+    e: ReactPointerEvent<HTMLCanvasElement>,
+    pageNumber: number,
+  ) {
     if (!isDrawingRef.current || !isDrawingTool(tool)) return;
     isDrawingRef.current = false;
     const stroke = currentStrokeRef.current;
     const highlightType = tool === "pen" ? "pen" : "freeform";
     currentStrokeRef.current = null;
 
-    const canvas = e.currentTarget ?? drawLayerRef.current;
-    if (canvas?.hasPointerCapture(e.pointerId)) {
+    const canvas = e.currentTarget;
+    if (canvas.hasPointerCapture(e.pointerId)) {
       canvas.releasePointerCapture(e.pointerId);
     }
 
     if (stroke && stroke.points.length > 1) {
-      await saveStroke(stroke, highlightType);
+      await saveStroke(pageNumber, stroke, highlightType);
     }
   }
 
-  async function handlePageClick(e: ReactPointerEvent<HTMLDivElement>) {
-    if (tool !== "note" || editingNoteId) return;
-    const canvas = canvasRef.current;
+  async function handlePageClick(
+    e: ReactPointerEvent<HTMLDivElement>,
+    pageNumber: number,
+  ) {
+    const canvas = canvasRefs.current.get(pageNumber);
     if (!canvas) return;
+
+    if (tool === "eraser") {
+      const point = canvasPointFromClient(e.clientX, e.clientY, canvas);
+      const note = findNoteAtPoint(notes, pageNumber, point, canvas);
+      if (note) {
+        await deleteNote(note.id);
+      }
+      return;
+    }
+
+    if (tool !== "note" || editingNoteId) return;
 
     const point = canvasPointFromClient(e.clientX, e.clientY, canvas);
     const position: NotePosition = {
@@ -1033,7 +1224,7 @@ export function PdfReader({
       const data = await insertNote({
         bookId,
         userId,
-        pageNumber: page,
+        pageNumber,
         position,
         textColor: noteTextColor,
       });
@@ -1046,7 +1237,10 @@ export function PdfReader({
     }
   }
 
-  function handleContainerPointerDown(e: ReactPointerEvent<HTMLDivElement>) {
+  function handleContainerPointerDown(
+    e: ReactPointerEvent<HTMLDivElement>,
+    pageNumber: number,
+  ) {
     if (tool === "pan") return;
 
     if (editingNoteId) {
@@ -1054,9 +1248,9 @@ export function PdfReader({
       if (
         !target.closest(".note-root") &&
         !target.closest("#note-toolbar") &&
-      !target.closest("#left-toolbar") &&
-      !target.closest("#right-toolbar") &&
-      !target.closest("#reader-top-bar")
+        !target.closest("#left-toolbar") &&
+        !target.closest("#right-toolbar") &&
+        !target.closest("#reader-top-bar")
       ) {
         void finishNoteRef.current(editingNoteId, editingDraftRef.current);
       }
@@ -1064,31 +1258,13 @@ export function PdfReader({
     }
 
     if (tool === "note" && !editingNoteId) {
-      void handlePageClick(e);
+      void handlePageClick(e, pageNumber);
       return;
     }
-    if (!canNavigatePages()) return;
-    if (e.pointerType === "mouse") return;
-    swipeRef.current = {
-      startX: e.clientX,
-      startY: e.clientY,
-      pointerId: e.pointerId,
-    };
-  }
 
-  function handleContainerPointerUp(e: ReactPointerEvent<HTMLDivElement>) {
-    if (!swipeRef.current || swipeRef.current.pointerId !== e.pointerId) return;
-
-    const { startX, startY } = swipeRef.current;
-    swipeRef.current = null;
-    if (!canNavigatePages()) return;
-
-    const dx = e.clientX - startX;
-    const dy = e.clientY - startY;
-    if (Math.abs(dx) < SWIPE_THRESHOLD_PX || Math.abs(dy) > Math.abs(dx)) return;
-
-    if (dx < 0) goToNextPage();
-    else goToPrevPage();
+    if (tool === "eraser") {
+      void handlePageClick(e, pageNumber);
+    }
   }
 
   async function finishNote(id: string, text: string) {
@@ -1255,57 +1431,87 @@ export function PdfReader({
             </p>
           )}
           <div
-            ref={containerRef}
-            className={cn(
-              "relative mx-auto w-fit min-h-full py-6",
-              tool === "note" && !editingNoteId && "cursor-crosshair",
-            )}
+            className="mx-auto flex w-full flex-col items-center gap-3 py-6"
             style={{ visibility: loading || error ? "hidden" : "visible" }}
-            onPointerDown={handleContainerPointerDown}
-            onPointerUp={handleContainerPointerUp}
-            onPointerCancel={() => {
-              swipeRef.current = null;
-            }}
           >
-            <canvas ref={canvasRef} className="acrobat-page-panel block bg-white" />
-            <canvas
-              ref={drawLayerRef}
-              className={cn(
-                "absolute left-0 top-0 touch-none",
-                isDrawingTool(tool) ? "cursor-crosshair" : "pointer-events-none",
-              )}
-              onPointerDown={handleDrawPointerDown}
-              onPointerMove={handleDrawPointerMove}
-              onPointerUp={handleDrawPointerUp}
-              onPointerLeave={handleDrawPointerUp}
-            />
-            {pageNotes.map((note) => (
-              <PageNote
-                key={
-                  editingNoteId === note.id ? `${note.id}:edit` : note.id
-                }
-                note={note}
-                editing={editingNoteId === note.id}
-                showMenu={noteMenuId === note.id}
-                isTouch={isTouch}
-                liveFontSize={
-                  editingNoteId === note.id ? noteFontSize : undefined
-                }
-                liveTextColor={
-                  editingNoteId === note.id ? noteTextColor : undefined
-                }
-                onFinish={finishNote}
-                onDelete={deleteNote}
-                onMove={moveNote}
-                onStartEdit={startEditingNote}
-                onShowMenu={setNoteMenuId}
-                onFontSizeChange={applyNoteFontSize}
-                onDraftChange={syncNoteDraft}
-                canvasRef={canvasRef}
-                canvasDisplayWidth={canvasDisplayWidth}
-                pageViewport={pageViewport}
-              />
-            ))}
+            {Array.from({ length: maxPage }, (_, index) => {
+              const pageNumber = index + 1;
+              const slotWidth = pageSlotSize?.width ?? 420;
+              const slotHeight = pageSlotSize?.height ?? 594;
+
+              return (
+                <div
+                  key={pageNumber}
+                  data-page={pageNumber}
+                  ref={bindMapRef(pageWrapRefs, pageNumber)}
+                  className={cn(
+                    "relative w-fit",
+                    (tool === "note" || tool === "eraser") &&
+                      !editingNoteId &&
+                      "cursor-crosshair",
+                  )}
+                  onPointerDown={(e) => handleContainerPointerDown(e, pageNumber)}
+                >
+                  {renderedPages.has(pageNumber) ? (
+                    <>
+                      <canvas
+                        ref={bindMapRef(canvasRefs, pageNumber)}
+                        className="acrobat-page-panel block bg-white"
+                      />
+                      <canvas
+                        ref={bindMapRef(drawLayerRefs, pageNumber)}
+                        className={cn(
+                          "absolute left-0 top-0 touch-none",
+                          isInteractiveDrawLayer(tool)
+                            ? "cursor-crosshair"
+                            : "pointer-events-none",
+                        )}
+                        onPointerDown={(e) => handleDrawPointerDown(e, pageNumber)}
+                        onPointerMove={handleDrawPointerMove}
+                        onPointerUp={(e) => handleDrawPointerUp(e, pageNumber)}
+                        onPointerLeave={(e) => handleDrawPointerUp(e, pageNumber)}
+                      />
+                      {notes
+                        .filter((note) => note.page_number === pageNumber)
+                        .map((note) => (
+                          <PageNote
+                            key={
+                              editingNoteId === note.id ? `${note.id}:edit` : note.id
+                            }
+                            note={note}
+                            editing={editingNoteId === note.id}
+                            showMenu={noteMenuId === note.id}
+                            isTouch={isTouch}
+                            liveFontSize={
+                              editingNoteId === note.id ? noteFontSize : undefined
+                            }
+                            liveTextColor={
+                              editingNoteId === note.id ? noteTextColor : undefined
+                            }
+                            onFinish={finishNote}
+                            onDelete={deleteNote}
+                            onMove={moveNote}
+                            onStartEdit={startEditingNote}
+                            onShowMenu={setNoteMenuId}
+                            onFontSizeChange={applyNoteFontSize}
+                            onDraftChange={syncNoteDraft}
+                            canvasRef={canvasRefForPage(canvasRefs, pageNumber)}
+                            canvasDisplayWidth={
+                              pageNumber === page ? canvasDisplayWidth : slotWidth
+                            }
+                            pageViewport={pageViewport}
+                          />
+                        ))}
+                    </>
+                  ) : (
+                    <div
+                      className="acrobat-page-panel bg-white"
+                      style={{ width: slotWidth, height: slotHeight }}
+                    />
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
 
@@ -1313,9 +1519,11 @@ export function PdfReader({
           page={page}
           maxPage={maxPage}
           zoomPercent={Math.round(zoomMultiplier * 100)}
-          onPageChange={(value) => setPage(Math.min(maxPage, Math.max(1, value)))}
+          onGoToPage={scrollToPage}
           onPrevPage={goToPrevPage}
           onNextPage={goToNextPage}
+          prevDisabled={page <= 1}
+          nextDisabled={page >= maxPage}
           onZoomIn={() =>
             setZoomMultiplier((z) =>
               Math.min(MAX_ZOOM, Number((z + 0.1).toFixed(2))),
@@ -1326,8 +1534,6 @@ export function PdfReader({
               Math.max(MIN_ZOOM, Number((z - 0.1).toFixed(2))),
             )
           }
-          prevDisabled={page <= 1}
-          nextDisabled={page >= maxPage}
         />
       </div>
     </div>

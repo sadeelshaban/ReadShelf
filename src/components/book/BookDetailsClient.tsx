@@ -3,13 +3,16 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { Book, Highlight, Note } from "@/types";
+import { mergeAnnotationsById } from "@/lib/annotations/merge";
 import { getReadButtonLabel } from "@/lib/pdf";
 import { flushSyncQueue, loadBookAnnotations } from "@/lib/offline/reader-api";
+import { cacheBook } from "@/lib/offline/books-store";
 import { purgeBookFromLocalCache } from "@/lib/offline/purge-book-cache";
 import { noteTextCss } from "@/lib/reader/constants";
 import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 
 type BookDetailsClientProps = {
   book: Book;
@@ -85,21 +88,101 @@ function formatAddedDate(date: string) {
 }
 
 export function BookDetailsClient({
-  book,
-  highlights,
-  notes,
+  book: initialBook,
+  highlights: serverHighlights,
+  notes: serverNotes,
   coverUrl,
 }: BookDetailsClientProps) {
   const router = useRouter();
+  const [book, setBook] = useState(initialBook);
+  const [displayHighlights, setDisplayHighlights] = useState(serverHighlights);
+  const [displayNotes, setDisplayNotes] = useState(serverNotes);
   const [tab, setTab] = useState<Tab>("highlights");
   const [message, setMessage] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editTitle, setEditTitle] = useState(initialBook.title);
+  const [editAuthor, setEditAuthor] = useState(initialBook.author);
+
+  const refreshAnnotations = useCallback(async () => {
+    await flushSyncQueue();
+    const local = await loadBookAnnotations(book.id);
+    setDisplayHighlights(mergeAnnotationsById(serverHighlights, local.highlights));
+    setDisplayNotes(mergeAnnotationsById(serverNotes, local.notes));
+  }, [book.id, serverHighlights, serverNotes]);
+
+  useEffect(() => {
+    void refreshAnnotations();
+  }, [refreshAnnotations]);
+
+  useEffect(() => {
+    function onFocus() {
+      void refreshAnnotations();
+    }
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [refreshAnnotations]);
 
   const highlightGroups = groupHighlightsByPage(
-    highlights.filter((h) => h.highlight_type !== "pen"),
+    displayHighlights.filter((h) => h.highlight_type !== "pen"),
   );
-  const noteGroups = groupNotesByPage(notes);
+  const noteGroups = groupNotesByPage(displayNotes);
+
+  function startEditing() {
+    setEditTitle(book.title);
+    setEditAuthor(book.author);
+    setEditing(true);
+    setMessage(null);
+    setSuccess(null);
+  }
+
+  function cancelEditing() {
+    setEditTitle(book.title);
+    setEditAuthor(book.author);
+    setEditing(false);
+  }
+
+  async function saveDetails() {
+    const title = editTitle.trim();
+    if (!title) {
+      setMessage("Title is required.");
+      return;
+    }
+
+    setSaving(true);
+    setMessage(null);
+    setSuccess(null);
+
+    try {
+      const response = await fetch(`/api/books/${book.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          author: editAuthor.trim(),
+        }),
+      });
+
+      const body = (await response.json()) as { book?: Book; error?: string };
+      if (!response.ok || !body.book) {
+        setMessage(body.error ?? "Could not save changes.");
+        return;
+      }
+
+      setBook(body.book);
+      await cacheBook(body.book);
+      setEditing(false);
+      setSuccess("Book details updated.");
+      router.refresh();
+    } catch {
+      setMessage("Could not save changes.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   async function downloadPdf() {
     setMessage(null);
@@ -108,9 +191,8 @@ export function BookDetailsClient({
     try {
       await flushSyncQueue();
       const local = await loadBookAnnotations(book.id);
-      const exportHighlights =
-        local.highlights.length > 0 ? local.highlights : highlights;
-      const exportNotes = local.notes.length > 0 ? local.notes : notes;
+      const exportHighlights = mergeAnnotationsById(serverHighlights, local.highlights);
+      const exportNotes = mergeAnnotationsById(serverNotes, local.notes);
 
       const response = await fetch(`/api/books/${book.id}/pdf/export`, {
         method: "POST",
@@ -205,20 +287,65 @@ export function BookDetailsClient({
             </div>
           )}
         </div>
-        <dl className="grid grid-cols-[4.5rem_1fr] gap-x-2 gap-y-1.5 rounded-xl border border-soft-gray/30 bg-card px-3 py-3 text-xs">
-          <dt className="text-text/55">Title</dt>
-          <dd className="truncate font-medium text-text" title={book.title}>
-            {book.title}
-          </dd>
-          <dt className="text-text/55">Author</dt>
-          <dd className="truncate text-text/80" title={book.author}>
-            {book.author || "Unknown"}
-          </dd>
-          <dt className="text-text/55">Pages</dt>
-          <dd className="text-text/80">{book.total_pages ?? "—"}</dd>
-          <dt className="text-text/55">Added</dt>
-          <dd className="text-text/80">{formatAddedDate(book.created_at)}</dd>
-        </dl>
+        {editing ? (
+          <form
+            className="space-y-3 rounded-xl border border-soft-gray/30 bg-card px-3 py-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void saveDetails();
+            }}
+          >
+            <Input
+              label="Title"
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              required
+            />
+            <Input
+              label="Author"
+              value={editAuthor}
+              onChange={(e) => setEditAuthor(e.target.value)}
+            />
+            <div className="flex gap-2 pt-1">
+              <Button type="submit" size="sm" className="flex-1" disabled={saving}>
+                {saving ? "Saving..." : "Save"}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                className="flex-1"
+                disabled={saving}
+                onClick={cancelEditing}
+              >
+                Cancel
+              </Button>
+            </div>
+          </form>
+        ) : (
+          <>
+            <dl className="grid grid-cols-[4.5rem_1fr] gap-x-2 gap-y-1.5 rounded-xl border border-soft-gray/30 bg-card px-3 py-3 text-xs">
+              <dt className="text-text/55">Title</dt>
+              <dd className="truncate font-medium text-text" title={book.title} dir="auto">
+                {book.title}
+              </dd>
+              <dt className="text-text/55">Author</dt>
+              <dd className="truncate text-text/80" title={book.author} dir="auto">
+                {book.author || "Unknown"}
+              </dd>
+              <dt className="text-text/55">Pages</dt>
+              <dd className="text-text/80">{book.total_pages ?? "—"}</dd>
+              <dt className="text-text/55">Added</dt>
+              <dd className="text-text/80">{formatAddedDate(book.created_at)}</dd>
+            </dl>
+            <Button variant="secondary" size="sm" className="w-full" onClick={startEditing}>
+              Edit details
+            </Button>
+          </>
+        )}
+        {success && (
+          <p className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800">{success}</p>
+        )}
         <div className="flex flex-col gap-2">
           <Link href={`/book/${book.id}/read`} className="block">
             <Button className="w-full">{getReadButtonLabel(book)}</Button>

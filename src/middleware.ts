@@ -12,6 +12,6 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     "/favicon.ico",
-    "/((?!_next/static|_next/image|icons|api/books/upload-file|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|icons|standard_fonts|cmaps|wasm|iccs|pdf.worker.min.mjs|api/books/upload-file|.*\\.(?:svg|png|jpg|jpeg|gif|webp|mjs|wasm|bcmap|pfb|ttf|icc)$).*)",
   ],
 };

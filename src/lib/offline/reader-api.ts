@@ -6,7 +6,9 @@ import type {
   Note,
   NotePosition,
 } from "@/types";
+import { mergeAnnotationsById } from "@/lib/annotations/merge";
 import {
+  deleteLocalHighlight,
   deleteLocalNote,
   getLocalNoteById,
   loadBookAnnotations,
@@ -67,7 +69,13 @@ async function enqueueBookProgress(
   });
 }
 
-export { loadPdfBuffer, seedBookAnnotations, loadBookAnnotations, flushSyncQueue };
+export {
+  loadPdfBuffer,
+  seedBookAnnotations,
+  loadBookAnnotations,
+  flushSyncQueue,
+  mergeAnnotationsById,
+};
 
 export async function saveReadingProgress(
   bookId: string,
@@ -332,6 +340,37 @@ export async function deleteNote(id: string) {
   await enqueueSync({
     id: newId(),
     entity: "note",
+    op: "delete",
+    recordId: id,
+    payload: {},
+    createdAt: new Date().toISOString(),
+  });
+}
+
+export async function deleteHighlight(id: string) {
+  await removeSyncItemsForRecord(id);
+  await deleteLocalHighlight(id);
+
+  if (isOnline()) {
+    const supabase = createClient();
+    const { error } = await supabase.from("highlights").delete().eq("id", id);
+    if (error) {
+      await enqueueSync({
+        id: newId(),
+        entity: "highlight",
+        op: "delete",
+        recordId: id,
+        payload: {},
+        createdAt: new Date().toISOString(),
+      });
+    }
+    await syncIfOnline();
+    return;
+  }
+
+  await enqueueSync({
+    id: newId(),
+    entity: "highlight",
     op: "delete",
     recordId: id,
     payload: {},

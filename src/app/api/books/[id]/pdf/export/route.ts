@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getBookById } from "@/lib/books/queries";
+import { mergeAnnotationsById } from "@/lib/annotations/merge";
 import {
   buildAnnotatedPdf,
   contentDispositionAttachment,
@@ -41,9 +42,8 @@ async function loadAnnotations(
     ) ?? [];
 
   return {
-    highlights:
-      clientHighlights.length > 0 ? clientHighlights : (highlights ?? []),
-    notes: clientNotes.length > 0 ? clientNotes : (notes ?? []),
+    highlights: mergeAnnotationsById(highlights ?? [], clientHighlights),
+    notes: mergeAnnotationsById(notes ?? [], clientNotes),
   };
 }
 

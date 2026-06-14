@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { HomeIcon, MenuIcon, SaveIcon } from "@/components/reader/ReaderIcons";
+import { HomeIcon, SaveIcon } from "@/components/reader/ReaderIcons";
 import { cn } from "@/lib/utils";
 
 type ReaderTopBarProps = {
@@ -22,20 +22,12 @@ export function ReaderTopBar({
   return (
     <header id="reader-top-bar" className="acrobat-topbar shrink-0">
       <div className="flex h-11 items-center gap-2 border-b border-white/10 px-3">
-        <button
-          type="button"
-          title="Menu"
-          aria-label="Menu"
-          className="acrobat-topbar-btn"
-        >
-          <MenuIcon />
-        </button>
         <Link href="/shelf" title="Home" aria-label="Home" className="acrobat-topbar-btn">
           <HomeIcon />
         </Link>
         <Link
           href={`/book/${bookId}`}
-          className="max-w-[min(42vw,320px)] truncate px-1 text-sm text-white/90 hover:text-white"
+          className="max-w-[min(52vw,360px)] truncate px-1 text-sm text-white/90 hover:text-white"
           title={title}
         >
           {title}
@@ -55,10 +47,6 @@ export function ReaderTopBar({
             <span className="hidden text-xs text-emerald-400 sm:inline">{saveLabel}</span>
           )}
         </div>
-      </div>
-      <div className="flex h-9 items-center gap-1 border-b border-white/10 px-3 text-xs text-white/75">
-        <span className="rounded bg-white/10 px-2.5 py-1 text-white">Read</span>
-        <span className="rounded px-2.5 py-1 hover:bg-white/5">Annotate</span>
       </div>
     </header>
   );

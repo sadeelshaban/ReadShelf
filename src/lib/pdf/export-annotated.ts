@@ -18,12 +18,22 @@ import {
 } from "@/lib/reader/constants";
 
 const DEFAULT_RENDER_SCALE = 1.35;
-const NOTE_FONT_PATH = path.join(
+const NOTE_FONT_TTF_PATH = path.join(
+  process.cwd(),
+  "assets/fonts/NotoSansArabic-Regular.ttf",
+);
+const NOTE_FONT_WOFF_PATH = path.join(
   process.cwd(),
   "node_modules/@fontsource/noto-sans-arabic/files/noto-sans-arabic-arabic-400-normal.woff",
 );
 
 let cachedNoteFontBytes: Uint8Array | null = null;
+
+function resolveNoteFontPath() {
+  if (fs.existsSync(NOTE_FONT_TTF_PATH)) return NOTE_FONT_TTF_PATH;
+  if (fs.existsSync(NOTE_FONT_WOFF_PATH)) return NOTE_FONT_WOFF_PATH;
+  return NOTE_FONT_TTF_PATH;
+}
 
 function parseHexColor(hex: string): RGB {
   const normalized = hex.replace("#", "");
@@ -182,8 +192,8 @@ function drawNotesOnPage(
         maxWidth,
         lineHeight: size * 1.25,
       });
-    } catch {
-      continue;
+    } catch (error) {
+      console.error("Failed to draw note on exported PDF:", note.id, error);
     }
   }
 }
@@ -196,10 +206,13 @@ async function loadNoteFont(pdfDoc: PDFDocument, notes: Note[]): Promise<PDFFont
 
   try {
     pdfDoc.registerFontkit(fontkit);
+    const fontPath = resolveNoteFontPath();
     if (!cachedNoteFontBytes) {
-      cachedNoteFontBytes = fs.readFileSync(NOTE_FONT_PATH);
+      cachedNoteFontBytes = fs.readFileSync(fontPath);
     }
-    return pdfDoc.embedFont(cachedNoteFontBytes);
+    return pdfDoc.embedFont(cachedNoteFontBytes, {
+      subset: true,
+    });
   } catch {
     return pdfDoc.embedFont(StandardFonts.Helvetica);
   }

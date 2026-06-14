@@ -26,6 +26,10 @@ export async function deleteLocalNote(id: string) {
   await idbDelete("notes", id);
 }
 
+export async function deleteLocalHighlight(id: string) {
+  await idbDelete("highlights", id);
+}
+
 export async function seedBookAnnotations(
   bookId: string,
   highlights: Highlight[],

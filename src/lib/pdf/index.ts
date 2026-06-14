@@ -10,9 +10,23 @@ export async function loadPdfJs() {
   return pdfjs;
 }
 
+export function getPdfDocumentOptions(data: ArrayBuffer | Uint8Array) {
+  const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+  return {
+    data: bytes,
+    standardFontDataUrl: "/standard_fonts/",
+    cMapUrl: "/cmaps/",
+    cMapPacked: true,
+    wasmUrl: "/wasm/",
+    iccUrl: "/iccs/",
+    disableFontFace: true,
+    useSystemFonts: false,
+  };
+}
+
 export async function getPdfDocument(data: ArrayBuffer): Promise<PDFDocumentProxy> {
   const pdfjs = await loadPdfJs();
-  const loadingTask = pdfjs.getDocument({ data });
+  const loadingTask = pdfjs.getDocument(getPdfDocumentOptions(data));
   return loadingTask.promise;
 }
 

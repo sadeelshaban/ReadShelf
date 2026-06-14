@@ -30,6 +30,9 @@ export function ShelfGrid({ books, coverUrls, loading = false }: ShelfGridProps)
 
     return [...result].sort((a, b) => {
       if (sort === "progress") return b.progress_percent - a.progress_percent;
+      if (sort === "added") {
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      }
       const aTime = a.last_opened_at ? new Date(a.last_opened_at).getTime() : 0;
       const bTime = b.last_opened_at ? new Date(b.last_opened_at).getTime() : 0;
       return bTime - aTime;

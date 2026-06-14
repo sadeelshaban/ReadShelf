@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import type { ReaderTool } from "@/types";
 import {
   HIGHLIGHT_PRESETS,
@@ -8,10 +9,12 @@ import {
   NOTE_TEXT_COLORS,
 } from "@/lib/reader/constants";
 import { cn } from "@/lib/utils";
+import { DraggableToolbar } from "@/components/reader/DraggableToolbar";
 import {
   ChevronDownIcon,
   ChevronUpIcon,
   CursorIcon,
+  EraserIcon,
   HandIcon,
   HighlighterIcon,
   NoteIcon,
@@ -98,10 +101,7 @@ export function LeftToolbar({
   const showNoteColors = tool === "note" || editingNote;
 
   return (
-    <aside
-      id="left-toolbar"
-      className="acrobat-toolbar pointer-events-auto absolute left-3 top-1/2 z-20 flex w-11 -translate-y-1/2 flex-col items-center gap-0.5 rounded py-2"
-    >
+    <DraggableToolbar id="left-toolbar">
       <ToolButton active={tool === "read"} label="Select" onClick={() => onSelectTool("read")}>
         <CursorIcon />
       </ToolButton>
@@ -120,6 +120,9 @@ export function LeftToolbar({
       </ToolButton>
       <ToolButton active={tool === "pen"} label="Draw" onClick={() => onSelectTool("pen")}>
         <PenIcon />
+      </ToolButton>
+      <ToolButton active={tool === "eraser"} label="Eraser" onClick={() => onSelectTool("eraser")}>
+        <EraserIcon />
       </ToolButton>
 
       {showDrawColors && (
@@ -212,7 +215,78 @@ export function LeftToolbar({
           </button>
         </div>
       )}
-    </aside>
+    </DraggableToolbar>
+  );
+}
+
+type PageNumberInputProps = {
+  page: number;
+  maxPage: number;
+  onGoToPage: (page: number) => void;
+};
+
+function PageNumberInput({ page, maxPage, onGoToPage }: PageNumberInputProps) {
+  const [draft, setDraft] = useState(String(page));
+  const [focused, setFocused] = useState(false);
+
+  useEffect(() => {
+    if (!focused) {
+      setDraft(String(page));
+    }
+  }, [page, focused]);
+
+  function commit() {
+    const trimmed = draft.trim();
+    if (!trimmed) {
+      setDraft(String(page));
+      return;
+    }
+
+    const parsed = Number.parseInt(trimmed, 10);
+    if (Number.isNaN(parsed)) {
+      setDraft(String(page));
+      return;
+    }
+
+    const clamped = Math.min(maxPage, Math.max(1, parsed));
+    setDraft(String(clamped));
+    onGoToPage(clamped);
+  }
+
+  return (
+    <div className="flex flex-col items-center gap-0.5">
+      <input
+        type="text"
+        inputMode="numeric"
+        pattern="[0-9]*"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value.replace(/\D/g, ""))}
+        onFocus={(e) => {
+          setFocused(true);
+          e.target.select();
+        }}
+        onBlur={() => {
+          setFocused(false);
+          commit();
+        }}
+        onKeyDown={(e) => {
+          e.stopPropagation();
+          if (e.key === "Enter") {
+            e.preventDefault();
+            commit();
+            e.currentTarget.blur();
+          }
+          if (e.key === "Escape") {
+            setDraft(String(page));
+            e.currentTarget.blur();
+          }
+        }}
+        aria-label="Go to page"
+        title="Type a page number, then press Enter or click outside"
+        className="acrobat-page-input"
+      />
+      <span className="text-[10px] font-medium tabular-nums text-white/70">/{maxPage}</span>
+    </div>
   );
 }
 
@@ -220,7 +294,7 @@ type RightToolbarProps = {
   page: number;
   maxPage: number;
   zoomPercent: number;
-  onPageChange: (page: number) => void;
+  onGoToPage: (page: number) => void;
   onPrevPage: () => void;
   onNextPage: () => void;
   onZoomIn: () => void;
@@ -233,7 +307,7 @@ export function RightToolbar({
   page,
   maxPage,
   zoomPercent,
-  onPageChange,
+  onGoToPage,
   onPrevPage,
   onNextPage,
   onZoomIn,
@@ -246,39 +320,18 @@ export function RightToolbar({
       id="right-toolbar"
       className="acrobat-toolbar pointer-events-auto absolute right-3 top-1/2 z-20 flex w-11 -translate-y-1/2 flex-col items-center gap-1.5 rounded py-2.5"
     >
-      <form
-        className="flex flex-col items-center gap-0.5"
-        onSubmit={(e) => {
-          e.preventDefault();
-          const input = e.currentTarget.elements.namedItem("page") as HTMLInputElement;
-          const value = Number.parseInt(input.value, 10);
-          if (Number.isFinite(value)) onPageChange(value);
-        }}
-      >
-        <input
-          name="page"
-          type="number"
-          min={1}
-          max={maxPage}
-          defaultValue={page}
-          key={page}
-          title="Page number"
-          className="acrobat-page-input"
-        />
-        <span className="text-[10px] tabular-nums text-white/45">/ {maxPage}</span>
-      </form>
-
-      <div className="acrobat-zoom-badge" title="Zoom level">
-        {zoomPercent}%
-      </div>
-
-      <div className="flex flex-col items-center gap-0.5 border-t border-white/10 pt-1.5">
+      <div className="flex flex-col items-center gap-0.5 pb-1.5">
         <SideButton label="Previous page" disabled={prevDisabled} onClick={onPrevPage}>
           <ChevronUpIcon />
         </SideButton>
+        <PageNumberInput page={page} maxPage={maxPage} onGoToPage={onGoToPage} />
         <SideButton label="Next page" disabled={nextDisabled} onClick={onNextPage}>
           <ChevronDownIcon />
         </SideButton>
+      </div>
+
+      <div className="acrobat-zoom-badge border-t border-white/10 pt-1.5" title="Zoom level">
+        {zoomPercent}%
       </div>
 
       <div className="flex flex-col items-center gap-0.5 border-t border-white/10 pt-1.5">

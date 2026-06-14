@@ -88,6 +88,27 @@ export function PenIcon({ className }: IconProps) {
   );
 }
 
+export function EraserIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={cn("h-[18px] w-[18px]", className)} aria-hidden>
+      <path
+        d="m16.5 3.5 4 4-9.5 9.5-4-4L16.5 3.5z"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M6 16.5 3 19.5a1.2 1.2 0 0 0 0 1.7l.8.8a1.2 1.2 0 0 0 1.7 0l3-3"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M10 20h8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 export function NoteIcon({ className }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={cn("h-[18px] w-[18px]", className)} aria-hidden>

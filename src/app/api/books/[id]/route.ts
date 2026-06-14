@@ -36,3 +36,38 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
 
   return NextResponse.json({ ok: true });
 }
+
+export async function PATCH(request: Request, { params }: RouteParams) {
+  const { id } = await params;
+  const book = await getBookById(id);
+  if (!book) {
+    return NextResponse.json({ error: "Book not found" }, { status: 404 });
+  }
+
+  let body: { title?: string; author?: string };
+  try {
+    body = (await request.json()) as { title?: string; author?: string };
+  } catch {
+    return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
+  }
+
+  const title = body.title?.trim();
+  if (!title) {
+    return NextResponse.json({ error: "Title is required." }, { status: 400 });
+  }
+
+  const author = body.author?.trim() ?? "";
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("books")
+    .update({ title, author })
+    .eq("id", id)
+    .select("*")
+    .single();
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ book: data });
+}
