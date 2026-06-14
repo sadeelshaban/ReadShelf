@@ -53,6 +53,12 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  if (user && path === "/") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/shelf";
+    return NextResponse.redirect(url);
+  }
+
   if (user && isAuthRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/shelf";

@@ -113,6 +113,7 @@ function createWindow(url) {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      partition: "persist:readshelf",
     },
   });
 
@@ -145,7 +146,7 @@ if (!gotLock) {
     try {
       if (isDev) {
         await waitForServer(DEV_URL);
-        createWindow(DEV_URL);
+        createWindow(`${DEV_URL}/shelf`);
         return;
       }
 
@@ -153,7 +154,7 @@ if (!gotLock) {
       const url = `http://127.0.0.1:${port}`;
       startStandaloneServer(port);
       await waitForServer(url);
-      createWindow(url);
+      createWindow(`${url}/shelf`);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       showStartupError(message);
