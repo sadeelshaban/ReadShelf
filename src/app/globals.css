@@ -1,0 +1,85 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f3ece3;
+  --background-elevated: #faf6f0;
+  --card: rgba(255, 252, 247, 0.82);
+  --primary: #6f4528;
+  --primary-light: #8a5a36;
+  --accent: #c9952a;
+  --text: #1f1610;
+  --text-muted: rgba(31, 22, 16, 0.58);
+  --soft-gray: #a89888;
+  --shadow-soft: 0 1px 2px rgba(31, 22, 16, 0.04), 0 10px 30px rgba(31, 22, 16, 0.06);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-background-elevated: var(--background-elevated);
+  --color-card: var(--card);
+  --color-primary: var(--primary);
+  --color-primary-light: var(--primary-light);
+  --color-accent: var(--accent);
+  --color-text: var(--text);
+  --color-text-muted: var(--text-muted);
+  --color-soft-gray: var(--soft-gray);
+  --font-sans: var(--font-inter);
+  --font-serif: var(--font-lora);
+}
+
+body {
+  background: var(--background);
+  color: var(--text);
+  font-family: var(--font-inter), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-serif {
+  font-family: var(--font-lora), Georgia, serif;
+}
+
+.ambient-bg {
+  background:
+    radial-gradient(ellipse 70% 45% at 10% -5%, rgba(201, 149, 42, 0.1), transparent),
+    radial-gradient(ellipse 50% 35% at 95% 0%, rgba(111, 69, 40, 0.07), transparent),
+    var(--background);
+}
+
+.glass-panel {
+  background: var(--card);
+  backdrop-filter: blur(18px) saturate(1.25);
+  -webkit-backdrop-filter: blur(18px) saturate(1.25);
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  box-shadow: var(--shadow-soft);
+}
+
+.interactive-lift {
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.interactive-lift:active {
+  transform: scale(0.98);
+}
+
+.highlight-overlay {
+  background: rgba(217, 164, 65, 0.45);
+  mix-blend-mode: multiply;
+  pointer-events: none;
+}
+
+.pdf-text-layer {
+  line-height: 1;
+  text-size-adjust: none;
+  forced-color-adjust: none;
+  transform-origin: 0 0;
+  z-index: 2;
+}
+
+.pdf-text-layer span,
+.pdf-text-layer br {
+  color: transparent;
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0 0;
+}

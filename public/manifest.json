@@ -1,0 +1,18 @@
+{
+  "name": "ReadShelf",
+  "short_name": "ReadShelf",
+  "description": "Your personal digital reading shelf with highlights and notes.",
+  "start_url": "/shelf",
+  "display": "standalone",
+  "background_color": "#F7F1E8",
+  "theme_color": "#7B4B2A",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

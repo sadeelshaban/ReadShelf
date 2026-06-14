@@ -1,0 +1,29 @@
+import { createClient } from "@/lib/supabase/server";
+
+export async function downloadSupabasePdf(path: string) {
+  const supabase = await createClient();
+  const { data, error } = await supabase.storage.from("book-pdfs").download(path);
+  if (error || !data) {
+    throw new Error(error?.message ?? "Could not load PDF.");
+  }
+  return Buffer.from(await data.arrayBuffer());
+}
+
+export async function deleteSupabaseObjects(paths: {
+  pdfPath: string;
+  coverPath?: string | null;
+}) {
+  const supabase = await createClient();
+  await supabase.storage.from("book-pdfs").remove([paths.pdfPath]);
+  if (paths.coverPath) {
+    await supabase.storage.from("book-covers").remove([paths.coverPath]);
+  }
+}
+
+export async function createSupabaseCoverReadUrl(path: string, expiresIn = 3600) {
+  const supabase = await createClient();
+  const { data } = await supabase.storage
+    .from("book-covers")
+    .createSignedUrl(path, expiresIn);
+  return data?.signedUrl ?? null;
+}
