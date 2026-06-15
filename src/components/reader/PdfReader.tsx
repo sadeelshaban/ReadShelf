@@ -76,6 +76,26 @@ const PEN_STROKE_WIDTH = 3;
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 4;
 const PAGE_SCROLL_LOCK_MS = 1200;
+const PAGE_RENDER_BUFFER = 2;
+
+function mergeRenderedPages(
+  prev: Set<number>,
+  center: number,
+  maxPage: number,
+  buffer = PAGE_RENDER_BUFFER,
+) {
+  const next = new Set(prev);
+  let changed = false;
+  const start = Math.max(1, center - buffer);
+  const end = Math.min(maxPage, center + buffer);
+  for (let pageNumber = start; pageNumber <= end; pageNumber += 1) {
+    if (!next.has(pageNumber)) {
+      next.add(pageNumber);
+      changed = true;
+    }
+  }
+  return changed ? next : prev;
+}
 
 function scrollViewerToPage(
   viewer: HTMLDivElement,
@@ -490,6 +510,8 @@ export function PdfReader({
   const scrollLockUntilRef = useRef(0);
   const viewerRef = useRef<HTMLDivElement>(null);
   const fitScaleTimerRef = useRef<number | null>(null);
+  const pageUpdateTimerRef = useRef<number | null>(null);
+  const lastRenderedZoomRef = useRef<Map<number, number>>(new Map());
   const panRef = useRef<{
     pointerId: number;
     startX: number;
@@ -543,13 +565,7 @@ export function PdfReader({
     const clamped = Math.min(maxPageRef.current, Math.max(1, target));
     scrollLockUntilRef.current = Date.now() + PAGE_SCROLL_LOCK_MS;
 
-    setRenderedPages((prev) => {
-      const next = new Set(prev);
-      next.add(clamped);
-      if (clamped > 1) next.add(clamped - 1);
-      if (clamped < maxPageRef.current) next.add(clamped + 1);
-      return next;
-    });
+    setRenderedPages((prev) => mergeRenderedPages(prev, clamped, maxPageRef.current));
     setPage(clamped);
 
     const attemptScroll = (retriesLeft: number) => {
@@ -648,11 +664,13 @@ export function PdfReader({
 
     const observer = new ResizeObserver((entries) => {
       const width = entries[0]?.contentRect.width ?? 0;
-      setCanvasDisplayWidth(width);
+      setCanvasDisplayWidth((prev) =>
+        Math.abs(prev - width) < 0.5 ? prev : width,
+      );
     });
     observer.observe(canvas);
     return () => observer.disconnect();
-  }, [loading, page, fitScale, zoomMultiplier, renderedPages]);
+  }, [loading, page, fitScale, zoomMultiplier]);
 
   const computeFitScale = useCallback(async (pageNumber: number) => {
     const pdf = pdfRef.current;
@@ -673,24 +691,22 @@ export function PdfReader({
     if (!viewer || loading || !pdfRef.current) return;
 
     let cancelled = false;
-    setFitScaleReady(false);
-    void computeFitScale(page).then((next) => {
-      if (!cancelled) {
-        setFitScale(next);
-        setFitScaleReady(true);
-      }
-    });
+
+    function applyFitScale(next: number) {
+      if (cancelled) return;
+      setFitScale((prev) => (Math.abs(prev - next) < 0.001 ? prev : next));
+      setFitScaleReady(true);
+    }
+
+    void computeFitScale(1).then(applyFitScale);
 
     const observer = new ResizeObserver(() => {
       if (fitScaleTimerRef.current) {
         window.clearTimeout(fitScaleTimerRef.current);
       }
       fitScaleTimerRef.current = window.setTimeout(() => {
-        void computeFitScale(page).then((next) => {
-          setFitScale(next);
-          setFitScaleReady(true);
-        });
-      }, 120);
+        void computeFitScale(1).then(applyFitScale);
+      }, 200);
     });
     observer.observe(viewer);
 
@@ -701,7 +717,7 @@ export function PdfReader({
         window.clearTimeout(fitScaleTimerRef.current);
       }
     };
-  }, [page, loading, computeFitScale]);
+  }, [loading, computeFitScale]);
 
   useEffect(() => {
     if (!editingNoteId || isTouch) return;
@@ -738,37 +754,41 @@ export function PdfReader({
     const drawLayer = drawLayerRefs.current.get(pageNumber);
     if (!pdf || !canvas || !drawLayer) return;
 
+    const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
+    const renderScale = zoom * dpr;
+    const pdfPage = await pdf.getPage(pageNumber);
+    const viewport = pdfPage.getViewport({ scale: renderScale });
+    const pixelWidth = viewport.width;
+    const pixelHeight = viewport.height;
+    const cssWidth = pixelWidth / dpr;
+    const cssHeight = pixelHeight / dpr;
+
+    const alreadyRendered =
+      lastRenderedZoomRef.current.get(pageNumber) === zoom &&
+      canvas.width === pixelWidth &&
+      canvas.height === pixelHeight;
+    if (alreadyRendered) return;
+
     const generation = (renderGenRef.current.get(pageNumber) ?? 0) + 1;
     renderGenRef.current.set(pageNumber, generation);
 
     renderTasksRef.current.get(pageNumber)?.cancel();
 
-    const pdfPage = await pdf.getPage(pageNumber);
     if (generation !== renderGenRef.current.get(pageNumber)) return;
 
-    const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
-    const renderScale = zoom * dpr;
-    const viewport = pdfPage.getViewport({ scale: renderScale });
-    const context = canvas.getContext("2d");
-    if (!context) return;
+    const needsResize =
+      canvas.width !== pixelWidth || canvas.height !== pixelHeight;
+    const scratch = document.createElement("canvas");
+    scratch.width = pixelWidth;
+    scratch.height = pixelHeight;
+    const scratchContext = scratch.getContext("2d");
+    if (!scratchContext) return;
 
-    canvas.width = viewport.width;
-    canvas.height = viewport.height;
-    canvas.style.width = `${viewport.width / dpr}px`;
-    canvas.style.height = `${viewport.height / dpr}px`;
-    drawLayer.width = viewport.width;
-    drawLayer.height = viewport.height;
-    drawLayer.style.width = `${viewport.width / dpr}px`;
-    drawLayer.style.height = `${viewport.height / dpr}px`;
-
-    const displayWidth = viewport.width / dpr;
-    const displayHeight = viewport.height / dpr;
-    setPageSlotSize({ width: displayWidth, height: displayHeight });
-    if (pageNumber === page) {
-      setPageViewport({ width: viewport.width, height: viewport.height });
-    }
-
-    const renderTask = pdfPage.render({ canvasContext: context, viewport, canvas });
+    const renderTask = pdfPage.render({
+      canvasContext: scratchContext,
+      viewport,
+      canvas: scratch,
+    });
     renderTasksRef.current.set(pageNumber, renderTask);
 
     try {
@@ -784,8 +804,52 @@ export function PdfReader({
     }
 
     if (generation !== renderGenRef.current.get(pageNumber)) return;
+
+    const context = canvas.getContext("2d");
+    if (!context) return;
+
+    if (needsResize) {
+      canvas.width = pixelWidth;
+      canvas.height = pixelHeight;
+      canvas.style.width = `${cssWidth}px`;
+      canvas.style.height = `${cssHeight}px`;
+
+      if (
+        drawLayer.width !== pixelWidth ||
+        drawLayer.height !== pixelHeight
+      ) {
+        drawLayer.width = pixelWidth;
+        drawLayer.height = pixelHeight;
+        drawLayer.style.width = `${cssWidth}px`;
+        drawLayer.style.height = `${cssHeight}px`;
+      }
+    }
+
+    context.drawImage(scratch, 0, 0);
+
+    lastRenderedZoomRef.current.set(pageNumber, zoom);
+
+    setPageSlotSize((prev) => {
+      if (
+        prev &&
+        Math.abs(prev.width - cssWidth) < 0.5 &&
+        Math.abs(prev.height - cssHeight) < 0.5
+      ) {
+        return prev;
+      }
+      return { width: cssWidth, height: cssHeight };
+    });
+    if (pageNumber === pageRef.current) {
+      setPageViewport((prev) => {
+        if (prev.width === pixelWidth && prev.height === pixelHeight) {
+          return prev;
+        }
+        return { width: pixelWidth, height: pixelHeight };
+      });
+    }
+
     redrawHighlightLayer(drawLayer, highlightsRef.current, pageNumber);
-  }, [page]);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -809,17 +873,7 @@ export function PdfReader({
         }
         pdfRef.current = pdf;
         setPdfNumPages(pdf.numPages);
-        setFitScaleReady(false);
-        void computeFitScale(initialPage).then((next) => {
-          if (!active) return;
-          setFitScale(next);
-          setFitScaleReady(true);
-        });
-        const startPages = new Set<number>([initialPage]);
-        if (initialPage > 1) startPages.add(initialPage - 1);
-        if (totalPages && initialPage < totalPages) startPages.add(initialPage + 1);
-        else if (pdf.numPages > initialPage) startPages.add(initialPage + 1);
-        setRenderedPages(startPages);
+        setRenderedPages(mergeRenderedPages(new Set(), initialPage, pdf.numPages));
         setLoading(false);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load PDF");
@@ -833,10 +887,11 @@ export function PdfReader({
       renderTasksRef.current.forEach((task) => task.cancel());
       renderTasksRef.current.clear();
       renderGenRef.current.clear();
+      lastRenderedZoomRef.current.clear();
       pdfRef.current?.cleanup();
       pdfRef.current = null;
     };
-  }, [bookId, initialHighlights, initialNotes, initialPage, totalPages, computeFitScale]);
+  }, [bookId, initialHighlights, initialNotes, initialPage, totalPages]);
 
   useEffect(() => {
     if (!pdfRef.current || loading || !fitScaleReady) return;
@@ -849,6 +904,10 @@ export function PdfReader({
         });
     }
   }, [renderedPages, fitScale, fitScaleReady, zoomMultiplier, renderPage, loading]);
+
+  useEffect(() => {
+    lastRenderedZoomRef.current.clear();
+  }, [fitScale, zoomMultiplier]);
 
   useEffect(() => {
     for (const pageNumber of renderedPages) {
@@ -886,13 +945,9 @@ export function PdfReader({
           if (!Number.isFinite(pageNumber)) continue;
 
           if (entry.isIntersecting) {
-            setRenderedPages((prev) => {
-              const next = new Set(prev);
-              next.add(pageNumber);
-              if (pageNumber > 1) next.add(pageNumber - 1);
-              if (pageNumber < maxPageRef.current) next.add(pageNumber + 1);
-              return next;
-            });
+            setRenderedPages((prev) =>
+              mergeRenderedPages(prev, pageNumber, maxPageRef.current),
+            );
             if (entry.intersectionRatio > bestRatio) {
               bestRatio = entry.intersectionRatio;
               visiblePage = pageNumber;
@@ -900,16 +955,26 @@ export function PdfReader({
           }
         }
 
-        if (bestRatio >= 0.35) {
-          setPage((current) => (current === visiblePage ? current : visiblePage));
+        if (bestRatio >= 0.35 && visiblePage !== pageRef.current) {
+          if (pageUpdateTimerRef.current) {
+            window.clearTimeout(pageUpdateTimerRef.current);
+          }
+          pageUpdateTimerRef.current = window.setTimeout(() => {
+            setPage(visiblePage);
+          }, 100);
         }
       },
-      { root: viewer, threshold: [0, 0.25, 0.5, 0.75, 1] },
+      { root: viewer, threshold: [0, 0.5, 0.85] },
     );
 
     viewer.querySelectorAll("[data-page]").forEach((node) => observer.observe(node));
-    return () => observer.disconnect();
-  }, [loading, maxPage, fitScale, zoomMultiplier, pageSlotSize]);
+    return () => {
+      observer.disconnect();
+      if (pageUpdateTimerRef.current) {
+        window.clearTimeout(pageUpdateTimerRef.current);
+      }
+    };
+  }, [loading, maxPage]);
 
   useEffect(() => {
     const timer = setTimeout(() => saveProgress(page), 500);
