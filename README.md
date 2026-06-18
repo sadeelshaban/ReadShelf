@@ -25,20 +25,24 @@ ReadShelf gives you a single private shelf where every book, bookmark, highlight
 ### Library & shelf
 - Email/password authentication (Supabase Auth)
 - Upload PDF books (up to 50 MB) with cover generated from page 1
-- Personal shelf with search and sort (recent, title, progress)
-- Per-book stats: progress, highlight count, note count
+- Personal shelf with search and sort (**recent**, **date added**, **progress**)
+- Per-book stats: reading progress and last page
+- **Edit book details** (title and author) from the book page
 
 ### Reader
-- In-browser PDF reader with zoom and page navigation
+- Vertical scroll through all pages (stacked layout)
+- Draggable annotation toolbar (select, pan, comment, highlighter, pen, **eraser**)
+- Page navigation on the right: previous/next, **editable page number** (type a page and press Enter or click outside), zoom controls (default 50%)
 - Freehand highlights, pen strokes, and positioned page notes
-- Keyboard and trackpad navigation
+- Keyboard navigation (↑ / ↓ between pages)
 - Progress saved automatically as you read
+- Smooth scrolling without page flicker when moving between pages
 
 ### Annotations & export
 - Highlights and notes stored per user, per book, per page
-- Book details view grouped by page
+- Book details view with highlights and notes grouped by page (syncs local cache + database)
 - **Download annotated PDF** — highlights and notes embedded on the original pages
-- Arabic note text supported in export via embedded Noto Sans Arabic font
+- Arabic note text supported in export via embedded Noto Sans Arabic (TTF)
 
 ### Offline & sync
 - IndexedDB cache for PDFs and annotations
@@ -55,7 +59,7 @@ ReadShelf gives you a single private shelf where every book, bookmark, highlight
 | Styling | Tailwind CSS 4 |
 | Auth & database | Supabase (Auth, PostgreSQL, Row Level Security) |
 | File storage | Supabase Storage (default) or Cloudflare R2 (optional) |
-| PDF rendering | pdfjs-dist |
+| PDF rendering | pdfjs-dist 6 (worker + cmaps + wasm + standard fonts) |
 | PDF export | pdf-lib + @pdf-lib/fontkit |
 | Offline | IndexedDB + custom sync queue |
 | Deploy | Vercel-ready |
@@ -78,6 +82,8 @@ Storage
 
 Each user's data is isolated with Supabase RLS policies. PDF files never appear in public URLs without signed access.
 
+On `npm install`, a **postinstall** script copies pdf.js runtime assets (`pdf.worker`, `cmaps`, `wasm`, `iccs`, `standard_fonts`) into `public/` so scanned and Arabic PDFs render correctly in the browser.
+
 ---
 
 ## Getting started
@@ -95,6 +101,8 @@ git clone https://github.com/sadeelshaban/ReadShelf.git
 cd ReadShelf
 npm install
 ```
+
+`npm install` runs `postinstall` and copies pdf.js assets into `public/`. If pages render blank after deploy, run `node scripts/copy-pdf-worker.mjs` locally or redeploy after a fresh install.
 
 ### 2. Environment variables
 
@@ -133,7 +141,7 @@ Open [http://localhost:3000](http://localhost:3000).
 1. Push this repository to GitHub.
 2. Import the project in [Vercel](https://vercel.com).
 3. Add environment variables (`NEXT_PUBLIC_SUPABASE_*`, and optional `R2_*`).
-4. Deploy.
+4. Deploy — Vercel runs `npm install`, which triggers the pdf.js **postinstall** copy step.
 
 After deploy:
 
@@ -153,13 +161,16 @@ src/
     storage/              # Supabase Storage + R2 abstraction
     pdf/                  # PDF loading, cover extraction, annotated export
     offline/              # IndexedDB, cache, sync queue
-    reader/               # Coordinates, constants
+    reader/               # Coordinates, constants, hit-testing
+    annotations/          # Merge local + server annotations
     books/                # Database queries
   types/                  # Shared TypeScript types
+assets/
+  fonts/                  # Noto Sans Arabic (PDF export)
 supabase/
   migrations/             # SQL schema + RLS policies
-scripts/                  # Supabase and R2 setup helpers
-public/                   # Icons, favicon, pdf.js worker
+scripts/                  # Supabase/R2 setup, pdf.js asset copy
+public/                   # Icons, favicon, pdf.js worker + cmaps + wasm (generated)
 ```
 
 ---
@@ -176,12 +187,14 @@ public/                   # Icons, favicon, pdf.js worker
 | `npm run setup:r2` | Guided R2 setup |
 | `npm run reset:data` | Wipe app data on linked Supabase project |
 
+`postinstall` (automatic): `node scripts/copy-pdf-worker.mjs` — copies pdf.js worker, fonts, cmaps, wasm, and iccs into `public/`.
+
 ---
 
 ## Known limitations
 
 - **PDF size limit:** 50 MB per upload (MVP)
-- **Scanned PDFs:** Image-only PDFs may not support text selection; highlights still work via freehand drawing
+- **Very large libraries:** Hundreds of pages load on demand; first visit to a distant page may take a moment to render
 - **Storage:** Without R2, Supabase free tier storage is ~1 GB
 
 ---
