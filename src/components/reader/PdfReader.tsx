@@ -31,15 +31,24 @@ import {
   MIN_NOTE_FONT_SIZE,
   NOTE_TEXT_COLORS,
   hexToRgba,
+  loadEraserStrokeWidth,
+  loadHighlightStrokeWidth,
   loadLastHighlightColor,
+  loadPenStrokeWidth,
   loadRecentHighlightColors,
   noteTextCss,
+  saveEraserStrokeWidth,
+  saveHighlightStrokeWidth,
+  savePenStrokeWidth,
   saveRecentHighlightColor,
 } from "@/lib/reader/constants";
+import { findNoteAtPoint } from "@/lib/reader/hit-test";
 import {
-  findHighlightAtPoint,
-  findNoteAtPoint,
-} from "@/lib/reader/hit-test";
+  applyEraserChanges,
+  computeEraserChanges,
+  effectiveStrokeWidth,
+  eraserBrushRadius,
+} from "@/lib/reader/stroke-erase";
 import { getPdfDocument } from "@/lib/pdf";
 import {
   clearNoteText,
@@ -49,9 +58,12 @@ import {
   insertNote,
   loadPdfBuffer,
   moveNote as moveNoteApi,
-  saveHighlightStroke,
+  persistHighlight,
   saveReadingProgress,
   seedBookAnnotations,
+  updateHighlight,
+  upsertHighlight,
+  upsertNote,
   updateNoteColor as updateNoteColorApi,
   updateNoteFontSize as updateNoteFontSizeApi,
   updateNoteText,
@@ -71,12 +83,40 @@ type PdfReaderProps = {
   initialNotes: Note[];
 };
 
-const STROKE_WIDTH = 28;
-const PEN_STROKE_WIDTH = 3;
+
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 4;
+const ZOOM_STEP = 0.25;
 const PAGE_SCROLL_LOCK_MS = 1200;
 const PAGE_RENDER_BUFFER = 2;
+
+type HighlightChange = {
+  before: Highlight;
+  after: Highlight | null;
+};
+
+type HistoryAction =
+  | { type: "add_highlight"; highlight: Highlight }
+  | { type: "delete_highlight"; highlight: Highlight }
+  | { type: "batch_highlight"; changes: HighlightChange[] }
+  | { type: "add_note"; note: Note }
+  | { type: "delete_note"; note: Note };
+
+function mergeHighlightChanges(
+  highlights: Highlight[],
+  changes: HighlightChange[],
+): Highlight[] {
+  let next = [...highlights];
+  for (const change of changes) {
+    if (change.after === null) {
+      next = next.filter((entry) => entry.id !== change.before.id);
+    } else {
+      const index = next.findIndex((entry) => entry.id === change.before.id);
+      if (index >= 0) next[index] = change.after;
+    }
+  }
+  return next;
+}
 
 function mergeRenderedPages(
   prev: Set<number>,
@@ -154,6 +194,12 @@ function redrawHighlightLayer(
   canvas: HTMLCanvasElement,
   highlights: Highlight[],
   page: number,
+  draft?: {
+    stroke: HighlightStroke;
+    color: string;
+    type: "freeform" | "pen";
+  },
+  eraserPreview?: { x: number; y: number; diameter: number },
 ) {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
@@ -171,6 +217,28 @@ function redrawHighlightLayer(
         else drawStroke(ctx, scaled, color);
       });
     });
+
+  if (draft && draft.stroke.points.length >= 2) {
+    if (draft.type === "pen") drawPenStroke(ctx, draft.stroke, draft.color);
+    else drawStroke(ctx, draft.stroke, draft.color);
+  }
+
+  if (eraserPreview) {
+    ctx.save();
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.85)";
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.arc(
+      eraserPreview.x,
+      eraserPreview.y,
+      eraserBrushRadius(eraserPreview.diameter),
+      0,
+      Math.PI * 2,
+    );
+    ctx.stroke();
+    ctx.restore();
+  }
 }
 
 function bindMapRef<T>(map: { current: Map<number, T> }, key: number) {
@@ -497,6 +565,20 @@ export function PdfReader({
   const pdfRef = useRef<Awaited<ReturnType<typeof getPdfDocument>> | null>(null);
   const currentStrokeRef = useRef<HighlightStroke | null>(null);
   const isDrawingRef = useRef(false);
+  const isErasingRef = useRef(false);
+  const currentEraserPathRef = useRef<Array<{ x: number; y: number }>>([]);
+  const currentDrawPageRef = useRef<number | null>(null);
+  const eraserSessionRef = useRef<{
+    pageNumber: number;
+    baseline: Highlight[];
+  } | null>(null);
+  const eraserCursorRef = useRef<{ x: number; y: number } | null>(null);
+  const annotationSyncTimerRef = useRef<number | null>(null);
+  const undoStackRef = useRef<HistoryAction[]>([]);
+  const redoStackRef = useRef<HistoryAction[]>([]);
+  const applyingHistoryRef = useRef(false);
+  const eraserStrokeWidthRef = useRef(loadEraserStrokeWidth());
+  const skipHighlightRedrawRef = useRef<Set<number>>(new Set());
   const highlightsRef = useRef(initialHighlights);
   const editingDraftRef = useRef("");
   const noteHadContentRef = useRef(false);
@@ -506,11 +588,18 @@ export function PdfReader({
   const maxPageRef = useRef(initialPage);
   const goToPrevPageRef = useRef<() => void>(() => {});
   const goToNextPageRef = useRef<() => void>(() => {});
+  const keyboardHandlerRef = useRef<(event: KeyboardEvent) => void>(() => {});
   const pageRef = useRef(initialPage);
   const scrollLockUntilRef = useRef(0);
   const viewerRef = useRef<HTMLDivElement>(null);
   const fitScaleTimerRef = useRef<number | null>(null);
   const pageUpdateTimerRef = useRef<number | null>(null);
+  const pendingZoomRestoreRef = useRef<{
+    scrollTop: number;
+    scrollLeft: number;
+    pageNumber: number;
+  } | null>(null);
+  const zoomMultiplierRef = useRef(0.5);
   const lastRenderedZoomRef = useRef<Map<number, number>>(new Map());
   const panRef = useRef<{
     pointerId: number;
@@ -543,6 +632,9 @@ export function PdfReader({
   const [noteFontSize, setNoteFontSize] = useState(DEFAULT_NOTE_FONT_SIZE);
   const [highlightColor, setHighlightColor] = useState(loadLastHighlightColor);
   const [recentColors, setRecentColors] = useState(loadRecentHighlightColors);
+  const [highlightStrokeWidth, setHighlightStrokeWidth] = useState(loadHighlightStrokeWidth);
+  const [penStrokeWidth, setPenStrokeWidth] = useState(loadPenStrokeWidth);
+  const [eraserStrokeWidth, setEraserStrokeWidth] = useState(loadEraserStrokeWidth);
   const [isTouch] = useState(isTouchDevice);
   const [offline, setOffline] = useState(() => !isOnline());
   const [saving, setSaving] = useState(false);
@@ -557,6 +649,8 @@ export function PdfReader({
   toolRef.current = tool;
   editingNoteIdRef.current = editingNoteId;
   pageRef.current = page;
+  eraserStrokeWidthRef.current = eraserStrokeWidth;
+  zoomMultiplierRef.current = zoomMultiplier;
 
   const maxPage = pdfNumPages ?? totalPages ?? page;
   maxPageRef.current = maxPage;
@@ -594,36 +688,81 @@ export function PdfReader({
   goToPrevPageRef.current = goToPrevPage;
   goToNextPageRef.current = goToNextPage;
 
+  const restorePendingZoomScroll = useCallback(() => {
+    const pending = pendingZoomRestoreRef.current;
+    const viewer = viewerRef.current;
+    if (!pending || !viewer) return;
+
+    viewer.scrollTop = pending.scrollTop;
+    viewer.scrollLeft = pending.scrollLeft;
+    scrollLockUntilRef.current = Date.now() + PAGE_SCROLL_LOCK_MS;
+    pendingZoomRestoreRef.current = null;
+  }, []);
+
+  const changeZoom = useCallback(
+    (
+      deltaOrTarget: number | ((current: number) => number),
+      anchor?: { clientX: number; clientY: number },
+    ) => {
+      const viewer = viewerRef.current;
+      if (!viewer) return;
+
+      const current = zoomMultiplierRef.current;
+      const raw =
+        typeof deltaOrTarget === "function" ? deltaOrTarget(current) : deltaOrTarget;
+      const clamped = Math.min(
+        MAX_ZOOM,
+        Math.max(MIN_ZOOM, Number(raw.toFixed(2))),
+      );
+      if (Math.abs(clamped - current) < 0.001) return;
+
+      const ratio = clamped / current;
+      scrollLockUntilRef.current = Date.now() + PAGE_SCROLL_LOCK_MS;
+
+      if (anchor) {
+        const rect = viewer.getBoundingClientRect();
+        const contentX = anchor.clientX - rect.left + viewer.scrollLeft;
+        const contentY = anchor.clientY - rect.top + viewer.scrollTop;
+        pendingZoomRestoreRef.current = {
+          scrollLeft: contentX * ratio - (anchor.clientX - rect.left),
+          scrollTop: contentY * ratio - (anchor.clientY - rect.top),
+          pageNumber: pageRef.current,
+        };
+      } else {
+        pendingZoomRestoreRef.current = {
+          scrollTop: viewer.scrollTop * ratio,
+          scrollLeft: viewer.scrollLeft * ratio,
+          pageNumber: pageRef.current,
+        };
+      }
+
+      setZoomMultiplier(clamped);
+    },
+    [],
+  );
+
+  const zoomIn = useCallback(() => {
+    changeZoom((current) => current + ZOOM_STEP);
+  }, [changeZoom]);
+
+  const zoomOut = useCallback(() => {
+    changeZoom((current) => current - ZOOM_STEP);
+  }, [changeZoom]);
+
   function canNavigatePages() {
-    if (editingNoteIdRef.current || isDrawingRef.current) return false;
+    if (editingNoteIdRef.current || isDrawingRef.current || isErasingRef.current) return false;
     const activeTool = toolRef.current;
-    if (activeTool === "note" || activeTool === "highlight" || activeTool === "pen" || activeTool === "pan") {
+    if (
+      activeTool === "note" ||
+      activeTool === "highlight" ||
+      activeTool === "pen" ||
+      activeTool === "pan" ||
+      activeTool === "eraser"
+    ) {
       return false;
     }
     return true;
   }
-
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
-      const target = e.target as HTMLElement | null;
-      if (
-        target &&
-        (target.tagName === "INPUT" ||
-          target.tagName === "TEXTAREA" ||
-          target.isContentEditable)
-      ) {
-        return;
-      }
-      if (!canNavigatePages()) return;
-      e.preventDefault();
-      if (e.key === "ArrowUp") goToPrevPageRef.current();
-      else goToNextPageRef.current();
-    }
-
-    window.addEventListener("keydown", onKeyDown, true);
-    return () => window.removeEventListener("keydown", onKeyDown, true);
-  }, []);
 
   useEffect(() => {
     const viewer = viewerRef.current;
@@ -632,14 +771,24 @@ export function PdfReader({
     function onWheel(e: WheelEvent) {
       if (!e.ctrlKey && !e.metaKey) return;
       e.preventDefault();
-      const delta = e.deltaY > 0 ? -0.08 : 0.08;
-      setZoomMultiplier((current) =>
-        Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Number((current + delta).toFixed(2)))),
-      );
+      const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
+      changeZoom((current) => current + delta, {
+        clientX: e.clientX,
+        clientY: e.clientY,
+      });
     }
 
     viewer.addEventListener("wheel", onWheel, { passive: false });
     return () => viewer.removeEventListener("wheel", onWheel);
+  }, [changeZoom]);
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      keyboardHandlerRef.current(event);
+    }
+
+    document.addEventListener("keydown", onKeyDown, true);
+    return () => document.removeEventListener("keydown", onKeyDown, true);
   }, []);
 
   useEffect(() => {
@@ -849,7 +998,16 @@ export function PdfReader({
     }
 
     redrawHighlightLayer(drawLayer, highlightsRef.current, pageNumber);
-  }, []);
+
+    if (
+      pendingZoomRestoreRef.current &&
+      pageNumber === pendingZoomRestoreRef.current.pageNumber
+    ) {
+      requestAnimationFrame(() => {
+        restorePendingZoomScroll();
+      });
+    }
+  }, [restorePendingZoomScroll]);
 
   useEffect(() => {
     let active = true;
@@ -884,6 +1042,9 @@ export function PdfReader({
     init();
     return () => {
       active = false;
+      if (annotationSyncTimerRef.current) {
+        window.clearTimeout(annotationSyncTimerRef.current);
+      }
       renderTasksRef.current.forEach((task) => task.cancel());
       renderTasksRef.current.clear();
       renderGenRef.current.clear();
@@ -906,15 +1067,140 @@ export function PdfReader({
   }, [renderedPages, fitScale, fitScaleReady, zoomMultiplier, renderPage, loading]);
 
   useEffect(() => {
+    if (loading || !fitScaleReady || !pendingZoomRestoreRef.current) return;
+
+    const timer = window.setTimeout(() => {
+      restorePendingZoomScroll();
+    }, 120);
+
+    return () => window.clearTimeout(timer);
+  }, [zoomMultiplier, fitScale, pageSlotSize, fitScaleReady, loading, restorePendingZoomScroll]);
+
+  useEffect(() => {
     lastRenderedZoomRef.current.clear();
   }, [fitScale, zoomMultiplier]);
 
   useEffect(() => {
     for (const pageNumber of renderedPages) {
+      if (skipHighlightRedrawRef.current.has(pageNumber)) continue;
       const drawLayer = drawLayerRefs.current.get(pageNumber);
       if (drawLayer) redrawHighlightLayer(drawLayer, highlights, pageNumber);
     }
+    skipHighlightRedrawRef.current.clear();
   }, [highlights, renderedPages]);
+
+  function redrawPageHighlights(
+    pageNumber: number,
+    list: Highlight[],
+    eraserPreview?: { x: number; y: number; diameter: number },
+  ) {
+    const drawLayer = drawLayerRefs.current.get(pageNumber);
+    if (drawLayer) {
+      redrawHighlightLayer(drawLayer, list, pageNumber, undefined, eraserPreview);
+    }
+  }
+
+  function scheduleAnnotationSync() {
+    if (annotationSyncTimerRef.current) {
+      window.clearTimeout(annotationSyncTimerRef.current);
+    }
+    annotationSyncTimerRef.current = window.setTimeout(() => {
+      void flushSyncQueue().catch(() => {
+        // Background sync; explicit Save still available.
+      });
+    }, 600);
+  }
+
+  function persistEraserChanges(changes: HighlightChange[]) {
+    scheduleAnnotationSync();
+    void Promise.all(
+      changes.map((change) =>
+        change.after === null
+          ? deleteHighlightApi(change.before.id)
+          : updateHighlight(change.after.id, change.after.position!),
+      ),
+    ).catch((err) => {
+      setMessage(err instanceof Error ? err.message : "Could not erase mark");
+    });
+  }
+
+  function previewEraser(pageNumber: number, point: { x: number; y: number }) {
+    eraserCursorRef.current = point;
+    redrawPageHighlights(pageNumber, highlightsRef.current, {
+      x: point.x,
+      y: point.y,
+      diameter: eraserStrokeWidthRef.current,
+    });
+  }
+
+  function liveApplyEraser(pageNumber: number, eraserPath: Array<{ x: number; y: number }>) {
+    const session = eraserSessionRef.current;
+    if (!session || session.pageNumber !== pageNumber) return;
+
+    const changes = computeEraserChanges(
+      session.baseline,
+      pageNumber,
+      eraserPath,
+      eraserStrokeWidthRef.current,
+    );
+    const next = applyEraserChanges(session.baseline, changes);
+    highlightsRef.current = next;
+
+    const cursor = eraserCursorRef.current;
+    redrawPageHighlights(
+      pageNumber,
+      next,
+      cursor
+        ? { x: cursor.x, y: cursor.y, diameter: eraserStrokeWidthRef.current }
+        : undefined,
+    );
+    skipHighlightRedrawRef.current.add(pageNumber);
+  }
+
+  function finishEraserStroke(pageNumber: number, eraserPath: Array<{ x: number; y: number }>) {
+    const session = eraserSessionRef.current;
+    eraserSessionRef.current = null;
+    eraserCursorRef.current = null;
+
+    if (!session || session.pageNumber !== pageNumber || eraserPath.length === 0) {
+      redrawPageHighlights(pageNumber, highlightsRef.current);
+      return;
+    }
+
+    const changes = computeEraserChanges(
+      session.baseline,
+      pageNumber,
+      eraserPath,
+      eraserStrokeWidthRef.current,
+    );
+    if (changes.length === 0) {
+      highlightsRef.current = session.baseline;
+      commitHighlights(session.baseline, [pageNumber]);
+      return;
+    }
+
+    const next = applyEraserChanges(session.baseline, changes);
+    pushHistory({ type: "batch_highlight", changes });
+    commitHighlights(next, [pageNumber]);
+    persistEraserChanges(changes);
+  }
+
+  function commitHighlights(next: Highlight[], affectedPages: number[]) {
+    highlightsRef.current = next;
+    for (const pageNumber of affectedPages) {
+      redrawPageHighlights(pageNumber, next);
+      skipHighlightRedrawRef.current.add(pageNumber);
+    }
+    setHighlights(next);
+  }
+
+  function addHighlightOptimistic(highlight: Highlight) {
+    const next = [...highlightsRef.current, highlight];
+    highlightsRef.current = next;
+    redrawPageHighlights(highlight.page_number, next);
+    skipHighlightRedrawRef.current.add(highlight.page_number);
+    setHighlights(next);
+  }
 
   useEffect(() => {
     if (loading) return;
@@ -1045,11 +1331,29 @@ export function PdfReader({
     commitHighlightColor(color);
   }
 
-  function selectTool(next: ReaderTool) {
+  function selectTool(next: ReaderTool, options?: { force?: boolean }) {
     if (editingNoteId) {
       void finishNoteRef.current(editingNoteId, editingDraftRef.current);
     }
-    setTool((current) => (current === next ? "read" : next));
+    setTool((current) => {
+      if (options?.force) return next;
+      return current === next ? "read" : next;
+    });
+  }
+
+  function setHighlightStrokeWidthAndSave(width: number) {
+    setHighlightStrokeWidth(width);
+    saveHighlightStrokeWidth(width);
+  }
+
+  function setPenStrokeWidthAndSave(width: number) {
+    setPenStrokeWidth(width);
+    savePenStrokeWidth(width);
+  }
+
+  function setEraserStrokeWidthAndSave(width: number) {
+    setEraserStrokeWidth(width);
+    saveEraserStrokeWidth(width);
   }
 
   function isDrawingTool(activeTool: ReaderTool) {
@@ -1120,52 +1424,230 @@ export function PdfReader({
     applyNoteFontSize(noteFontSize + delta);
   }
 
+  function pushHistory(action: HistoryAction) {
+    if (applyingHistoryRef.current) return;
+    undoStackRef.current.push(action);
+    redoStackRef.current = [];
+    if (undoStackRef.current.length > 100) {
+      undoStackRef.current.shift();
+    }
+  }
+
+  function isNoteTextTarget(target: EventTarget | null) {
+    return (
+      target instanceof HTMLTextAreaElement &&
+      Boolean(target.closest(".note-root"))
+    );
+  }
+
+  async function performUndo() {
+    const action = undoStackRef.current.pop();
+    if (!action) return;
+
+    applyingHistoryRef.current = true;
+    try {
+      if (action.type === "add_highlight") {
+        const next = highlightsRef.current.filter(
+          (entry) => entry.id !== action.highlight.id,
+        );
+        commitHighlights(next, [action.highlight.page_number]);
+        scheduleAnnotationSync();
+        void deleteHighlightApi(action.highlight.id).catch((err) => {
+          setMessage(err instanceof Error ? err.message : "Could not undo");
+        });
+      } else if (action.type === "delete_highlight") {
+        const next = [...highlightsRef.current, action.highlight];
+        commitHighlights(next, [action.highlight.page_number]);
+        scheduleAnnotationSync();
+        void upsertHighlight(action.highlight).catch((err) => {
+          setMessage(err instanceof Error ? err.message : "Could not undo");
+        });
+      } else if (action.type === "batch_highlight") {
+        let next = [...highlightsRef.current];
+        for (const change of action.changes) {
+          if (change.after === null) {
+            if (!next.some((entry) => entry.id === change.before.id)) {
+              next.push(change.before);
+            }
+          } else {
+            const index = next.findIndex((entry) => entry.id === change.before.id);
+            if (index >= 0) next[index] = change.before;
+          }
+        }
+        const pages = [...new Set(action.changes.map((change) => change.before.page_number))];
+        commitHighlights(next, pages);
+        scheduleAnnotationSync();
+        void Promise.all(
+          action.changes.map((change) =>
+            change.after === null
+              ? upsertHighlight(change.before)
+              : updateHighlight(change.before.id, change.before.position!),
+          ),
+        ).catch((err) => {
+          setMessage(err instanceof Error ? err.message : "Could not undo");
+        });
+      } else if (action.type === "add_note") {
+        setNotes((prev) => prev.filter((entry) => entry.id !== action.note.id));
+        scheduleAnnotationSync();
+        void deleteNoteApi(action.note.id).catch((err) => {
+          setMessage(err instanceof Error ? err.message : "Could not undo");
+        });
+      } else if (action.type === "delete_note") {
+        setNotes((prev) => [...prev, action.note]);
+        scheduleAnnotationSync();
+        void upsertNote(action.note).catch((err) => {
+          setMessage(err instanceof Error ? err.message : "Could not undo");
+        });
+      }
+
+      redoStackRef.current.push(action);
+    } catch (err) {
+      undoStackRef.current.push(action);
+      setMessage(err instanceof Error ? err.message : "Could not undo");
+    } finally {
+      applyingHistoryRef.current = false;
+    }
+  }
+
+  async function performRedo() {
+    const action = redoStackRef.current.pop();
+    if (!action) return;
+
+    applyingHistoryRef.current = true;
+    try {
+      if (action.type === "add_highlight") {
+        if (!highlightsRef.current.some((entry) => entry.id === action.highlight.id)) {
+          const next = [...highlightsRef.current, action.highlight];
+          commitHighlights(next, [action.highlight.page_number]);
+        }
+        scheduleAnnotationSync();
+        void upsertHighlight(action.highlight).catch((err) => {
+          setMessage(err instanceof Error ? err.message : "Could not redo");
+        });
+      } else if (action.type === "delete_highlight") {
+        const next = highlightsRef.current.filter(
+          (entry) => entry.id !== action.highlight.id,
+        );
+        commitHighlights(next, [action.highlight.page_number]);
+        scheduleAnnotationSync();
+        void deleteHighlightApi(action.highlight.id).catch((err) => {
+          setMessage(err instanceof Error ? err.message : "Could not redo");
+        });
+      } else if (action.type === "batch_highlight") {
+        const next = mergeHighlightChanges(highlightsRef.current, action.changes);
+        const pages = [...new Set(action.changes.map((change) => change.before.page_number))];
+        commitHighlights(next, pages);
+        scheduleAnnotationSync();
+        void Promise.all(
+          action.changes.map((change) =>
+            change.after === null
+              ? deleteHighlightApi(change.before.id)
+              : updateHighlight(change.after.id, change.after.position!),
+          ),
+        ).catch((err) => {
+          setMessage(err instanceof Error ? err.message : "Could not redo");
+        });
+      } else if (action.type === "add_note") {
+        setNotes((prev) => {
+          if (prev.some((entry) => entry.id === action.note.id)) return prev;
+          return [...prev, action.note];
+        });
+        scheduleAnnotationSync();
+        void upsertNote(action.note).catch((err) => {
+          setMessage(err instanceof Error ? err.message : "Could not redo");
+        });
+      } else if (action.type === "delete_note") {
+        setNotes((prev) => prev.filter((entry) => entry.id !== action.note.id));
+        scheduleAnnotationSync();
+        void deleteNoteApi(action.note.id).catch((err) => {
+          setMessage(err instanceof Error ? err.message : "Could not redo");
+        });
+      }
+
+      undoStackRef.current.push(action);
+    } catch (err) {
+      redoStackRef.current.push(action);
+      setMessage(err instanceof Error ? err.message : "Could not redo");
+    } finally {
+      applyingHistoryRef.current = false;
+    }
+  }
+
+  keyboardHandlerRef.current = (event: KeyboardEvent) => {
+    if (event.ctrlKey || event.metaKey) {
+      if (!isNoteTextTarget(event.target)) {
+        const isUndo = event.code === "KeyZ" && !event.shiftKey;
+        const isRedo = event.code === "KeyY" || (event.code === "KeyZ" && event.shiftKey);
+
+        if (isUndo) {
+          event.preventDefault();
+          event.stopPropagation();
+          void performUndo();
+          return;
+        }
+
+        if (isRedo) {
+          event.preventDefault();
+          event.stopPropagation();
+          void performRedo();
+          return;
+        }
+      }
+    }
+
+    if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+    if (isNoteTextTarget(event.target)) return;
+    if (!canNavigatePages()) return;
+
+    event.preventDefault();
+    if (event.key === "ArrowUp") goToPrevPageRef.current();
+    else goToNextPageRef.current();
+  };
+
   function getViewportSize(pageNumber: number) {
     const canvas = drawLayerRefs.current.get(pageNumber);
     if (!canvas) return null;
     return { viewportWidth: canvas.width, viewportHeight: canvas.height };
   }
 
-  async function eraseHighlight(id: string, pageNumber: number) {
-    try {
-      await deleteHighlightApi(id);
-      setHighlights((prev) => {
-        const next = prev.filter((entry) => entry.id !== id);
-        const drawLayer = drawLayerRefs.current.get(pageNumber);
-        if (drawLayer) {
-          redrawHighlightLayer(drawLayer, next, pageNumber);
-        }
-        return next;
-      });
-    } catch (err) {
-      setMessage(err instanceof Error ? err.message : "Could not erase mark");
-    }
+  function applyEraserStroke(
+    pageNumber: number,
+    eraserPoints: Array<{ x: number; y: number }>,
+  ) {
+    finishEraserStroke(pageNumber, eraserPoints);
   }
 
-  async function saveStroke(
+  function saveStroke(
     pageNumber: number,
     stroke: HighlightStroke,
     highlightType: "freeform" | "pen",
   ) {
     const viewport = getViewportSize(pageNumber);
-    try {
-      const data = await saveHighlightStroke({
-        bookId,
-        userId,
-        pageNumber,
-        color: highlightColor,
-        stroke,
-        viewport: viewport ?? {},
-        highlightType,
+    const highlight: Highlight = {
+      id: crypto.randomUUID(),
+      book_id: bookId,
+      user_id: userId,
+      page_number: pageNumber,
+      selected_text: "",
+      color: highlightColor,
+      highlight_type: highlightType,
+      position: {
+        strokes: [stroke],
+        viewportWidth: viewport?.viewportWidth,
+        viewportHeight: viewport?.viewportHeight,
+      },
+      created_at: new Date().toISOString(),
+    };
+
+    addHighlightOptimistic(highlight);
+    pushHistory({ type: "add_highlight", highlight });
+    pickHighlightColor(highlightColor);
+
+    void persistHighlight(highlight)
+      .then(() => scheduleAnnotationSync())
+      .catch((err) => {
+        setMessage(err instanceof Error ? err.message : "Could not save mark");
       });
-      pickHighlightColor(highlightColor);
-      setHighlights((prev) => {
-        if (prev.some((entry) => entry.id === data.id)) return prev;
-        return [...prev, data];
-      });
-    } catch (err) {
-      setMessage(err instanceof Error ? err.message : "Could not save mark");
-    }
   }
 
   function getCanvasPoint(e: ReactPointerEvent<HTMLCanvasElement>) {
@@ -1177,82 +1659,103 @@ export function PdfReader({
     pageNumber: number,
   ) {
     if (tool === "eraser") {
+      isErasingRef.current = true;
+      currentDrawPageRef.current = pageNumber;
       const point = getCanvasPoint(e);
-      const highlight = findHighlightAtPoint(
-        highlightsRef.current,
+      currentEraserPathRef.current = [point];
+      eraserSessionRef.current = {
         pageNumber,
-        point,
-        e.currentTarget,
-      );
-      if (highlight) {
-        void eraseHighlight(highlight.id, pageNumber);
-      }
+        baseline: highlightsRef.current.map((highlight) => ({
+          ...highlight,
+          position: highlight.position
+            ? {
+                ...highlight.position,
+                strokes: highlight.position.strokes?.map((stroke) => ({
+                  ...stroke,
+                  points: stroke.points.map((p) => ({ ...p })),
+                })),
+              }
+            : highlight.position,
+        })),
+      };
+      previewEraser(pageNumber, point);
+      e.currentTarget.setPointerCapture(e.pointerId);
       return;
     }
 
     if (!isDrawingTool(tool)) return;
     isDrawingRef.current = true;
+    currentDrawPageRef.current = pageNumber;
     const point = getCanvasPoint(e);
-    const width = tool === "pen" ? PEN_STROKE_WIDTH : STROKE_WIDTH;
+    const width = effectiveStrokeWidth(
+      tool === "pen" ? penStrokeWidth : highlightStrokeWidth,
+    );
     currentStrokeRef.current = { points: [point], width };
     e.currentTarget.setPointerCapture(e.pointerId);
   }
 
   function handleDrawPointerMove(e: ReactPointerEvent<HTMLCanvasElement>) {
-    if (!isDrawingRef.current || !isDrawingTool(tool)) return;
-    const stroke = currentStrokeRef.current;
-    const canvas = e.currentTarget;
-    const ctx = canvas.getContext("2d");
-    if (!stroke || !canvas || !ctx) return;
+    if (isErasingRef.current && tool === "eraser") {
+      const pageNumber = currentDrawPageRef.current;
+      if (pageNumber == null) return;
 
-    const point = getCanvasPoint(e);
-    const last = stroke.points[stroke.points.length - 1];
-    stroke.points.push(point);
-
-    if (tool === "pen") {
-      ctx.save();
-      ctx.strokeStyle = highlightColor;
-      ctx.lineWidth = stroke.width;
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-      ctx.beginPath();
-      ctx.moveTo(last.x, last.y);
-      ctx.lineTo(point.x, point.y);
-      ctx.stroke();
-      ctx.restore();
+      const point = getCanvasPoint(e);
+      const path = currentEraserPathRef.current;
+      const last = path[path.length - 1];
+      if (last && Math.hypot(point.x - last.x, point.y - last.y) < 1.5) {
+        previewEraser(pageNumber, point);
+        return;
+      }
+      path.push(point);
+      liveApplyEraser(pageNumber, path);
       return;
     }
 
-    ctx.save();
-    ctx.strokeStyle = hexToRgba(highlightColor, HIGHLIGHT_DRAW_ALPHA);
-    ctx.lineWidth = stroke.width;
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    ctx.globalCompositeOperation = "multiply";
-    ctx.beginPath();
-    ctx.moveTo(last.x, last.y);
-    ctx.lineTo(point.x, point.y);
-    ctx.stroke();
-    ctx.restore();
+    if (!isDrawingRef.current || !isDrawingTool(tool)) return;
+    const stroke = currentStrokeRef.current;
+    const canvas = e.currentTarget;
+    const pageNumber = currentDrawPageRef.current;
+    if (!stroke || !canvas || pageNumber == null) return;
+
+    const point = getCanvasPoint(e);
+    const last = stroke.points[stroke.points.length - 1];
+    if (Math.hypot(point.x - last.x, point.y - last.y) < 1.5) return;
+    stroke.points.push(point);
+
+    redrawHighlightLayer(canvas, highlightsRef.current, pageNumber, {
+      stroke,
+      color: highlightColor,
+      type: tool === "pen" ? "pen" : "freeform",
+    });
   }
 
-  async function handleDrawPointerUp(
+  function handleDrawPointerUp(
     e: ReactPointerEvent<HTMLCanvasElement>,
     pageNumber: number,
   ) {
-    if (!isDrawingRef.current || !isDrawingTool(tool)) return;
-    isDrawingRef.current = false;
-    const stroke = currentStrokeRef.current;
-    const highlightType = tool === "pen" ? "pen" : "freeform";
-    currentStrokeRef.current = null;
-
     const canvas = e.currentTarget;
     if (canvas.hasPointerCapture(e.pointerId)) {
       canvas.releasePointerCapture(e.pointerId);
     }
 
+    if (isErasingRef.current && tool === "eraser") {
+      isErasingRef.current = false;
+      const path = [...currentEraserPathRef.current];
+      currentEraserPathRef.current = [];
+      currentDrawPageRef.current = null;
+      applyEraserStroke(pageNumber, path);
+      return;
+    }
+
+    if (!isDrawingRef.current || !isDrawingTool(tool)) return;
+    isDrawingRef.current = false;
+    currentDrawPageRef.current = null;
+    const stroke = currentStrokeRef.current;
+    const highlightType = tool === "pen" ? "pen" : "freeform";
+    currentStrokeRef.current = null;
+
     if (stroke && stroke.points.length > 1) {
-      await saveStroke(pageNumber, stroke, highlightType);
+      saveStroke(pageNumber, stroke, highlightType);
     }
   }
 
@@ -1294,6 +1797,7 @@ export function PdfReader({
         textColor: noteTextColor,
       });
       setNotes((prev) => [...prev, data]);
+      pushHistory({ type: "add_note", note: data });
       editingDraftRef.current = "";
       noteHadContentRef.current = false;
       setEditingNoteId(data.id);
@@ -1383,6 +1887,10 @@ export function PdfReader({
   }
 
   async function deleteNote(id: string) {
+    const note = notes.find((entry) => entry.id === id);
+    if (note) {
+      pushHistory({ type: "delete_note", note });
+    }
     await deleteNoteApi(id);
     setNotes((prev) => prev.filter((n) => n.id !== id));
     if (editingNoteId === id) setEditingNoteId(null);
@@ -1438,7 +1946,16 @@ export function PdfReader({
   }
 
   return (
-    <div className="acrobat-reader fixed inset-0 z-40 flex flex-col">
+    <div
+      className="acrobat-reader fixed inset-0 z-40 flex flex-col outline-none"
+      tabIndex={-1}
+      onPointerDown={(e) => {
+        if ((e.target as HTMLElement).closest("input, textarea, button, select, a")) {
+          return;
+        }
+        e.currentTarget.focus({ preventScroll: true });
+      }}
+    >
       <ReaderTopBar
         bookId={bookId}
         title={bookTitle}
@@ -1472,15 +1989,27 @@ export function PdfReader({
           editingNote={Boolean(editingNoteId)}
           onPickNoteColor={pickNoteColor}
           onAdjustNoteFontSize={adjustNoteFontSize}
+          highlightStrokeWidth={highlightStrokeWidth}
+          penStrokeWidth={penStrokeWidth}
+          eraserStrokeWidth={eraserStrokeWidth}
+          onHighlightStrokeWidthChange={setHighlightStrokeWidthAndSave}
+          onPenStrokeWidthChange={setPenStrokeWidthAndSave}
+          onEraserStrokeWidthChange={setEraserStrokeWidthAndSave}
         />
 
         <div
           ref={viewerRef}
+          tabIndex={-1}
           className={cn(
-            "acrobat-viewport h-full overflow-auto",
+            "acrobat-viewport h-full overflow-auto outline-none",
             tool === "pan" && "cursor-grab active:cursor-grabbing",
           )}
-          onPointerDown={handleViewerPointerDown}
+          onPointerDown={(e) => {
+            handleViewerPointerDown(e);
+            if (tool !== "pan" || editingNoteId) {
+              e.currentTarget.focus({ preventScroll: true });
+            }
+          }}
           onPointerMove={handleViewerPointerMove}
           onPointerUp={handleViewerPointerUp}
           onPointerCancel={handleViewerPointerUp}
@@ -1589,16 +2118,8 @@ export function PdfReader({
           onNextPage={goToNextPage}
           prevDisabled={page <= 1}
           nextDisabled={page >= maxPage}
-          onZoomIn={() =>
-            setZoomMultiplier((z) =>
-              Math.min(MAX_ZOOM, Number((z + 0.1).toFixed(2))),
-            )
-          }
-          onZoomOut={() =>
-            setZoomMultiplier((z) =>
-              Math.max(MIN_ZOOM, Number((z - 0.1).toFixed(2))),
-            )
-          }
+          onZoomIn={zoomIn}
+          onZoomOut={zoomOut}
         />
       </div>
     </div>

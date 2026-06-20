@@ -1,22 +1,26 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { ReaderTool } from "@/types";
 import {
   HIGHLIGHT_PRESETS,
+  MAX_STROKE_WIDTH,
   MAX_NOTE_FONT_SIZE,
   MIN_NOTE_FONT_SIZE,
+  MIN_STROKE_WIDTH,
   NOTE_TEXT_COLORS,
 } from "@/lib/reader/constants";
 import { cn } from "@/lib/utils";
 import { DraggableToolbar } from "@/components/reader/DraggableToolbar";
 import {
+  CheckIcon,
   ChevronDownIcon,
   ChevronUpIcon,
   CursorIcon,
   EraserIcon,
   HandIcon,
   HighlighterIcon,
+  LineThicknessIcon,
   NoteIcon,
   PenIcon,
   ZoomInIcon,
@@ -46,6 +50,157 @@ function ToolButton({ active, label, onClick, children }: ToolButtonProps) {
   );
 }
 
+type ToolGroupOption = {
+  tool: ReaderTool;
+  label: string;
+  icon: ReactNode;
+};
+
+type ToolGroupButtonProps = {
+  options: ToolGroupOption[];
+  activeTool: ReaderTool;
+  onSelectTool: (tool: ReaderTool) => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+};
+
+function ToolGroupButton({
+  options,
+  activeTool,
+  onSelectTool,
+  open,
+  onOpenChange,
+}: ToolGroupButtonProps) {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const activeOption =
+    options.find((option) => option.tool === activeTool) ?? options[0];
+  const isGroupActive = options.some((option) => option.tool === activeTool);
+
+  useEffect(() => {
+    if (!open) return;
+
+    function handlePointerDown(event: PointerEvent) {
+      if (!rootRef.current?.contains(event.target as Node)) {
+        onOpenChange(false);
+      }
+    }
+
+    window.addEventListener("pointerdown", handlePointerDown);
+    return () => window.removeEventListener("pointerdown", handlePointerDown);
+  }, [open, onOpenChange]);
+
+  return (
+    <div ref={rootRef} className="relative">
+      <button
+        type="button"
+        title={activeOption.label}
+        aria-label={activeOption.label}
+        aria-expanded={open}
+        aria-haspopup="menu"
+        aria-pressed={isGroupActive}
+        data-active={isGroupActive}
+        onClick={() => onOpenChange(!open)}
+        className="acrobat-tool-btn acrobat-tool-group-btn relative flex h-9 w-9 items-center justify-center rounded"
+      >
+        {activeOption.icon}
+      </button>
+
+      {open && (
+        <div className="acrobat-tool-flyout" role="menu">
+          {options.map((option) => {
+            const selected = option.tool === activeTool;
+            return (
+              <button
+                key={option.tool}
+                type="button"
+                role="menuitemradio"
+                aria-checked={selected}
+                data-active={selected}
+                className="acrobat-tool-flyout-item"
+                onClick={() => {
+                  onSelectTool(option.tool);
+                  onOpenChange(false);
+                }}
+              >
+                <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center">
+                  {option.icon}
+                </span>
+                <span className="flex-1 text-left">{option.label}</span>
+                {selected && <CheckIcon className="shrink-0 text-[#0a84ff]" />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+type ThicknessSliderFlyoutProps = {
+  value: number;
+  onChange: (width: number) => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+};
+
+function ThicknessSliderFlyout({
+  value,
+  onChange,
+  open,
+  onOpenChange,
+}: ThicknessSliderFlyoutProps) {
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+
+    function handlePointerDown(event: PointerEvent) {
+      if (!rootRef.current?.contains(event.target as Node)) {
+        onOpenChange(false);
+      }
+    }
+
+    window.addEventListener("pointerdown", handlePointerDown);
+    return () => window.removeEventListener("pointerdown", handlePointerDown);
+  }, [open, onOpenChange]);
+
+  return (
+    <div ref={rootRef} className="relative">
+      <button
+        type="button"
+        title="Line thickness"
+        aria-label="Line thickness"
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        data-active={open}
+        onClick={() => onOpenChange(!open)}
+        className="acrobat-tool-btn acrobat-tool-group-btn relative flex h-9 w-9 items-center justify-center rounded"
+      >
+        <LineThicknessIcon />
+      </button>
+
+      {open && (
+        <div className="acrobat-tool-flyout acrobat-thickness-flyout" role="dialog" aria-label="Line thickness">
+          <div className="flex flex-col items-center gap-2 px-3 py-3">
+            <span className="text-[10px] tabular-nums text-white/50">{MAX_STROKE_WIDTH}</span>
+            <input
+              type="range"
+              min={MIN_STROKE_WIDTH}
+              max={MAX_STROKE_WIDTH}
+              step={1}
+              value={value}
+              onChange={(e) => onChange(Number(e.target.value))}
+              className="acrobat-thickness-slider"
+              aria-label="Thickness"
+            />
+            <span className="text-[11px] font-medium tabular-nums text-white/85">{value}px</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 type SideButtonProps = {
   label: string;
   onClick: () => void;
@@ -70,7 +225,7 @@ function SideButton({ label, onClick, disabled, children }: SideButtonProps) {
 
 type LeftToolbarProps = {
   tool: ReaderTool;
-  onSelectTool: (tool: ReaderTool) => void;
+  onSelectTool: (tool: ReaderTool, options?: { force?: boolean }) => void;
   highlightColor: string;
   recentColors: string[];
   onPickHighlightColor: (color: string) => void;
@@ -81,6 +236,12 @@ type LeftToolbarProps = {
   editingNote: boolean;
   onPickNoteColor: (color: string) => void;
   onAdjustNoteFontSize: (delta: number) => void;
+  highlightStrokeWidth: number;
+  penStrokeWidth: number;
+  eraserStrokeWidth: number;
+  onHighlightStrokeWidthChange: (width: number) => void;
+  onPenStrokeWidthChange: (width: number) => void;
+  onEraserStrokeWidthChange: (width: number) => void;
 };
 
 export function LeftToolbar({
@@ -96,38 +257,71 @@ export function LeftToolbar({
   editingNote,
   onPickNoteColor,
   onAdjustNoteFontSize,
+  highlightStrokeWidth,
+  penStrokeWidth,
+  eraserStrokeWidth,
+  onHighlightStrokeWidthChange,
+  onPenStrokeWidthChange,
+  onEraserStrokeWidthChange,
 }: LeftToolbarProps) {
+  const [openGroup, setOpenGroup] = useState<"nav" | "thickness" | "eraserThickness" | null>(
+    null,
+  );
   const showDrawColors = tool === "highlight" || tool === "pen";
+  const showEraserControls = tool === "eraser";
   const showNoteColors = tool === "note" || editingNote;
 
   return (
     <DraggableToolbar id="left-toolbar">
-      <ToolButton active={tool === "read"} label="Select" onClick={() => onSelectTool("read")}>
-        <CursorIcon />
-      </ToolButton>
-      <ToolButton active={tool === "pan"} label="Pan" onClick={() => onSelectTool("pan")}>
-        <HandIcon />
-      </ToolButton>
+      <ToolGroupButton
+        options={[
+          { tool: "read", label: "Select", icon: <CursorIcon /> },
+          { tool: "pan", label: "Pan", icon: <HandIcon /> },
+        ]}
+        activeTool={tool}
+        onSelectTool={(next) => onSelectTool(next, { force: true })}
+        open={openGroup === "nav"}
+        onOpenChange={(open) => setOpenGroup(open ? "nav" : null)}
+      />
+
       <ToolButton active={tool === "note"} label="Comment" onClick={() => onSelectTool("note")}>
         <NoteIcon />
       </ToolButton>
+
       <ToolButton
         active={tool === "highlight"}
         label="Highlighter"
-        onClick={() => onSelectTool("highlight")}
+        onClick={() => onSelectTool("highlight", { force: true })}
       >
         <HighlighterIcon />
       </ToolButton>
-      <ToolButton active={tool === "pen"} label="Draw" onClick={() => onSelectTool("pen")}>
+
+      <ToolButton
+        active={tool === "pen"}
+        label="Draw"
+        onClick={() => onSelectTool("pen", { force: true })}
+      >
         <PenIcon />
       </ToolButton>
+
       <ToolButton active={tool === "eraser"} label="Eraser" onClick={() => onSelectTool("eraser")}>
         <EraserIcon />
       </ToolButton>
 
+      {showEraserControls && (
+        <div className="mt-1.5 flex flex-col items-center border-t border-white/10 pt-1.5">
+          <ThicknessSliderFlyout
+            value={eraserStrokeWidth}
+            onChange={onEraserStrokeWidthChange}
+            open={openGroup === "eraserThickness"}
+            onOpenChange={(open) => setOpenGroup(open ? "eraserThickness" : null)}
+          />
+        </div>
+      )}
+
       {showDrawColors && (
         <div className="mt-1.5 flex flex-col items-center gap-1 border-t border-white/10 pt-1.5">
-          {HIGHLIGHT_PRESETS.slice(0, 5).map((preset) => (
+          {HIGHLIGHT_PRESETS.map((preset) => (
             <button
               key={preset.name}
               type="button"
@@ -170,6 +364,13 @@ export function LeftToolbar({
               className="absolute inset-0 cursor-pointer opacity-0"
             />
           </label>
+
+          <ThicknessSliderFlyout
+            value={tool === "pen" ? penStrokeWidth : highlightStrokeWidth}
+            onChange={tool === "pen" ? onPenStrokeWidthChange : onHighlightStrokeWidthChange}
+            open={openGroup === "thickness"}
+            onOpenChange={(open) => setOpenGroup(open ? "thickness" : null)}
+          />
         </div>
       )}
 

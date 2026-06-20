@@ -61,29 +61,63 @@ export function HandIcon({ className }: IconProps) {
   );
 }
 
-/** Slanted marker body — wide highlighter tip */
+/** Fine-tip marker with chevron — highlighter tool */
 export function HighlighterIcon({ className }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={cn("h-[18px] w-[18px]", className)} aria-hidden>
-      <path d="M3.5 19.5 12 11l6.5 6.5-2 2.5H5.5l-2-0.5z" fill="currentColor" opacity="0.35" />
-      <path d="M11.5 8.5 16 4l4 4-4.5 4.5-4-4z" fill="currentColor" />
-      <rect x="2.5" y="18.5" width="10" height="3.5" rx="1.2" fill="currentColor" opacity="0.85" />
+      <path
+        d="M7 19.5 15.5 11 17.8 13.3 9.3 21.8z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M15.5 11 17.2 9.3 19.2 11.3 17.5 13z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M7 19.5 5.5 21"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+      <path
+        d="M15.8 15.2 17.1 16.7 18.4 15.2"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
 
-/** Fine pen nib — clearly different from marker */
+/** Chisel-tip marker — draw / pen tool */
 export function PenIcon({ className }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={cn("h-[18px] w-[18px]", className)} aria-hidden>
       <path
-        d="M14.5 3.5 20.5 9.5 8 22 4 23l1-4L14.5 3.5z"
+        d="M5 19.5 11.5 8.5 15.8 10.8 9.3 21.8z"
+        fill="#AB47BC"
         stroke="currentColor"
-        strokeWidth="1.6"
+        strokeWidth="1.2"
         strokeLinejoin="round"
       />
-      <path d="M14 4l6 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-      <circle cx="5.5" cy="20.5" r="1.2" fill="currentColor" />
+      <path
+        d="M11.5 8.5 14.8 5.2 18.8 9.2 15.8 10.8z"
+        fill="#AB47BC"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M14.8 5.2 17.2 3.2 20.2 6.2 18.8 9.2z"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
@@ -155,6 +189,30 @@ export function ZoomOutIcon({ className }: IconProps) {
       <circle cx="11" cy="11" r="6.25" stroke="currentColor" strokeWidth="1.6" />
       <path d="M16 16l4.25 4.25" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
       <path d="M8 11h6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function CheckIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={cn("h-4 w-4", className)} aria-hidden>
+      <path
+        d="M6 12.5 9.5 16 18 7.5"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+export function LineThicknessIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={cn("h-[18px] w-[18px]", className)} aria-hidden>
+      <path d="M5 7h14" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" />
+      <path d="M5 12h14" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" />
+      <path d="M5 17h14" stroke="currentColor" strokeWidth="3.25" strokeLinecap="round" />
     </svg>
   );
 }

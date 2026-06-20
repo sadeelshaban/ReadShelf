@@ -10,6 +10,7 @@ import { mergeAnnotationsById } from "@/lib/annotations/merge";
 import {
   deleteLocalHighlight,
   deleteLocalNote,
+  getLocalHighlightById,
   getLocalNoteById,
   loadBookAnnotations,
   putLocalHighlight,
@@ -110,10 +111,12 @@ export async function insertHighlight(input: {
   color: string;
   position: HighlightPosition;
   highlightType?: "freeform" | "pen";
+  id?: string;
+  createdAt?: string;
 }) {
-  const now = new Date().toISOString();
+  const now = input.createdAt ?? new Date().toISOString();
   const row: Highlight = {
-    id: newId(),
+    id: input.id ?? newId(),
     book_id: input.bookId,
     user_id: input.userId,
     page_number: input.pageNumber,
@@ -124,6 +127,10 @@ export async function insertHighlight(input: {
     created_at: now,
   };
 
+  return persistHighlight(row);
+}
+
+export async function persistHighlight(row: Highlight) {
   await putLocalHighlight(row);
 
   if (isOnline()) {
@@ -150,7 +157,7 @@ export async function insertHighlight(input: {
         op: "insert",
         recordId: row.id,
         payload: { ...row },
-        createdAt: now,
+        createdAt: row.created_at,
       });
       return row;
     }
@@ -165,7 +172,7 @@ export async function insertHighlight(input: {
     op: "insert",
     recordId: row.id,
     payload: { ...row },
-    createdAt: now,
+    createdAt: row.created_at,
   });
   return row;
 }
@@ -235,6 +242,48 @@ export async function insertNote(input: {
     createdAt: now,
   });
   return row;
+}
+
+export async function upsertNote(note: Note) {
+  await putLocalNote(note);
+
+  if (isOnline()) {
+    const supabase = createClient();
+    const { error } = await supabase.from("notes").upsert({
+      id: note.id,
+      book_id: note.book_id,
+      user_id: note.user_id,
+      page_number: note.page_number,
+      note_text: note.note_text,
+      highlight_id: note.highlight_id,
+      position: note.position,
+      text_color: note.text_color,
+      created_at: note.created_at,
+      updated_at: note.updated_at,
+    });
+    if (error) {
+      await enqueueSync({
+        id: newId(),
+        entity: "note",
+        op: "insert",
+        recordId: note.id,
+        payload: { ...note },
+        createdAt: new Date().toISOString(),
+      });
+    }
+    await syncIfOnline();
+    return note;
+  }
+
+  await enqueueSync({
+    id: newId(),
+    entity: "note",
+    op: "insert",
+    recordId: note.id,
+    payload: { ...note },
+    createdAt: new Date().toISOString(),
+  });
+  return note;
 }
 
 async function updateLocalNote(id: string, patch: Partial<Note>) {
@@ -376,6 +425,87 @@ export async function deleteHighlight(id: string) {
     payload: {},
     createdAt: new Date().toISOString(),
   });
+}
+
+async function updateLocalHighlight(id: string, patch: Partial<Highlight>) {
+  const existing = await getLocalHighlightById(id);
+  if (!existing) throw new Error("Highlight not found");
+  const updated = { ...existing, ...patch };
+  await putLocalHighlight(updated);
+  return updated;
+}
+
+export async function updateHighlight(id: string, position: HighlightPosition) {
+  const updated = await updateLocalHighlight(id, { position });
+  const payload = { position };
+
+  if (isOnline()) {
+    const supabase = createClient();
+    const { error } = await supabase.from("highlights").update(payload).eq("id", id);
+    if (error) {
+      await enqueueSync({
+        id: newId(),
+        entity: "highlight",
+        op: "update",
+        recordId: id,
+        payload,
+        createdAt: new Date().toISOString(),
+      });
+    }
+    await syncIfOnline();
+    return updated;
+  }
+
+  await enqueueSync({
+    id: newId(),
+    entity: "highlight",
+    op: "update",
+    recordId: id,
+    payload,
+    createdAt: new Date().toISOString(),
+  });
+  return updated;
+}
+
+export async function upsertHighlight(highlight: Highlight) {
+  await putLocalHighlight(highlight);
+
+  if (isOnline()) {
+    const supabase = createClient();
+    const { error } = await supabase.from("highlights").upsert({
+      id: highlight.id,
+      book_id: highlight.book_id,
+      user_id: highlight.user_id,
+      page_number: highlight.page_number,
+      selected_text: highlight.selected_text,
+      color: highlight.color,
+      highlight_type: highlight.highlight_type,
+      position: highlight.position,
+      created_at: highlight.created_at,
+    });
+    if (error) {
+      await enqueueSync({
+        id: newId(),
+        entity: "highlight",
+        op: "insert",
+        recordId: highlight.id,
+        payload: { ...highlight },
+        createdAt: new Date().toISOString(),
+      });
+    }
+    await syncIfOnline();
+    return highlight;
+  }
+
+  await enqueueSync({
+    id: newId(),
+    entity: "highlight",
+    op: "insert",
+    recordId: highlight.id,
+    payload: { ...highlight },
+    createdAt: new Date().toISOString(),
+  });
+  return highlight;
 }
 
 export async function saveHighlightStroke(input: {

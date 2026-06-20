@@ -77,6 +77,12 @@ export async function flushSyncQueue() {
             .delete()
             .eq("id", item.recordId);
           if (error) throw error;
+        } else if (item.op === "update") {
+          const { error } = await supabase
+            .from("highlights")
+            .update(item.payload)
+            .eq("id", item.recordId);
+          if (error) throw error;
         }
       } else if (item.entity === "note") {
         if (item.op === "insert") {

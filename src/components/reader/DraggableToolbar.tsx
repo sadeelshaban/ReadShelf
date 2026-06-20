@@ -30,7 +30,7 @@ function loadPosition(): Position | null {
 function clampPosition(pos: Position): Position {
   const margin = 8;
   const width = 44;
-  const height = 280;
+  const height = 220;
   const maxX = Math.max(margin, window.innerWidth - width - margin);
   const maxY = Math.max(margin, window.innerHeight - height - margin);
   return {
@@ -59,7 +59,7 @@ export function DraggableToolbar({ id, children, className }: DraggableToolbarPr
   useEffect(() => {
     const saved = loadPosition();
     setPosition(
-      saved ?? clampPosition({ x: 12, y: Math.max(12, Math.round(window.innerHeight / 2 - 140)) }),
+      saved ?? clampPosition({ x: 12, y: Math.max(12, Math.round(window.innerHeight / 2 - 110)) }),
     );
   }, []);
 

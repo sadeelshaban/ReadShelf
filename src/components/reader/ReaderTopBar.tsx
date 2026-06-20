@@ -35,8 +35,8 @@ export function ReaderTopBar({
         <div className="ml-auto flex items-center gap-1">
           <button
             type="button"
-            title="Save progress and sync notes"
-            aria-label="Save"
+            title="Sync latest annotations and reading progress"
+            aria-label="Save latest changes"
             disabled={saving}
             onClick={onSave}
             className={cn("acrobat-topbar-btn", saving && "opacity-50")}

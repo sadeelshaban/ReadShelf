@@ -54,7 +54,6 @@ function parseHexColor(hex: string): RGB {
 function noteColorToRgb(textColor: string): RGB {
   const css =
     NOTE_TEXT_COLORS.find((c) => c.value === textColor)?.css ?? "#1a120b";
-  if (css === "#ffffff") return rgb(1, 1, 1);
   if (css === "#dc2626") return rgb(0.86, 0.15, 0.15);
   return rgb(0.1, 0.07, 0.04);
 }

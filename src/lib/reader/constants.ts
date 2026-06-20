@@ -3,7 +3,6 @@ export const HIGHLIGHT_PRESETS = [
   { name: "Sky blue", value: "#29B6F6" },
   { name: "Green", value: "#66BB6A" },
   { name: "Pink", value: "#EC407A" },
-  { name: "Orange", value: "#FF9800" },
   { name: "Purple", value: "#AB47BC" },
 ] as const;
 
@@ -114,13 +113,57 @@ export function loadLastHighlightColor() {
 
 export const NOTE_TEXT_COLORS = [
   { name: "Black", value: "black", css: "#1a120b" },
-  { name: "White", value: "white", css: "#ffffff" },
   { name: "Red", value: "red", css: "#dc2626" },
 ] as const;
 
 export const DEFAULT_NOTE_FONT_SIZE = 14;
 export const MIN_NOTE_FONT_SIZE = 10;
 export const MAX_NOTE_FONT_SIZE = 32;
+
+export const MIN_STROKE_WIDTH = 0;
+export const MAX_STROKE_WIDTH = 50;
+export const DEFAULT_HIGHLIGHT_STROKE_WIDTH = 28;
+export const DEFAULT_PEN_STROKE_WIDTH = 3;
+export const DEFAULT_ERASER_STROKE_WIDTH = 20;
+
+export const HIGHLIGHT_STROKE_WIDTH_KEY = "readshelf-highlight-stroke-width";
+export const PEN_STROKE_WIDTH_KEY = "readshelf-pen-stroke-width";
+export const ERASER_STROKE_WIDTH_KEY = "readshelf-eraser-stroke-width";
+
+function clampStrokeWidth(value: number, fallback: number) {
+  if (!Number.isFinite(value)) return fallback;
+  return Math.min(MAX_STROKE_WIDTH, Math.max(MIN_STROKE_WIDTH, value));
+}
+
+export function loadHighlightStrokeWidth() {
+  if (typeof window === "undefined") return DEFAULT_HIGHLIGHT_STROKE_WIDTH;
+  const raw = localStorage.getItem(HIGHLIGHT_STROKE_WIDTH_KEY);
+  return clampStrokeWidth(raw ? Number.parseFloat(raw) : NaN, DEFAULT_HIGHLIGHT_STROKE_WIDTH);
+}
+
+export function loadPenStrokeWidth() {
+  if (typeof window === "undefined") return DEFAULT_PEN_STROKE_WIDTH;
+  const raw = localStorage.getItem(PEN_STROKE_WIDTH_KEY);
+  return clampStrokeWidth(raw ? Number.parseFloat(raw) : NaN, DEFAULT_PEN_STROKE_WIDTH);
+}
+
+export function loadEraserStrokeWidth() {
+  if (typeof window === "undefined") return DEFAULT_ERASER_STROKE_WIDTH;
+  const raw = localStorage.getItem(ERASER_STROKE_WIDTH_KEY);
+  return clampStrokeWidth(raw ? Number.parseFloat(raw) : NaN, DEFAULT_ERASER_STROKE_WIDTH);
+}
+
+export function saveHighlightStrokeWidth(width: number) {
+  localStorage.setItem(HIGHLIGHT_STROKE_WIDTH_KEY, String(clampStrokeWidth(width, DEFAULT_HIGHLIGHT_STROKE_WIDTH)));
+}
+
+export function savePenStrokeWidth(width: number) {
+  localStorage.setItem(PEN_STROKE_WIDTH_KEY, String(clampStrokeWidth(width, DEFAULT_PEN_STROKE_WIDTH)));
+}
+
+export function saveEraserStrokeWidth(width: number) {
+  localStorage.setItem(ERASER_STROKE_WIDTH_KEY, String(clampStrokeWidth(width, DEFAULT_ERASER_STROKE_WIDTH)));
+}
 
 export function noteTextCss(color: string) {
   return NOTE_TEXT_COLORS.find((c) => c.value === color)?.css ?? "#1a120b";

@@ -30,6 +30,11 @@ export async function deleteLocalHighlight(id: string) {
   await idbDelete("highlights", id);
 }
 
+export async function getLocalHighlightById(id: string) {
+  const { idbGet } = await import("@/lib/offline/db");
+  return idbGet<Highlight>("highlights", id);
+}
+
 export async function seedBookAnnotations(
   bookId: string,
   highlights: Highlight[],
