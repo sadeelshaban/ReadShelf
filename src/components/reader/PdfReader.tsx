@@ -87,8 +87,10 @@ type PdfReaderProps = {
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 4;
 const ZOOM_STEP = 0.25;
-const PAGE_SCROLL_LOCK_MS = 1200;
 const PAGE_RENDER_BUFFER = 2;
+const SCROLL_SYNC_DEBOUNCE_MS = 60;
+const SCROLL_PROGRESS_DEBOUNCE_MS = 400;
+const PROGRAMMATIC_SCROLL_TIMEOUT_MS = 900;
 
 type HighlightChange = {
   before: Highlight;
@@ -146,6 +148,39 @@ function scrollViewerToPage(
   const pageRect = pageWrap.getBoundingClientRect();
   const nextTop = viewer.scrollTop + (pageRect.top - viewerRect.top) - 8;
   viewer.scrollTo({ top: Math.max(0, nextTop), behavior });
+}
+
+function resolveVisiblePage(
+  viewer: HTMLDivElement,
+  pageWraps: Map<number, HTMLElement>,
+  maxPage: number,
+) {
+  const viewerRect = viewer.getBoundingClientRect();
+  const centerY = viewerRect.top + viewerRect.height / 2;
+
+  let bestPage = 1;
+  let bestScore = -Infinity;
+
+  for (let pageNumber = 1; pageNumber <= maxPage; pageNumber += 1) {
+    const wrap = pageWraps.get(pageNumber);
+    if (!wrap) continue;
+
+    const rect = wrap.getBoundingClientRect();
+    const visibleTop = Math.max(rect.top, viewerRect.top);
+    const visibleBottom = Math.min(rect.bottom, viewerRect.bottom);
+    const visibleHeight = Math.max(0, visibleBottom - visibleTop);
+    if (visibleHeight <= 0) continue;
+
+    const centerInPage = centerY >= rect.top && centerY <= rect.bottom;
+    const score = (centerInPage ? 1_000_000 : 0) + visibleHeight;
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestPage = pageNumber;
+    }
+  }
+
+  return bestPage;
 }
 
 function drawStroke(
@@ -590,10 +625,13 @@ export function PdfReader({
   const goToNextPageRef = useRef<() => void>(() => {});
   const keyboardHandlerRef = useRef<(event: KeyboardEvent) => void>(() => {});
   const pageRef = useRef(initialPage);
-  const scrollLockUntilRef = useRef(0);
+  const programmaticScrollTargetRef = useRef<number | null>(null);
   const viewerRef = useRef<HTMLDivElement>(null);
   const fitScaleTimerRef = useRef<number | null>(null);
-  const pageUpdateTimerRef = useRef<number | null>(null);
+  const scrollSyncTimerRef = useRef<number | null>(null);
+  const scrollProgressTimerRef = useRef<number | null>(null);
+  const programmaticScrollTimerRef = useRef<number | null>(null);
+  const saveProgressRef = useRef<(currentPage: number) => Promise<void>>(async () => {});
   const pendingZoomRestoreRef = useRef<{
     scrollTop: number;
     scrollLeft: number;
@@ -655,9 +693,61 @@ export function PdfReader({
   const maxPage = pdfNumPages ?? totalPages ?? page;
   maxPageRef.current = maxPage;
 
+  const syncPageFromScroll = useCallback(
+    (options?: { force?: boolean }) => {
+      const viewer = viewerRef.current;
+      if (!viewer || loading) return;
+
+      const visible = resolveVisiblePage(
+        viewer,
+        pageWrapRefs.current,
+        maxPageRef.current,
+      );
+
+      const target = programmaticScrollTargetRef.current;
+      if (target !== null && !options?.force) {
+        if (visible === target) {
+          programmaticScrollTargetRef.current = null;
+        } else {
+          return;
+        }
+      }
+
+      if (visible !== pageRef.current) {
+        setPage(visible);
+        setRenderedPages((prev) =>
+          mergeRenderedPages(prev, visible, maxPageRef.current),
+        );
+      }
+    },
+    [loading],
+  );
+
+  const scheduleScrollSync = useCallback(() => {
+    if (scrollSyncTimerRef.current) {
+      window.clearTimeout(scrollSyncTimerRef.current);
+    }
+    scrollSyncTimerRef.current = window.setTimeout(() => {
+      syncPageFromScroll();
+    }, SCROLL_SYNC_DEBOUNCE_MS);
+  }, [syncPageFromScroll]);
+
+  const scheduleProgressSaveFromScroll = useCallback(() => {
+    if (scrollProgressTimerRef.current) {
+      window.clearTimeout(scrollProgressTimerRef.current);
+    }
+    scrollProgressTimerRef.current = window.setTimeout(() => {
+      void saveProgressRef.current(pageRef.current);
+    }, SCROLL_PROGRESS_DEBOUNCE_MS);
+  }, []);
+
   const scrollToPage = useCallback((target: number, behavior: ScrollBehavior = "smooth") => {
     const clamped = Math.min(maxPageRef.current, Math.max(1, target));
-    scrollLockUntilRef.current = Date.now() + PAGE_SCROLL_LOCK_MS;
+    programmaticScrollTargetRef.current = clamped;
+
+    if (programmaticScrollTimerRef.current) {
+      window.clearTimeout(programmaticScrollTimerRef.current);
+    }
 
     setRenderedPages((prev) => mergeRenderedPages(prev, clamped, maxPageRef.current));
     setPage(clamped);
@@ -675,7 +765,14 @@ export function PdfReader({
     };
 
     requestAnimationFrame(() => attemptScroll(12));
-  }, []);
+
+    programmaticScrollTimerRef.current = window.setTimeout(() => {
+      if (programmaticScrollTargetRef.current === clamped) {
+        programmaticScrollTargetRef.current = null;
+      }
+      syncPageFromScroll({ force: true });
+    }, behavior === "smooth" ? PROGRAMMATIC_SCROLL_TIMEOUT_MS : 120);
+  }, [syncPageFromScroll]);
 
   const goToPrevPage = useCallback(() => {
     scrollToPage(pageRef.current - 1);
@@ -695,9 +792,9 @@ export function PdfReader({
 
     viewer.scrollTop = pending.scrollTop;
     viewer.scrollLeft = pending.scrollLeft;
-    scrollLockUntilRef.current = Date.now() + PAGE_SCROLL_LOCK_MS;
     pendingZoomRestoreRef.current = null;
-  }, []);
+    requestAnimationFrame(() => syncPageFromScroll({ force: true }));
+  }, [syncPageFromScroll]);
 
   const changeZoom = useCallback(
     (
@@ -717,7 +814,6 @@ export function PdfReader({
       if (Math.abs(clamped - current) < 0.001) return;
 
       const ratio = clamped / current;
-      scrollLockUntilRef.current = Date.now() + PAGE_SCROLL_LOCK_MS;
 
       if (anchor) {
         const rect = viewer.getBoundingClientRect();
@@ -897,6 +993,8 @@ export function PdfReader({
     [bookId, totalPages],
   );
 
+  saveProgressRef.current = saveProgress;
+
   const renderPage = useCallback(async (pageNumber: number, zoom: number) => {
     const pdf = pdfRef.current;
     const canvas = canvasRefs.current.get(pageNumber);
@@ -1044,6 +1142,15 @@ export function PdfReader({
       active = false;
       if (annotationSyncTimerRef.current) {
         window.clearTimeout(annotationSyncTimerRef.current);
+      }
+      if (scrollSyncTimerRef.current) {
+        window.clearTimeout(scrollSyncTimerRef.current);
+      }
+      if (scrollProgressTimerRef.current) {
+        window.clearTimeout(scrollProgressTimerRef.current);
+      }
+      if (programmaticScrollTimerRef.current) {
+        window.clearTimeout(programmaticScrollTimerRef.current);
       }
       renderTasksRef.current.forEach((task) => task.cancel());
       renderTasksRef.current.clear();
@@ -1204,63 +1311,62 @@ export function PdfReader({
 
   useEffect(() => {
     if (loading) return;
-    scrollLockUntilRef.current = Date.now() + PAGE_SCROLL_LOCK_MS;
+    programmaticScrollTargetRef.current = initialPage;
     requestAnimationFrame(() => {
       const viewer = viewerRef.current;
       const pageWrap = pageWrapRefs.current.get(initialPage);
       if (viewer && pageWrap) {
         scrollViewerToPage(viewer, pageWrap, "auto");
       }
+      window.setTimeout(() => {
+        programmaticScrollTargetRef.current = null;
+        syncPageFromScroll({ force: true });
+      }, 150);
     });
-  }, [loading, initialPage]);
+  }, [loading, initialPage, syncPageFromScroll]);
 
   useEffect(() => {
     if (loading || maxPage <= 0) return;
     const viewer = viewerRef.current;
     if (!viewer) return;
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (Date.now() < scrollLockUntilRef.current) return;
+    function onScroll() {
+      scheduleScrollSync();
+      scheduleProgressSaveFromScroll();
+    }
 
-        let visiblePage = pageRef.current;
-        let bestRatio = 0;
+    viewer.addEventListener("scroll", onScroll, { passive: true });
+    requestAnimationFrame(() => syncPageFromScroll({ force: true }));
 
-        for (const entry of entries) {
-          const pageNumber = Number((entry.target as HTMLElement).dataset.page);
-          if (!Number.isFinite(pageNumber)) continue;
-
-          if (entry.isIntersecting) {
-            setRenderedPages((prev) =>
-              mergeRenderedPages(prev, pageNumber, maxPageRef.current),
-            );
-            if (entry.intersectionRatio > bestRatio) {
-              bestRatio = entry.intersectionRatio;
-              visiblePage = pageNumber;
-            }
-          }
-        }
-
-        if (bestRatio >= 0.35 && visiblePage !== pageRef.current) {
-          if (pageUpdateTimerRef.current) {
-            window.clearTimeout(pageUpdateTimerRef.current);
-          }
-          pageUpdateTimerRef.current = window.setTimeout(() => {
-            setPage(visiblePage);
-          }, 100);
-        }
-      },
-      { root: viewer, threshold: [0, 0.5, 0.85] },
-    );
-
-    viewer.querySelectorAll("[data-page]").forEach((node) => observer.observe(node));
     return () => {
-      observer.disconnect();
-      if (pageUpdateTimerRef.current) {
-        window.clearTimeout(pageUpdateTimerRef.current);
+      viewer.removeEventListener("scroll", onScroll);
+      if (scrollSyncTimerRef.current) {
+        window.clearTimeout(scrollSyncTimerRef.current);
+      }
+      if (scrollProgressTimerRef.current) {
+        window.clearTimeout(scrollProgressTimerRef.current);
       }
     };
-  }, [loading, maxPage]);
+  }, [loading, maxPage, scheduleScrollSync, scheduleProgressSaveFromScroll, syncPageFromScroll]);
+
+  useEffect(() => {
+    function onVisibilityChange() {
+      if (document.visibilityState === "hidden") {
+        void saveProgressRef.current(pageRef.current);
+      }
+    }
+
+    function onPageHide() {
+      void saveProgressRef.current(pageRef.current);
+    }
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("pagehide", onPageHide);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("pagehide", onPageHide);
+    };
+  }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => saveProgress(page), 500);
@@ -1943,6 +2049,8 @@ export function PdfReader({
     if (viewer?.hasPointerCapture(e.pointerId)) {
       viewer.releasePointerCapture(e.pointerId);
     }
+    scheduleScrollSync();
+    scheduleProgressSaveFromScroll();
   }
 
   return (
