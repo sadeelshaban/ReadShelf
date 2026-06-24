@@ -25,7 +25,7 @@ export async function AppHeader() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-white/60 bg-card/85 backdrop-blur-xl">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
+      <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
         <Link href="/shelf" className="flex min-w-0 items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-white/80 shadow-sm ring-1 ring-black/5">
             <Image
@@ -41,18 +41,15 @@ export async function AppHeader() {
             <span className="font-serif text-lg font-semibold text-primary">
               ReadShelf
             </span>
+            {displayName && (
+              <span className="block truncate text-xs text-text-muted">
+                {displayName}
+              </span>
+            )}
           </div>
         </Link>
 
-        <nav className="flex shrink-0 items-center gap-2">
-          {displayName && (
-            <div className="hidden items-center rounded-full border border-white/75 bg-white/65 px-3 py-1.5 text-xs text-text/75 shadow-sm backdrop-blur-sm sm:flex">
-              <span className="mr-1.5 text-text-muted">Signed in as</span>
-              <span className="max-w-[12rem] truncate font-medium text-text">
-                {displayName}
-              </span>
-            </div>
-          )}
+        <nav className="flex shrink-0 items-center">
           <Link
             href="/settings"
             aria-label="Settings"

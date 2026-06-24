@@ -34,20 +34,6 @@ async function readJsonError(response: Response, fallback: string) {
   }
 }
 
-function normalizeUploadErrorMessage(message: string) {
-  const lower = message.toLowerCase();
-
-  if (lower.includes("bucket not found")) {
-    return "Storage is not fully set up yet. Create the Supabase storage buckets `book-pdfs` and `book-covers`, or rerun the SQL setup.";
-  }
-
-  if (lower.includes("row-level security") || lower.includes("permission denied")) {
-    return "Storage permissions are not ready yet. Recheck the Supabase storage policies from the setup SQL.";
-  }
-
-  return message;
-}
-
 async function ensureUploadPlan(context: UploadContext): Promise<UploadPlan> {
   const key = `${context.bookId}:${context.pdfPath}:${context.coverPath}`;
   if (cachedPlanKey === key && cachedPlan) return cachedPlan;
@@ -67,11 +53,7 @@ async function ensureUploadPlan(context: UploadContext): Promise<UploadPlan> {
   }
 
   if (!response.ok) {
-    throw new Error(
-      normalizeUploadErrorMessage(
-        await readJsonError(response, "Could not prepare upload."),
-      ),
-    );
+    throw new Error(await readJsonError(response, "Could not prepare upload."));
   }
 
   const plan = (await response.json()) as UploadPlan;
@@ -107,7 +89,7 @@ async function uploadViaSupabaseStorage(
   });
 
   if (error) {
-    throw new Error(normalizeUploadErrorMessage(error.message));
+    throw new Error(error.message);
   }
 }
 
@@ -163,11 +145,7 @@ async function uploadViaAppServer(
   }
 
   if (!response.ok) {
-    throw new Error(
-      normalizeUploadErrorMessage(
-        await readJsonError(response, "File upload failed."),
-      ),
-    );
+    throw new Error(await readJsonError(response, "File upload failed."));
   }
 }
 
@@ -198,6 +176,6 @@ export async function uploadBookFileViaApi(
       await uploadViaAppServer(file, path, kind, contentType);
       return;
     }
-    throw new Error(normalizeUploadErrorMessage(message));
+    throw error;
   }
 }

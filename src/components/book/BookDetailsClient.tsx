@@ -261,297 +261,207 @@ export function BookDetailsClient({
     }
   }
 
-  const totalAnnotations = highlightGroups.length + noteGroups.length;
-
   return (
-    <section className="video-hero-panel relative left-1/2 right-1/2 min-h-[calc(100vh-4.5rem)] w-screen -translate-x-1/2 overflow-hidden">
-      <video
-        className="absolute inset-0 h-full w-full object-cover"
-        autoPlay
-        muted
-        loop
-        playsInline
-        preload="auto"
-        aria-hidden="true"
+    <>
+      <Link
+        href="/shelf"
+        className="mb-5 inline-flex items-center text-sm text-primary hover:underline"
       >
-        <source src="/videos/book-details-background.mp4" type="video/mp4" />
-      </video>
-      <div className="video-hero-overlay absolute inset-0" />
-      <div className="video-book-overlay absolute inset-0" />
+        ← Back to shelf
+      </Link>
 
-      <div className="relative mx-auto flex min-h-[calc(100vh-4.5rem)] w-full max-w-7xl flex-col px-5 py-8 sm:px-8 sm:py-10 lg:px-10">
-        <Link
-          href="/shelf"
-          className="mb-5 inline-flex items-center text-sm text-white/78 hover:text-white hover:underline"
-        >
-          ← Back to shelf
-        </Link>
-
-        <section className="rounded-[2rem] border border-white/16 bg-white/10 p-5 text-white shadow-[0_24px_70px_rgba(0,0,0,0.2)] backdrop-blur-2xl sm:p-6 lg:p-7">
-          <div className="flex flex-col gap-6 border-b border-white/10 pb-6 lg:flex-row lg:items-end lg:justify-between">
-            <div className="max-w-3xl">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/62">
-                Book details
-              </p>
-              <h1 className="mt-3 font-serif text-4xl font-semibold tracking-tight text-white sm:text-5xl" dir="auto">
+      <div className="grid gap-8 lg:grid-cols-[240px_1fr]">
+      <aside className="space-y-4">
+        <div className="relative aspect-[3/4] overflow-hidden rounded-xl bg-background">
+          {coverUrl ? (
+            <Image
+              src={coverUrl}
+              alt={`Cover of ${book.title}`}
+              fill
+              className="object-cover"
+              unoptimized
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center bg-gradient-to-br from-primary/15 to-accent/25 font-serif text-primary">
+              No cover
+            </div>
+          )}
+        </div>
+        {editing ? (
+          <form
+            className="space-y-3 rounded-xl border border-soft-gray/30 bg-card px-3 py-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void saveDetails();
+            }}
+          >
+            <Input
+              label="Title"
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              required
+            />
+            <Input
+              label="Author"
+              value={editAuthor}
+              onChange={(e) => setEditAuthor(e.target.value)}
+            />
+            <div className="flex gap-2 pt-1">
+              <Button type="submit" size="sm" className="flex-1" disabled={saving}>
+                {saving ? "Saving..." : "Save"}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                className="flex-1"
+                disabled={saving}
+                onClick={cancelEditing}
+              >
+                Cancel
+              </Button>
+            </div>
+          </form>
+        ) : (
+          <>
+            <dl className="grid grid-cols-[4.5rem_1fr] gap-x-2 gap-y-1.5 rounded-xl border border-soft-gray/30 bg-card px-3 py-3 text-xs">
+              <dt className="text-text/55">Title</dt>
+              <dd className="truncate font-medium text-text" title={book.title} dir="auto">
                 {book.title}
-              </h1>
-              <p className="mt-3 text-sm leading-6 text-white/76 sm:text-base" dir="auto">
-                {book.author || "Unknown author"} · {book.total_pages ?? "—"} pages · Added{" "}
-                {formatAddedDate(book.created_at)}
-              </p>
-            </div>
+              </dd>
+              <dt className="text-text/55">Author</dt>
+              <dd className="truncate text-text/80" title={book.author} dir="auto">
+                {book.author || "Unknown"}
+              </dd>
+              <dt className="text-text/55">Pages</dt>
+              <dd className="text-text/80">{book.total_pages ?? "—"}</dd>
+              <dt className="text-text/55">Added</dt>
+              <dd className="text-text/80">{formatAddedDate(book.created_at)}</dd>
+            </dl>
+            <Button variant="secondary" size="sm" className="w-full" onClick={startEditing}>
+              Edit details
+            </Button>
+          </>
+        )}
+        {success && (
+          <p className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800">{success}</p>
+        )}
+        <div className="flex flex-col gap-2">
+          <Link href={`/book/${book.id}/read`} className="block">
+            <Button className="w-full">{getReadButtonLabel(book)}</Button>
+          </Link>
+          <Button
+            variant="secondary"
+            className="w-full"
+            onClick={downloadPdf}
+            disabled={downloading}
+          >
+            {downloading ? "Preparing PDF..." : "Download PDF"}
+          </Button>
+          <Button
+            variant="danger"
+            className="w-full"
+            onClick={deleteBook}
+            disabled={deleting}
+          >
+            {deleting ? "Deleting..." : "Delete from shelf"}
+          </Button>
+        </div>
+      </aside>
 
-            <div className="flex flex-wrap gap-2.5">
-              <div className="rounded-2xl border border-white/14 bg-white/10 px-4 py-2.5 text-sm shadow-sm backdrop-blur-md">
-                <span className="text-white/60">Progress</span>
-                <span className="ml-2 font-semibold text-white">{book.progress_percent}%</span>
-              </div>
-              <div className="rounded-2xl border border-white/14 bg-white/10 px-4 py-2.5 text-sm shadow-sm backdrop-blur-md">
-                <span className="text-white/60">Last page</span>
-                <span className="ml-2 font-semibold text-white">{book.last_page}</span>
-              </div>
-              <div className="rounded-2xl border border-white/14 bg-white/10 px-4 py-2.5 text-sm shadow-sm backdrop-blur-md">
-                <span className="text-white/60">Annotations</span>
-                <span className="ml-2 font-semibold text-white">{totalAnnotations}</span>
-              </div>
-            </div>
-          </div>
+      <section className="flex min-h-0 flex-col">
+        {message && (
+          <p className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+            {message}
+          </p>
+        )}
 
-          <div className="mt-6 grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
-            <aside className="space-y-4">
-              <div className="overflow-hidden rounded-[1.75rem] border border-white/14 bg-black/10 shadow-xl backdrop-blur-md">
-                <div className="relative aspect-[3/4] overflow-hidden">
-                  {coverUrl ? (
-                    <Image
-                      src={coverUrl}
-                      alt={`Cover of ${book.title}`}
-                      fill
-                      className="object-cover"
-                      unoptimized
-                    />
-                  ) : (
-                    <div className="flex h-full items-center justify-center bg-gradient-to-br from-white/20 to-white/8 px-6 text-center font-serif text-xl text-white/88">
-                      No cover
-                    </div>
-                  )}
-                </div>
-              </div>
+        <div className="flex shrink-0 gap-2 border-b border-soft-gray/30">
+          {(["highlights", "notes"] as Tab[]).map((item) => (
+            <button
+              key={item}
+              type="button"
+              onClick={() => setTab(item)}
+              className={`px-4 py-2 text-sm capitalize ${
+                tab === item
+                  ? "border-b-2 border-primary font-medium text-primary"
+                  : "text-text/70"
+              }`}
+            >
+              {item}
+            </button>
+          ))}
+        </div>
 
-              {editing ? (
-                <form
-                  className="space-y-3 rounded-[1.5rem] border border-white/14 bg-black/10 p-4 backdrop-blur-md"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    void saveDetails();
-                  }}
-                >
-                  <Input
-                    label="Title"
-                    labelClassName="text-white"
-                    value={editTitle}
-                    onChange={(e) => setEditTitle(e.target.value)}
-                    required
-                    className="border-white/20 bg-white/92 text-[#24180f] placeholder:text-[#8a7968] focus:border-[#f0dfc4] focus:bg-white focus:ring-[#f2e3c8]/35"
-                  />
-                  <Input
-                    label="Author"
-                    labelClassName="text-white"
-                    value={editAuthor}
-                    onChange={(e) => setEditAuthor(e.target.value)}
-                    className="border-white/20 bg-white/92 text-[#24180f] placeholder:text-[#8a7968] focus:border-[#f0dfc4] focus:bg-white focus:ring-[#f2e3c8]/35"
-                  />
-                  <div className="grid grid-cols-2 gap-2 pt-1">
-                    <Button type="submit" size="sm" className="w-full" disabled={saving}>
-                      {saving ? "Saving..." : "Save"}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="sm"
-                      className="w-full border-white/18 bg-white/14 text-white hover:bg-white/20"
-                      disabled={saving}
-                      onClick={cancelEditing}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </form>
+        <div className="mt-4 max-h-[23.25rem] overflow-y-auto overscroll-contain pr-1">
+          {tab === "highlights" && (
+            <>
+              {highlightGroups.length === 0 ? (
+                <p className="text-sm text-text/70">No highlights yet.</p>
               ) : (
-                <div className="rounded-[1.5rem] border border-white/14 bg-black/10 p-4 backdrop-blur-md">
-                  <dl className="grid grid-cols-[5rem_1fr] gap-x-3 gap-y-2 text-sm">
-                    <dt className="text-white/52">Title</dt>
-                    <dd className="font-medium text-white" title={book.title} dir="auto">
-                      {book.title}
-                    </dd>
-                    <dt className="text-white/52">Author</dt>
-                    <dd className="text-white/82" title={book.author} dir="auto">
-                      {book.author || "Unknown"}
-                    </dd>
-                    <dt className="text-white/52">Pages</dt>
-                    <dd className="text-white/82">{book.total_pages ?? "—"}</dd>
-                    <dt className="text-white/52">Added</dt>
-                    <dd className="text-white/82">{formatAddedDate(book.created_at)}</dd>
-                  </dl>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="mt-4 w-full border-white/18 bg-white/14 text-white hover:bg-white/20"
-                    onClick={startEditing}
-                  >
-                    Edit details
-                  </Button>
-                </div>
+                <ul className="space-y-2">
+                  {highlightGroups.map((group) => (
+                    <li key={group.pageNumber}>
+                      <Link
+                        href={`/book/${book.id}/read?page=${group.pageNumber}`}
+                        className="flex items-center justify-between gap-3 rounded-lg border border-soft-gray/30 bg-card px-3 py-2.5 transition hover:border-primary/30 hover:bg-accent/10"
+                      >
+                        <span className="text-sm font-medium text-text">
+                          Page {group.pageNumber}
+                        </span>
+                        <div className="flex shrink-0 items-center gap-1.5">
+                          {group.colors.map((color) => (
+                            <span
+                              key={`${group.pageNumber}-${color}`}
+                              className="h-5 w-5 rounded-full border border-soft-gray/40"
+                              style={{ backgroundColor: color }}
+                              title="Highlight color"
+                            />
+                          ))}
+                        </div>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
               )}
+            </>
+          )}
 
-              {success && (
-                <p className="rounded-2xl border border-[#d9c7a7]/24 bg-[#f6eedf]/88 px-4 py-3 text-sm text-[#5b4028]">
-                  {success}
-                </p>
+          {tab === "notes" && (
+            <>
+              {noteGroups.length === 0 ? (
+                <p className="text-sm text-text/70">No notes yet.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {noteGroups.map((group) => (
+                    <li key={group.pageNumber}>
+                      <Link
+                        href={`/book/${book.id}/read?page=${group.pageNumber}`}
+                        className="flex items-center justify-between gap-3 rounded-lg border border-soft-gray/30 bg-card px-3 py-2.5 transition hover:border-primary/30 hover:bg-accent/10"
+                      >
+                        <span className="text-sm font-medium text-text">
+                          Page {group.pageNumber}
+                        </span>
+                        <div className="flex shrink-0 items-center gap-1.5">
+                          {group.colors.map((color) => (
+                            <span
+                              key={`${group.pageNumber}-${color}`}
+                              className="h-5 w-5 rounded-full border border-soft-gray/40"
+                              style={{ backgroundColor: color }}
+                              title="Note color"
+                            />
+                          ))}
+                        </div>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
               )}
-
-              <div className="grid gap-2.5">
-                <Link href={`/book/${book.id}/read`} className="block">
-                  <Button className="w-full">{getReadButtonLabel(book)}</Button>
-                </Link>
-                <Button
-                  variant="secondary"
-                  className="w-full border-white/18 bg-white/14 text-white hover:bg-white/20"
-                  onClick={downloadPdf}
-                  disabled={downloading}
-                >
-                  {downloading ? "Preparing PDF..." : "Download PDF"}
-                </Button>
-                <Button
-                  className="w-full border border-red-300/18 bg-red-900/55 text-white hover:bg-red-800/70"
-                  onClick={deleteBook}
-                  disabled={deleting}
-                >
-                  {deleting ? "Deleting..." : "Delete from shelf"}
-                </Button>
-              </div>
-            </aside>
-
-            <section className="flex min-h-0 flex-col rounded-[1.75rem] border border-white/14 bg-black/10 p-4 backdrop-blur-md sm:p-5">
-              {message && (
-                <p className="mb-4 rounded-2xl border border-[#e5c79d]/28 bg-[#2f241b]/52 px-4 py-3 text-sm text-[#fff4e3] backdrop-blur-md">
-                  {message}
-                </p>
-              )}
-
-              <div className="flex flex-wrap items-center gap-2 border-b border-white/10 pb-3">
-                {([
-                  { key: "highlights" as Tab, label: "Highlights", count: highlightGroups.length },
-                  { key: "notes" as Tab, label: "Notes", count: noteGroups.length },
-                ]).map((item) => (
-                  <button
-                    key={item.key}
-                    type="button"
-                    onClick={() => setTab(item.key)}
-                    className={`rounded-full px-4 py-2 text-sm transition ${
-                      tab === item.key
-                        ? "bg-white/92 font-medium text-primary shadow-sm"
-                        : "border border-white/10 bg-white/8 text-white/78 hover:bg-white/14"
-                    }`}
-                  >
-                    {item.label}
-                    <span className="ml-2 text-xs opacity-75">{item.count}</span>
-                  </button>
-                ))}
-              </div>
-
-              <div className="mt-5 max-h-[34rem] overflow-y-auto overscroll-contain pr-1">
-                {tab === "highlights" && (
-                  <>
-                    {highlightGroups.length === 0 ? (
-                      <div className="rounded-[1.5rem] border border-dashed border-white/14 bg-white/6 px-5 py-8 text-center">
-                        <p className="text-base font-medium text-white">No highlights yet</p>
-                        <p className="mt-2 text-sm text-white/66">
-                          Open the reader and start marking the important parts of this book.
-                        </p>
-                      </div>
-                    ) : (
-                      <ul className="space-y-3">
-                        {highlightGroups.map((group) => (
-                          <li key={group.pageNumber}>
-                            <Link
-                              href={`/book/${book.id}/read?page=${group.pageNumber}`}
-                              className="flex items-center justify-between gap-4 rounded-[1.25rem] border border-white/12 bg-white/8 px-4 py-3 transition hover:border-white/22 hover:bg-white/14"
-                            >
-                              <div>
-                                <p className="text-sm font-semibold text-white">
-                                  Page {group.pageNumber}
-                                </p>
-                                <p className="mt-1 text-xs text-white/60">
-                                  {group.highlightIds.length} highlight
-                                  {group.highlightIds.length === 1 ? "" : "s"}
-                                </p>
-                              </div>
-                              <div className="flex shrink-0 items-center gap-1.5">
-                                {group.colors.map((color) => (
-                                  <span
-                                    key={`${group.pageNumber}-${color}`}
-                                    className="h-5 w-5 rounded-full border border-white/35 shadow-sm"
-                                    style={{ backgroundColor: color }}
-                                    title="Highlight color"
-                                  />
-                                ))}
-                              </div>
-                            </Link>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </>
-                )}
-
-                {tab === "notes" && (
-                  <>
-                    {noteGroups.length === 0 ? (
-                      <div className="rounded-[1.5rem] border border-dashed border-white/14 bg-white/6 px-5 py-8 text-center">
-                        <p className="text-base font-medium text-white">No notes yet</p>
-                        <p className="mt-2 text-sm text-white/66">
-                          Add comments in the reader and they will show up here page by page.
-                        </p>
-                      </div>
-                    ) : (
-                      <ul className="space-y-3">
-                        {noteGroups.map((group) => (
-                          <li key={group.pageNumber}>
-                            <Link
-                              href={`/book/${book.id}/read?page=${group.pageNumber}`}
-                              className="flex items-center justify-between gap-4 rounded-[1.25rem] border border-white/12 bg-white/8 px-4 py-3 transition hover:border-white/22 hover:bg-white/14"
-                            >
-                              <div>
-                                <p className="text-sm font-semibold text-white">
-                                  Page {group.pageNumber}
-                                </p>
-                                <p className="mt-1 text-xs text-white/60">
-                                  {group.noteIds.length} note{group.noteIds.length === 1 ? "" : "s"}
-                                </p>
-                              </div>
-                              <div className="flex shrink-0 items-center gap-1.5">
-                                {group.colors.map((color) => (
-                                  <span
-                                    key={`${group.pageNumber}-${color}`}
-                                    className="h-5 w-5 rounded-full border border-white/35 shadow-sm"
-                                    style={{ backgroundColor: color }}
-                                    title="Note color"
-                                  />
-                                ))}
-                              </div>
-                            </Link>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </>
-                )}
-              </div>
-            </section>
-          </div>
-        </section>
-      </div>
-    </section>
+            </>
+          )}
+        </div>
+      </section>
+    </div>
+    </>
   );
 }

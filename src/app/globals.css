@@ -68,41 +68,10 @@ body {
     linear-gradient(90deg, rgba(28, 18, 10, 0.56) 0%, rgba(28, 18, 10, 0.32) 42%, rgba(28, 18, 10, 0.5) 100%);
 }
 
-.video-shelf-overlay {
-  background:
-    radial-gradient(ellipse 80% 70% at 15% 16%, rgba(241, 223, 188, 0.2), transparent 54%),
-    radial-gradient(ellipse 55% 45% at 88% 14%, rgba(111, 69, 40, 0.14), transparent 60%),
-    linear-gradient(180deg, rgba(14, 9, 7, 0.34) 0%, rgba(14, 9, 7, 0.42) 32%, rgba(14, 9, 7, 0.56) 100%);
-}
-
-.landing-video-overlay {
-  background:
-    radial-gradient(ellipse 70% 60% at 25% 24%, rgba(240, 213, 170, 0.18), transparent 52%),
-    linear-gradient(180deg, rgba(19, 12, 9, 0.14) 0%, rgba(19, 12, 9, 0.3) 54%, rgba(19, 12, 9, 0.5) 100%);
-}
-
-.landing-side-video-overlay {
-  background:
-    linear-gradient(180deg, rgba(23, 14, 10, 0.14) 0%, rgba(23, 14, 10, 0.24) 46%, rgba(23, 14, 10, 0.52) 100%),
-    linear-gradient(90deg, rgba(23, 14, 10, 0.1) 0%, rgba(23, 14, 10, 0.34) 100%);
-}
-
-.video-form-overlay {
-  background:
-    radial-gradient(ellipse 60% 45% at 20% 25%, rgba(231, 205, 156, 0.14), transparent 60%),
-    linear-gradient(180deg, rgba(18, 12, 8, 0.26) 0%, rgba(18, 12, 8, 0.42) 100%);
-}
-
 .video-auth-overlay {
   background:
     radial-gradient(ellipse 55% 45% at 20% 18%, rgba(237, 213, 170, 0.14), transparent 58%),
     linear-gradient(180deg, rgba(16, 10, 7, 0.34) 0%, rgba(16, 10, 7, 0.52) 100%);
-}
-
-.video-book-overlay {
-  background:
-    radial-gradient(ellipse 65% 50% at 18% 24%, rgba(238, 213, 176, 0.12), transparent 58%),
-    linear-gradient(180deg, rgba(18, 12, 8, 0.2) 0%, rgba(18, 12, 8, 0.38) 100%);
 }
 
 .interactive-lift {

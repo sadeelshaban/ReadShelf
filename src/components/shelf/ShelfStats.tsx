@@ -21,14 +21,14 @@ export function ShelfStats({ books }: ShelfStatsProps) {
   ];
 
   return (
-    <div className="flex flex-wrap gap-2.5 lg:justify-end">
+    <div className="flex flex-wrap gap-2">
       {items.map((item) => (
         <div
           key={item.label}
-          className="rounded-full border border-soft-gray/18 bg-white/72 px-3.5 py-2 text-xs shadow-sm"
+          className="rounded-full border border-white/70 bg-white/50 px-3.5 py-1.5 text-xs backdrop-blur-sm"
         >
-          <span className="text-text-muted">{item.label}</span>
-          <span className="ml-1.5 font-semibold text-text">{item.value}</span>
+          <span className="text-text-muted">{item.label}</span>{" "}
+          <span className="font-semibold text-text">{item.value}</span>
         </div>
       ))}
     </div>

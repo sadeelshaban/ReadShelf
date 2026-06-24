@@ -11,14 +11,18 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirect = searchParams.get("redirect") ?? "/shelf";
-  const authErrorParam = searchParams.get("error");
-  const [email, setEmail] = useState("");
+  const welcome = searchParams.get("welcome") === "1";
+  const prefilledEmail = searchParams.get("email") ?? "";
+  const [email, setEmail] = useState(prefilledEmail);
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [resendLoading, setResendLoading] = useState(false);
-  const [pendingConfirmationEmail, setPendingConfirmationEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (prefilledEmail) {
+      setEmail(prefilledEmail);
+    }
+  }, [prefilledEmail]);
 
   useEffect(() => {
     const supabase = createClient();
@@ -29,50 +33,10 @@ function LoginForm() {
     });
   }, [redirect, router]);
 
-  const callbackError =
-    authErrorParam === "confirmation_failed"
-      ? "We could not confirm this email link. Try requesting a new confirmation email."
-      : authErrorParam === "missing_confirmation_code"
-        ? "This confirmation link is incomplete. Request a fresh confirmation email."
-        : null;
-
-  async function resendConfirmation(targetEmail: string) {
-    setError(null);
-    setMessage(null);
-    setResendLoading(true);
-
-    try {
-      const supabase = createClient();
-      const { error: resendError } = await supabase.auth.resend({
-        type: "signup",
-        email: targetEmail,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback?next=/shelf`,
-        },
-      });
-
-      if (resendError) {
-        setError(resendError.message);
-        setResendLoading(false);
-        return;
-      }
-
-      setMessage(
-        "A new confirmation email was requested. If nothing arrives, disable Confirm email in Supabase Authentication > Providers > Email while developing locally.",
-      );
-      setResendLoading(false);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not resend confirmation email.");
-      setResendLoading(false);
-    }
-  }
-
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    setMessage(null);
     setLoading(true);
-    setPendingConfirmationEmail(null);
 
     try {
       const supabase = createClient();
@@ -82,12 +46,6 @@ function LoginForm() {
       });
 
       if (authError) {
-        if (/email not confirmed/i.test(authError.message)) {
-          setError("This account is not confirmed yet, so it cannot log in.");
-          setPendingConfirmationEmail(email);
-          setLoading(false);
-          return;
-        }
         setError(authError.message);
         setLoading(false);
         return;
@@ -137,11 +95,12 @@ function LoginForm() {
           </Link>
 
           <h1 className="mt-8 font-serif text-4xl font-semibold tracking-tight text-white">
-            Welcome back
+            {welcome ? "Welcome to ReadShelf" : "Welcome back"}
           </h1>
           <p className="mt-3 text-sm leading-6 text-white/78 sm:text-base">
-            Log in to return to your shelf, continue reading, and pick up where
-            you left off.
+            {welcome
+              ? "Your account is ready. Log in with your email and password to open your shelf."
+              : "Log in to return to your shelf, continue reading, and pick up where you left off."}
           </p>
 
           <form onSubmit={handleSubmit} className="mt-8 space-y-4">
@@ -167,26 +126,10 @@ function LoginForm() {
               onChange={(e) => setPassword(e.target.value)}
               className="border-white/20 bg-white/92 text-[#24180f] placeholder:text-[#8a7968] focus:border-[#f0dfc4] focus:bg-white focus:ring-[#f2e3c8]/35"
             />
-            {(error || callbackError) && (
+            {error && (
               <p className="rounded-2xl border border-[#e5c79d]/28 bg-[#2f241b]/52 px-4 py-3 text-sm text-[#fff4e3] backdrop-blur-md">
-                {error ?? callbackError}
+                {error}
               </p>
-            )}
-            {message && (
-              <p className="rounded-2xl border border-[#d9c7a7]/26 bg-[#f6eedf]/88 px-4 py-3 text-sm text-[#5b4028]">
-                {message}
-              </p>
-            )}
-            {pendingConfirmationEmail && (
-              <Button
-                type="button"
-                variant="secondary"
-                className="w-full border-white/20 bg-white/88 text-[#5b4028] hover:bg-white"
-                disabled={resendLoading}
-                onClick={() => void resendConfirmation(pendingConfirmationEmail)}
-              >
-                {resendLoading ? "Resending confirmation..." : "Resend confirmation email"}
-              </Button>
             )}
             <Button type="submit" className="mt-2 w-full" disabled={loading}>
               {loading ? "Signing in..." : "Log in"}

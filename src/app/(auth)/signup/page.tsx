@@ -2,93 +2,74 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 
 export default function SignupPage() {
   const router = useRouter();
+  const redirectTimerRef = useRef<number | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [resendLoading, setResendLoading] = useState(false);
-  const [pendingConfirmationEmail, setPendingConfirmationEmail] = useState<string | null>(null);
+  const [signupSuccess, setSignupSuccess] = useState(false);
 
-  async function resendConfirmation(targetEmail: string) {
-    setError(null);
-    setMessage(null);
-    setResendLoading(true);
-
-    try {
-      const supabase = createClient();
-      const { error: resendError } = await supabase.auth.resend({
-        type: "signup",
-        email: targetEmail,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback?next=/shelf`,
-        },
-      });
-
-      if (resendError) {
-        setError(resendError.message);
-        setResendLoading(false);
-        return;
+  useEffect(() => {
+    return () => {
+      if (redirectTimerRef.current) {
+        window.clearTimeout(redirectTimerRef.current);
       }
+    };
+  }, []);
 
-      setMessage(
-        "A new confirmation email was requested. If nothing arrives, disable Confirm email in Supabase Authentication > Providers > Email while developing locally.",
-      );
-      setResendLoading(false);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not resend confirmation email.");
-      setResendLoading(false);
-    }
+  function isExistingAccountError(message: string) {
+    return /already registered|already exists|already been registered/i.test(message);
   }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    setMessage(null);
     setLoading(true);
-    setPendingConfirmationEmail(null);
+    setSignupSuccess(false);
 
     try {
       const supabase = createClient();
       const { data, error: authError } = await supabase.auth.signUp({
         email,
         password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback?next=/shelf`,
-        },
       });
 
       if (authError) {
-        setError(authError.message);
+        if (isExistingAccountError(authError.message)) {
+          setError("An account with this email already exists. Try logging in instead.");
+        } else {
+          setError(authError.message);
+        }
         setLoading(false);
         return;
       }
 
       if (data.user && (data.user.identities?.length ?? 0) === 0) {
         setError("An account with this email already exists. Try logging in instead.");
-        setPendingConfirmationEmail(email);
         setLoading(false);
         return;
       }
 
       if (data.session) {
-        router.push("/shelf");
-        router.refresh();
-        return;
+        await supabase.auth.signOut();
       }
 
-      setPendingConfirmationEmail(email);
-      setMessage(
-        "Your account was created, but email confirmation is still required before login. Use the resend button below if the message does not arrive.",
-      );
+      setSignupSuccess(true);
       setLoading(false);
+
+      redirectTimerRef.current = window.setTimeout(() => {
+        const loginUrl = new URL("/login", window.location.origin);
+        loginUrl.searchParams.set("welcome", "1");
+        loginUrl.searchParams.set("email", email);
+        router.push(`${loginUrl.pathname}${loginUrl.search}`);
+      }, 2800);
     } catch (err) {
       setError(
         err instanceof Error
@@ -130,70 +111,71 @@ export default function SignupPage() {
             </span>
           </Link>
 
-          <h1 className="mt-8 font-serif text-4xl font-semibold tracking-tight text-white">
-            Create your shelf
-          </h1>
-          <p className="mt-3 text-sm leading-6 text-white/78 sm:text-base">
-            Start saving books, notes, and highlights in one private reading
-            space built around your library.
-          </p>
-
-          <form onSubmit={handleSubmit} className="mt-8 space-y-4">
-            <Input
-              label="Email"
-              labelClassName="text-white"
-              type="email"
-              name="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="border-white/20 bg-white/92 text-[#24180f] placeholder:text-[#8a7968] focus:border-[#f0dfc4] focus:bg-white focus:ring-[#f2e3c8]/35"
-            />
-            <Input
-              label="Password"
-              labelClassName="text-white"
-              type="password"
-              name="password"
-              autoComplete="new-password"
-              required
-              minLength={6}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="border-white/20 bg-white/92 text-[#24180f] placeholder:text-[#8a7968] focus:border-[#f0dfc4] focus:bg-white focus:ring-[#f2e3c8]/35"
-            />
-            {error && (
-              <p className="rounded-2xl border border-[#e5c79d]/28 bg-[#2f241b]/52 px-4 py-3 text-sm text-[#fff4e3] backdrop-blur-md">
-                {error}
+          {signupSuccess ? (
+            <div className="mt-8 space-y-4">
+              <h1 className="font-serif text-4xl font-semibold tracking-tight text-white">
+                Welcome to ReadShelf
+              </h1>
+              <p className="text-sm leading-6 text-white/82 sm:text-base">
+                Your account was created successfully.
               </p>
-            )}
-            {message && (
               <p className="rounded-2xl border border-[#d9c7a7]/26 bg-[#f6eedf]/88 px-4 py-3 text-sm text-[#5b4028]">
-                {message}
+                Taking you to log in now. Enter your email and password to open your
+                shelf.
               </p>
-            )}
-          {pendingConfirmationEmail && (
-            <Button
-              type="button"
-              variant="secondary"
-              className="w-full border-white/20 bg-white/88 text-[#5b4028] hover:bg-white"
-              disabled={resendLoading}
-              onClick={() => void resendConfirmation(pendingConfirmationEmail)}
-            >
-              {resendLoading ? "Resending confirmation..." : "Resend confirmation email"}
-            </Button>
-          )}
-            <Button type="submit" className="mt-2 w-full" disabled={loading}>
-              {loading ? "Creating account..." : "Sign up"}
-            </Button>
-          </form>
+            </div>
+          ) : (
+            <>
+              <h1 className="mt-8 font-serif text-4xl font-semibold tracking-tight text-white">
+                Create your shelf
+              </h1>
+              <p className="mt-3 text-sm leading-6 text-white/78 sm:text-base">
+                Start saving books, notes, and highlights in one private reading
+                space built around your library.
+              </p>
 
-          <p className="mt-7 text-center text-sm text-white/72">
-            Already have an account?{" "}
-            <Link href="/login" className="font-medium text-[#f2dfbf] hover:underline">
-              Log in
-            </Link>
-          </p>
+              <form onSubmit={handleSubmit} className="mt-8 space-y-4">
+                <Input
+                  label="Email"
+                  labelClassName="text-white"
+                  type="email"
+                  name="email"
+                  autoComplete="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="border-white/20 bg-white/92 text-[#24180f] placeholder:text-[#8a7968] focus:border-[#f0dfc4] focus:bg-white focus:ring-[#f2e3c8]/35"
+                />
+                <Input
+                  label="Password"
+                  labelClassName="text-white"
+                  type="password"
+                  name="password"
+                  autoComplete="new-password"
+                  required
+                  minLength={6}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="border-white/20 bg-white/92 text-[#24180f] placeholder:text-[#8a7968] focus:border-[#f0dfc4] focus:bg-white focus:ring-[#f2e3c8]/35"
+                />
+                {error && (
+                  <p className="rounded-2xl border border-[#e5c79d]/28 bg-[#2f241b]/52 px-4 py-3 text-sm text-[#fff4e3] backdrop-blur-md">
+                    {error}
+                  </p>
+                )}
+                <Button type="submit" className="mt-2 w-full" disabled={loading}>
+                  {loading ? "Creating account..." : "Sign up"}
+                </Button>
+              </form>
+
+              <p className="mt-7 text-center text-sm text-white/72">
+                Already have an account?{" "}
+                <Link href="/login" className="font-medium text-[#f2dfbf] hover:underline">
+                  Log in
+                </Link>
+              </p>
+            </>
+          )}
         </div>
       </div>
     </section>
