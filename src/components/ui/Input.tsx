@@ -3,15 +3,26 @@ import { cn } from "@/lib/utils";
 type InputProps = React.InputHTMLAttributes<HTMLInputElement> & {
   label?: string;
   error?: string;
+  labelClassName?: string;
 };
 
-export function Input({ className, label, error, id, ...props }: InputProps) {
+export function Input({
+  className,
+  label,
+  error,
+  id,
+  labelClassName,
+  ...props
+}: InputProps) {
   const inputId = id ?? props.name;
 
   return (
     <div className="space-y-1.5">
       {label && (
-        <label htmlFor={inputId} className="block text-xs font-medium text-text-muted">
+        <label
+          htmlFor={inputId}
+          className={cn("block text-xs font-medium text-text-muted/90", labelClassName)}
+        >
           {label}
         </label>
       )}

@@ -46,7 +46,7 @@ export function ShelfGrid({ books, coverUrls, loading = false }: ShelfGridProps)
 
   return (
     <div className="space-y-4">
-      <div className="glass-panel rounded-2xl p-4 sm:p-5">
+      <div className="rounded-[1.75rem] border border-soft-gray/14 bg-card/90 p-4 shadow-[0_12px_32px_rgba(31,22,16,0.06)] sm:p-5">
         <ShelfControls
           search={search}
           sort={sort}
@@ -55,13 +55,13 @@ export function ShelfGrid({ books, coverUrls, loading = false }: ShelfGridProps)
         />
       </div>
 
-      <div className="glass-panel rounded-3xl p-5 sm:p-7">
+      <div className="rounded-[2rem] border border-soft-gray/12 bg-card/92 p-5 shadow-[0_16px_40px_rgba(31,22,16,0.06)] sm:p-7">
         {filtered.length === 0 ? (
-          <p className="py-10 text-center text-text-muted">
+          <p className="py-16 text-center text-sm text-text/56 sm:text-base">
             No books match your search.
           </p>
         ) : (
-          <div className="flex flex-wrap gap-x-7 gap-y-9">
+          <div className="grid justify-items-start grid-cols-2 gap-x-6 gap-y-9 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4">
             {filtered.map((book) => (
               <BookCard
                 key={book.id}

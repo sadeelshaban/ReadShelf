@@ -1,10 +1,26 @@
 import { createClient } from "@/lib/supabase/server";
 
+function normalizeStorageErrorMessage(message: string) {
+  const lower = message.toLowerCase();
+
+  if (lower.includes("bucket not found")) {
+    return "Storage is not fully set up yet. Create the Supabase storage buckets `book-pdfs` and `book-covers`, or rerun the SQL setup.";
+  }
+
+  if (lower.includes("row-level security") || lower.includes("permission denied")) {
+    return "Storage permissions are not ready yet. Recheck the Supabase storage policies from the setup SQL.";
+  }
+
+  return message;
+}
+
 export async function downloadSupabasePdf(path: string) {
   const supabase = await createClient();
   const { data, error } = await supabase.storage.from("book-pdfs").download(path);
   if (error || !data) {
-    throw new Error(error?.message ?? "Could not load PDF.");
+    throw new Error(
+      normalizeStorageErrorMessage(error?.message ?? "Could not load PDF."),
+    );
   }
   return Buffer.from(await data.arrayBuffer());
 }
@@ -34,7 +50,7 @@ export async function uploadSupabasePdf(path: string, body: Buffer, contentType:
     contentType,
     upsert: true,
   });
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(normalizeStorageErrorMessage(error.message));
 }
 
 export async function uploadSupabaseCover(path: string, body: Buffer, contentType: string) {
@@ -43,5 +59,5 @@ export async function uploadSupabaseCover(path: string, body: Buffer, contentTyp
     contentType,
     upsert: true,
   });
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(normalizeStorageErrorMessage(error.message));
 }
