@@ -85,7 +85,7 @@ export function ShelfPageClient() {
 
       {offline && (
         <p className="rounded-lg bg-slate-100 px-3 py-2 text-sm text-slate-800">
-          Offline mode — showing cached books. Open a book once online to download
+          Offline mode. Showing cached books. Open a book once online to download
           it for offline reading.
         </p>
       )}

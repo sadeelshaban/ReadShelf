@@ -334,7 +334,7 @@ export function BookDetailsClient({
                 {book.author || "Unknown"}
               </dd>
               <dt className="text-text/55">Pages</dt>
-              <dd className="text-text/80">{book.total_pages ?? "—"}</dd>
+              <dd className="text-text/80">{book.total_pages ?? "-"}</dd>
               <dt className="text-text/55">Added</dt>
               <dd className="text-text/80">{formatAddedDate(book.created_at)}</dd>
             </dl>

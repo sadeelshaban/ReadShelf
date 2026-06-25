@@ -1,0 +1,162 @@
+import type { User } from "@supabase/supabase-js";
+import { isAdminEmail } from "@/lib/admin";
+import { isUserOnline } from "@/lib/presence";
+import { createServiceClient } from "@/lib/supabase/service";
+
+export type AdminUserRow = {
+  id: string;
+  email: string;
+  name: string;
+  isOnline: boolean;
+  lastSeenAt: string | null;
+  lastSignInAt: string | null;
+  createdAt: string;
+  isAdmin: boolean;
+};
+
+function displayName(user: User): string {
+  const metadata = user.user_metadata ?? {};
+  const fromMeta =
+    (metadata.username as string | undefined) ||
+    (metadata.display_name as string | undefined);
+  if (fromMeta?.trim()) return fromMeta.trim();
+  if (user.email) return user.email.split("@")[0] ?? "User";
+  return "User";
+}
+
+function toRow(user: User, lastSeenAt: string | null): AdminUserRow {
+  return {
+    id: user.id,
+    email: user.email ?? "",
+    name: displayName(user),
+    isOnline: isUserOnline(lastSeenAt),
+    lastSeenAt,
+    lastSignInAt: user.last_sign_in_at ?? null,
+    createdAt: user.created_at,
+    isAdmin: isAdminEmail(user.email),
+  };
+}
+
+export async function listAdminUsers(): Promise<AdminUserRow[]> {
+  const supabase = createServiceClient();
+  const users: User[] = [];
+  let page = 1;
+
+  while (true) {
+    const { data, error } = await supabase.auth.admin.listUsers({
+      page,
+      perPage: 1000,
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    users.push(...data.users);
+
+    if (data.users.length < 1000) break;
+    page += 1;
+  }
+
+  const { data: profiles, error: profilesError } = await supabase
+    .from("profiles")
+    .select("id, last_seen_at");
+
+  if (profilesError) {
+    throw new Error(profilesError.message);
+  }
+
+  const lastSeenByUser = new Map(
+    (profiles ?? []).map((profile) => [profile.id, profile.last_seen_at as string | null]),
+  );
+
+  return users
+    .map((user) => toRow(user, lastSeenByUser.get(user.id) ?? null))
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+export async function signOutUserGlobally(userId: string) {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!url || !key) {
+    throw new Error("SUPABASE_SERVICE_ROLE_KEY is not configured.");
+  }
+
+  const response = await fetch(
+    `${url}/auth/v1/admin/users/${userId}/logout?scope=global`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${key}`,
+        apikey: key,
+      },
+    },
+  );
+
+  if (!response.ok) {
+    let message = "Could not sign out user.";
+    try {
+      const body = (await response.json()) as { msg?: string };
+      message = body.msg ?? message;
+    } catch {
+      // ignore parse errors
+    }
+    throw new Error(message);
+  }
+}
+
+async function removeUserStorage(userId: string) {
+  const supabase = createServiceClient();
+  const { data: books, error } = await supabase
+    .from("books")
+    .select("pdf_path, cover_path")
+    .eq("user_id", userId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const pdfPaths = (books ?? []).map((b) => b.pdf_path).filter(Boolean);
+  const coverPaths = (books ?? [])
+    .map((b) => b.cover_path)
+    .filter((p): p is string => Boolean(p));
+
+  if (pdfPaths.length) {
+    const { error: pdfError } = await supabase.storage
+      .from("book-pdfs")
+      .remove(pdfPaths);
+    if (pdfError) {
+      throw new Error(pdfError.message);
+    }
+  }
+
+  if (coverPaths.length) {
+    const { error: coverError } = await supabase.storage
+      .from("book-covers")
+      .remove(coverPaths);
+    if (coverError) {
+      throw new Error(coverError.message);
+    }
+  }
+}
+
+export async function unregisterUser(userId: string) {
+  const supabase = createServiceClient();
+  const { data, error: userError } = await supabase.auth.admin.getUserById(userId);
+
+  if (userError || !data.user) {
+    throw new Error(userError?.message ?? "User not found.");
+  }
+
+  if (isAdminEmail(data.user.email)) {
+    throw new Error("Admin accounts cannot be removed from here.");
+  }
+
+  await removeUserStorage(userId);
+
+  const { error } = await supabase.auth.admin.deleteUser(userId);
+  if (error) {
+    throw new Error(error.message);
+  }
+}

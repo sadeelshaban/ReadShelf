@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/Input";
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirect = searchParams.get("redirect") ?? "/shelf";
+  const redirectParam = searchParams.get("redirect");
   const welcome = searchParams.get("welcome") === "1";
   const prefilledEmail = searchParams.get("email") ?? "";
   const [email, setEmail] = useState(prefilledEmail);
@@ -26,12 +26,16 @@ function LoginForm() {
 
   useEffect(() => {
     const supabase = createClient();
-    void supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        router.replace(redirect);
-      }
+    void supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!session?.user) return;
+      const dest = await fetch("/api/auth/destination").then((r) => r.json());
+      const path =
+        redirectParam && redirectParam !== "/shelf" && redirectParam !== "/admin"
+          ? redirectParam
+          : (dest.path as string);
+      router.replace(path);
     });
-  }, [redirect, router]);
+  }, [redirectParam, router]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -51,7 +55,13 @@ function LoginForm() {
         return;
       }
 
-      router.push(redirect);
+      const dest = await fetch("/api/auth/destination").then((r) => r.json());
+      const path =
+        redirectParam && redirectParam !== "/shelf" && redirectParam !== "/admin"
+          ? redirectParam
+          : (dest.path as string);
+
+      router.push(path);
       router.refresh();
     } catch (err) {
       setError(

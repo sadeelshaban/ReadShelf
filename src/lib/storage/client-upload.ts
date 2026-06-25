@@ -9,13 +9,7 @@ type UploadContext = {
   coverContentType: string;
 };
 
-type UploadPlan =
-  | { storage: "supabase" }
-  | {
-      storage: "firebase";
-      pdfUploadUrl: string;
-      coverUploadUrl: string;
-    };
+type UploadPlan = { storage: "supabase" };
 
 let cachedPlanKey: string | null = null;
 let cachedPlan: UploadPlan | null = null;
@@ -93,31 +87,6 @@ async function uploadViaSupabaseStorage(
   }
 }
 
-async function uploadViaPresignedUrl(
-  url: string,
-  file: Blob | File,
-  kind: UploadKind,
-  contentType: string,
-) {
-  const body = toUploadBody(file, kind, contentType);
-  let response: Response;
-  try {
-    response = await fetch(url, {
-      method: "PUT",
-      headers: { "Content-Type": contentType },
-      body,
-    });
-  } catch {
-    throw new Error(
-      "Could not reach storage. Check your connection and try again.",
-    );
-  }
-
-  if (!response.ok) {
-    throw new Error(`File upload failed (${response.status}).`);
-  }
-}
-
 async function uploadViaAppServer(
   file: Blob | File,
   path: string,
@@ -156,13 +125,7 @@ export async function uploadBookFileViaApi(
   contentType: string,
   context: UploadContext,
 ) {
-  const plan = await ensureUploadPlan(context);
-
-  if (plan.storage === "firebase") {
-    const url = kind === "pdf" ? plan.pdfUploadUrl : plan.coverUploadUrl;
-    await uploadViaPresignedUrl(url, file, kind, contentType);
-    return;
-  }
+  await ensureUploadPlan(context);
 
   try {
     await uploadViaSupabaseStorage(file, path, kind, contentType);

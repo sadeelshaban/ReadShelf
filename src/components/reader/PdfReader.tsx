@@ -2076,7 +2076,7 @@ export function PdfReader({
         <div className="shrink-0 space-y-1 border-b border-white/10 px-3 py-1.5 text-xs">
           {offline && (
             <p className="text-white/60">
-              Offline — changes sync when you are back online.
+              Offline. Changes sync when you are back online.
             </p>
           )}
           {message && <p className="text-amber-300">{message}</p>}

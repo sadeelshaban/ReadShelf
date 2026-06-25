@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Lora } from "next/font/google";
 import { OfflineSyncRegister } from "@/components/offline/OfflineSyncRegister";
+import { PresenceHeartbeat } from "@/components/presence/PresenceHeartbeat";
 import { SetupBanner } from "@/components/layout/SetupBanner";
 import "./globals.css";
 
@@ -15,7 +16,10 @@ const lora = Lora({
 });
 
 export const metadata: Metadata = {
-  title: "ReadShelf — Your personal reading shelf",
+  title: {
+    default: "ReadShelf",
+    template: "%s",
+  },
   description:
     "A personal digital shelf that saves books, reading progress, highlights, and notes.",
   icons: {
@@ -44,6 +48,7 @@ export default function RootLayout({
       <body className="min-h-full antialiased" suppressHydrationWarning>
         <SetupBanner />
         {children}
+        <PresenceHeartbeat />
         <OfflineSyncRegister />
       </body>
     </html>

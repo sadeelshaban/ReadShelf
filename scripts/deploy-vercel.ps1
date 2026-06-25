@@ -74,12 +74,8 @@ Write-Host "Syncing environment variables to Vercel..." -ForegroundColor Yellow
 $envNames = @(
     "NEXT_PUBLIC_SUPABASE_URL",
     "NEXT_PUBLIC_SUPABASE_ANON_KEY",
-    "FIREBASE_PROJECT_ID",
-    "FIREBASE_CLIENT_EMAIL",
-    "FIREBASE_PRIVATE_KEY",
-    "FIREBASE_STORAGE_BUCKET",
-    "FIREBASE_STORAGE_PUBLIC_BASE_URL",
-    "NEXT_PUBLIC_FIREBASE_STORAGE_PUBLIC_BASE_URL"
+    "ADMIN_EMAILS",
+    "SUPABASE_SERVICE_ROLE_KEY"
 )
 
 foreach ($name in $envNames) {

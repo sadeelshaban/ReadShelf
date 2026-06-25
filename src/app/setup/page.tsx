@@ -72,24 +72,6 @@ export default function SetupPage() {
           </ol>
         </div>
 
-        <div className="mt-8 rounded-2xl border border-accent/40 bg-card p-6 shadow-sm">
-          <h2 className="font-serif text-xl font-semibold text-primary">
-            Firebase Storage (~5 GB for PDFs)
-          </h2>
-          <p className="mt-2 text-text/80">
-            Supabase free storage is ~1 GB. For a larger personal library, connect
-            Firebase Storage. Auth and sync stay on Supabase; only PDFs and covers
-            move to Firebase.
-          </p>
-          <p className="mt-3 text-sm text-text/70">
-            Create a Firebase project, enable Storage, add a service account key to{" "}
-            <code className="rounded bg-background px-1">.env.local</code>, apply
-            CORS from <code className="rounded bg-background px-1">scripts/firebase-storage-cors.json</code>,
-            then restart <code className="rounded bg-background px-1">npm run dev</code> and
-            upload a new book.
-          </p>
-        </div>
-
         <div className="mt-8 rounded-2xl border border-soft-gray/30 bg-card p-6">
           <p className="mt-2 text-text/80">
             In Supabase Dashboard → Authentication → Providers → Email, disable

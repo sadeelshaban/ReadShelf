@@ -1,6 +1,11 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { isAdminEmail } from "@/lib/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+
+function homePathForUser(user: { email?: string | null }) {
+  return isAdminEmail(user.email) ? "/admin" : "/shelf";
+}
 
 export async function updateSession(request: NextRequest) {
   if (!isSupabaseConfigured()) {
@@ -44,7 +49,8 @@ export async function updateSession(request: NextRequest) {
   const isProtected =
     path.startsWith("/shelf") ||
     path.startsWith("/book") ||
-    path.startsWith("/settings");
+    path.startsWith("/settings") ||
+    path.startsWith("/admin");
 
   if (!user && isProtected) {
     const url = request.nextUrl.clone();
@@ -55,13 +61,13 @@ export async function updateSession(request: NextRequest) {
 
   if (user && path === "/") {
     const url = request.nextUrl.clone();
-    url.pathname = "/shelf";
+    url.pathname = homePathForUser(user);
     return NextResponse.redirect(url);
   }
 
   if (user && isAuthRoute) {
     const url = request.nextUrl.clone();
-    url.pathname = "/shelf";
+    url.pathname = homePathForUser(user);
     return NextResponse.redirect(url);
   }
 
