@@ -88,8 +88,15 @@ foreach ($name in $envNames) {
 
 Write-Host ""
 Write-Host "Deploying to production..." -ForegroundColor Yellow
+$prev = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
 $deployOutput = & npx --yes vercel deploy --prod --yes 2>&1 | Out-String
+$deployExit = $LASTEXITCODE
+$ErrorActionPreference = $prev
 Write-Host $deployOutput.TrimEnd()
+if ($deployExit -ne 0) {
+    throw "Vercel deploy failed."
+}
 
 $url = ($deployOutput -split "`n" | Where-Object { $_ -match "https://.*\.vercel\.app" } | Select-Object -Last 1).Trim()
 if ($url) {
