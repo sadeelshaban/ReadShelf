@@ -9,20 +9,15 @@
     "start": "next start",
     "lint": "eslint",
     "setup:supabase": "powershell -ExecutionPolicy Bypass -File ./scripts/setup-supabase.ps1",
-    "setup:r2": "powershell -ExecutionPolicy Bypass -File ./scripts/setup-r2.ps1",
-    "setup:r2:auto": "powershell -ExecutionPolicy Bypass -File ./scripts/setup-r2-auto.ps1",
-    "create:r2-token": "node ./scripts/create-r2-token.mjs",
-    "save:r2-keys": "powershell -ExecutionPolicy Bypass -File ./scripts/save-r2-keys.ps1",
-    "test:r2": "node ./scripts/test-r2.mjs",
-    "reset:data": "powershell -ExecutionPolicy Bypass -File ./scripts/reset-data.ps1"
+    "reset:data": "powershell -ExecutionPolicy Bypass -File ./scripts/reset-data.ps1",
+    "deploy:vercel": "powershell -ExecutionPolicy Bypass -File ./scripts/deploy-vercel.ps1"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1068.0",
-    "@aws-sdk/s3-request-presigner": "^3.1068.0",
     "@fontsource/noto-sans-arabic": "^5.2.10",
     "@pdf-lib/fontkit": "^1.1.1",
     "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.108.1",
+    "firebase-admin": "^13.4.0",
     "next": "16.2.9",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^6.0.227",

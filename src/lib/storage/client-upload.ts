@@ -12,7 +12,7 @@ type UploadContext = {
 type UploadPlan =
   | { storage: "supabase" }
   | {
-      storage: "r2";
+      storage: "firebase";
       pdfUploadUrl: string;
       coverUploadUrl: string;
     };
@@ -158,7 +158,7 @@ export async function uploadBookFileViaApi(
 ) {
   const plan = await ensureUploadPlan(context);
 
-  if (plan.storage === "r2") {
+  if (plan.storage === "firebase") {
     const url = kind === "pdf" ? plan.pdfUploadUrl : plan.coverUploadUrl;
     await uploadViaPresignedUrl(url, file, kind, contentType);
     return;

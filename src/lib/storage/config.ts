@@ -1,33 +1,33 @@
-export type StorageKind = "r2" | "supabase";
+export type StorageKind = "firebase" | "supabase";
 
 export function getStorageKind(): StorageKind {
   if (
-    process.env.R2_ACCOUNT_ID &&
-    process.env.R2_ACCESS_KEY_ID &&
-    process.env.R2_SECRET_ACCESS_KEY &&
-    process.env.R2_BUCKET_NAME
+    process.env.FIREBASE_PROJECT_ID &&
+    process.env.FIREBASE_CLIENT_EMAIL &&
+    process.env.FIREBASE_PRIVATE_KEY &&
+    process.env.FIREBASE_STORAGE_BUCKET
   ) {
-    return "r2";
+    return "firebase";
   }
   return "supabase";
 }
 
-export function isR2Storage() {
-  return getStorageKind() === "r2";
+export function isFirebaseStorage() {
+  return getStorageKind() === "firebase";
 }
 
-export function getR2Config() {
-  const accountId = process.env.R2_ACCOUNT_ID;
-  const accessKeyId = process.env.R2_ACCESS_KEY_ID;
-  const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
-  const bucketName = process.env.R2_BUCKET_NAME;
-  const publicBaseUrl = process.env.R2_PUBLIC_URL?.replace(/\/$/, "");
+export function getFirebaseConfig() {
+  const projectId = process.env.FIREBASE_PROJECT_ID;
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+  const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n");
+  const storageBucket = process.env.FIREBASE_STORAGE_BUCKET;
+  const publicBaseUrl = process.env.FIREBASE_STORAGE_PUBLIC_BASE_URL?.replace(/\/$/, "");
 
-  if (!accountId || !accessKeyId || !secretAccessKey || !bucketName) {
-    throw new Error("R2 storage is not fully configured.");
+  if (!projectId || !clientEmail || !privateKey || !storageBucket) {
+    throw new Error("Firebase Storage is not fully configured.");
   }
 
-  return { accountId, accessKeyId, secretAccessKey, bucketName, publicBaseUrl };
+  return { projectId, clientEmail, privateKey, storageBucket, publicBaseUrl };
 }
 
 export function pdfObjectKey(path: string) {

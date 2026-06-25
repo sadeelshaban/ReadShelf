@@ -74,20 +74,18 @@ export default function SetupPage() {
 
         <div className="mt-8 rounded-2xl border border-accent/40 bg-card p-6 shadow-sm">
           <h2 className="font-serif text-xl font-semibold text-primary">
-            Cloudflare R2 (~10 GB for PDFs)
+            Firebase Storage (~5 GB for PDFs)
           </h2>
           <p className="mt-2 text-text/80">
             Supabase free storage is ~1 GB. For a larger personal library, connect
-            Cloudflare R2. Auth and sync stay on Supabase; only PDFs and covers
-            move to R2.
+            Firebase Storage. Auth and sync stay on Supabase; only PDFs and covers
+            move to Firebase.
           </p>
-          <pre className="mt-4 overflow-x-auto rounded-xl bg-background p-4 text-sm text-text">
-            npm run setup:r2
-          </pre>
           <p className="mt-3 text-sm text-text/70">
-            The script walks you through bucket creation, CORS, and API keys, then
-            tests the connection. After it succeeds, restart{" "}
-            <code className="rounded bg-background px-1">npm run dev</code> and
+            Create a Firebase project, enable Storage, add a service account key to{" "}
+            <code className="rounded bg-background px-1">.env.local</code>, apply
+            CORS from <code className="rounded bg-background px-1">scripts/firebase-storage-cors.json</code>,
+            then restart <code className="rounded bg-background px-1">npm run dev</code> and
             upload a new book.
           </p>
         </div>

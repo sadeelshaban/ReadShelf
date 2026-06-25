@@ -1,13 +1,13 @@
-import { isR2Storage } from "@/lib/storage/config";
+import { isFirebaseStorage } from "@/lib/storage/config";
 import {
-  createR2CoverReadUrl,
-  createR2CoverUploadUrl,
-  createR2PdfUploadUrl,
-  deleteR2Objects,
-  downloadR2Pdf,
-  uploadR2Cover,
-  uploadR2Pdf,
-} from "@/lib/storage/r2";
+  createFirebaseCoverReadUrl,
+  createFirebaseCoverUploadUrl,
+  createFirebasePdfUploadUrl,
+  deleteFirebaseObjects,
+  downloadFirebasePdf,
+  uploadFirebaseCover,
+  uploadFirebasePdf,
+} from "@/lib/storage/firebase";
 import {
   createSupabaseCoverReadUrl,
   deleteSupabaseObjects,
@@ -17,7 +17,7 @@ import {
 } from "@/lib/storage/supabase-storage";
 
 export async function downloadBookPdf(path: string) {
-  if (isR2Storage()) return downloadR2Pdf(path);
+  if (isFirebaseStorage()) return downloadFirebasePdf(path);
   return downloadSupabasePdf(path);
 }
 
@@ -25,13 +25,13 @@ export async function deleteBookFiles(paths: {
   pdfPath: string;
   coverPath?: string | null;
 }) {
-  if (isR2Storage()) return deleteR2Objects(paths);
+  if (isFirebaseStorage()) return deleteFirebaseObjects(paths);
   return deleteSupabaseObjects(paths);
 }
 
 export async function getCoverReadUrl(path: string | null) {
   if (!path) return null;
-  if (isR2Storage()) return createR2CoverReadUrl(path);
+  if (isFirebaseStorage()) return createFirebaseCoverReadUrl(path);
   return createSupabaseCoverReadUrl(path);
 }
 
@@ -40,17 +40,17 @@ export async function createBookUploadUrls(input: {
   coverPath: string;
   coverContentType: string;
 }) {
-  if (!isR2Storage()) {
+  if (!isFirebaseStorage()) {
     return { storage: "supabase" as const };
   }
 
   const [pdfUploadUrl, coverUploadUrl] = await Promise.all([
-    createR2PdfUploadUrl(input.pdfPath),
-    createR2CoverUploadUrl(input.coverPath, input.coverContentType),
+    createFirebasePdfUploadUrl(input.pdfPath),
+    createFirebaseCoverUploadUrl(input.coverPath, input.coverContentType),
   ]);
 
   return {
-    storage: "r2" as const,
+    storage: "firebase" as const,
     pdfUploadUrl,
     coverUploadUrl,
   };
@@ -62,12 +62,12 @@ export async function uploadBookFile(input: {
   contentType: string;
   body: Buffer;
 }) {
-  if (isR2Storage()) {
+  if (isFirebaseStorage()) {
     if (input.kind === "pdf") {
-      await uploadR2Pdf(input.path, input.body, input.contentType);
+      await uploadFirebasePdf(input.path, input.body, input.contentType);
       return;
     }
-    await uploadR2Cover(input.path, input.body, input.contentType);
+    await uploadFirebaseCover(input.path, input.body, input.contentType);
     return;
   }
 

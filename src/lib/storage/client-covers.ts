@@ -3,7 +3,10 @@ import { createClient } from "@/lib/supabase/client";
 export async function getClientCoverReadUrl(path: string | null) {
   if (!path) return null;
 
-  const publicBase = process.env.NEXT_PUBLIC_R2_PUBLIC_URL?.replace(/\/$/, "");
+  const publicBase = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_PUBLIC_BASE_URL?.replace(
+    /\/$/,
+    "",
+  );
   if (publicBase) {
     return `${publicBase}/covers/${path}`;
   }
