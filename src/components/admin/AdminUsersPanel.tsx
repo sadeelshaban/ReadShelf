@@ -22,10 +22,14 @@ function formatDate(value: string | null) {
 export function AdminUsersPanel() {
   const [users, setUsers] = useState<AdminUserRow[]>([]);
   const [initialLoading, setInitialLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  const loadUsers = useCallback(async () => {
+  const loadUsers = useCallback(async (options?: { silent?: boolean }) => {
+    const silent = options?.silent ?? false;
+    if (!silent) setRefreshing(true);
+
     try {
       const response = await fetch("/api/admin/users", { credentials: "same-origin" });
       const body = (await response.json()) as { users?: AdminUserRow[]; error?: string };
@@ -38,12 +42,13 @@ export function AdminUsersPanel() {
       setError(err instanceof Error ? err.message : "Could not load users.");
     } finally {
       setInitialLoading(false);
+      if (!silent) setRefreshing(false);
     }
   }, []);
 
   useEffect(() => {
-    void loadUsers();
-    const timer = setInterval(() => void loadUsers(), 15_000);
+    void loadUsers({ silent: true });
+    const timer = setInterval(() => void loadUsers({ silent: true }), 15_000);
     return () => clearInterval(timer);
   }, [loadUsers]);
 
@@ -61,7 +66,7 @@ export function AdminUsersPanel() {
       if (!response.ok) {
         throw new Error(body.error ?? "Sign out failed.");
       }
-      await loadUsers();
+      await loadUsers({ silent: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sign out failed.");
     } finally {
@@ -103,8 +108,13 @@ export function AdminUsersPanel() {
         <div>
           <h2 className="font-serif text-2xl font-semibold text-text">Users</h2>
         </div>
-        <Button variant="secondary" size="sm" onClick={() => void loadUsers()}>
-          Refresh
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={refreshing}
+          onClick={() => void loadUsers()}
+        >
+          {refreshing ? "Refreshing..." : "Refresh"}
         </Button>
       </div>
 
