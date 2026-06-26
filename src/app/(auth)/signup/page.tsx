@@ -58,8 +58,9 @@ export default function SignupPage() {
             We sent a confirmation link to <strong className="text-white">{email}</strong>.
           </p>
           <p className="rounded-2xl border border-[#d9c7a7]/26 bg-[#f6eedf]/88 px-4 py-3 text-sm text-[#5b4028]">
-            Open the email, click Confirm Email, then return here to log in and open your
-            shelf.
+            Check your inbox for the confirmation email. If you do not see it, check your
+            spam or junk folder. Open the email, click Confirm Email, then return here to
+            log in and open your shelf.
           </p>
           <Link href={`/login?email=${encodeURIComponent(email)}`}>
             <Button className="mt-2 w-full">Go to log in</Button>
