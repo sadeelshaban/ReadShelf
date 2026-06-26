@@ -13,6 +13,7 @@ import { purgeBookFromLocalCache } from "@/lib/offline/purge-book-cache";
 import { noteTextCss } from "@/lib/reader/constants";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { BookTabEmptyState } from "@/components/book/BookTabEmptyState";
 
 type BookDetailsClientProps = {
   book: Book;
@@ -397,7 +398,7 @@ export function BookDetailsClient({
           {tab === "highlights" && (
             <>
               {highlightGroups.length === 0 ? (
-                <p className="text-sm text-text/70">No highlights yet.</p>
+                <BookTabEmptyState variant="highlights" />
               ) : (
                 <ul className="space-y-2">
                   {highlightGroups.map((group) => (
@@ -430,7 +431,7 @@ export function BookDetailsClient({
           {tab === "notes" && (
             <>
               {noteGroups.length === 0 ? (
-                <p className="text-sm text-text/70">No notes yet.</p>
+                <BookTabEmptyState variant="notes" />
               ) : (
                 <ul className="space-y-2">
                   {noteGroups.map((group) => (
