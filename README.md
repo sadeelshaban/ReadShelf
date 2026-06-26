@@ -2,52 +2,61 @@
 
 **Your personal digital reading shelf — PDFs, progress, highlights, and notes in one place.**
 
-ReadShelf is a web app for keeping PDF books organized, readable, and annotated — without losing your place or your notes. Open it in your browser, build your shelf, and pick up where you left off from any device.
+[Live app](https://readshelf-rust.vercel.app)
+
+ReadShelf is a web app for people who read PDFs for study, work, or personal learning. Upload books to your private shelf, read in the browser, annotate page by page, and pick up exactly where you left off from any device. Everything stays tied to your account: covers, progress, highlights, and notes.
 
 ---
 
-## The problem
+## The idea
 
-If you read PDFs for study, work, or personal learning, you have probably run into the same friction:
+Most PDF workflows feel scattered. Files live in folders, WhatsApp threads, or cloud drives with no real library. Progress does not follow you between devices. Highlights and notes get lost when you reopen the file somewhere else.
 
-- Files scattered across folders, WhatsApp, and cloud drives with no real **library**
-- No reliable **reading progress** when you switch devices
-- Highlights and notes trapped inside one app, or lost when you re-open the file elsewhere
-- Generic PDF viewers that feel like tools, not a **personal shelf**
-- Arabic and mixed-language PDFs that break when you try to **export** annotated copies
+ReadShelf is built around one simple concept: **a calm, personal shelf** where each book keeps its place, its cover, and everything you wrote on it.
 
-ReadShelf gives you a single private shelf where every book, bookmark, highlight, and note stays tied to your account.
+Organize → Read → Annotate. That is the whole flow.
 
 ---
 
 ## Features
 
+### Account & auth
+- Sign up with email and password (Supabase Auth)
+- Email confirmation via custom SMTP (confirmation link in your inbox)
+- Log in with clear field-level errors (wrong email, wrong password, unconfirmed account)
+- Forgot password with a one-time code sent by email, then reset on a secure page
+- After signup: reminder to check inbox (and spam if the email is missing)
+
 ### Library & shelf
-- Email/password authentication (Supabase Auth)
-- Upload PDF books (up to 50 MB) with cover generated from page 1
+- Upload PDF books (up to 50 MB) with an auto-generated cover from page 1
 - Personal shelf with search and sort (**recent**, **date added**, **progress**)
 - Per-book stats: reading progress and last page
-- **Edit book details** (title and author) from the book page
+- Edit title and author from the book page
 
 ### Reader
-- Vertical scroll through all pages (stacked layout)
-- Draggable annotation toolbar (select, pan, comment, highlighter, pen, **eraser**)
-- Page navigation on the right: previous/next, **editable page number** (type a page and press Enter or click outside), zoom controls (default 50%)
+- Vertical scroll through all pages
+- Draggable annotation toolbar: select, pan, comment, highlighter, pen, eraser
+- Page navigation: previous/next, editable page number, zoom (default 50%)
 - Freehand highlights, pen strokes, and positioned page notes
 - Keyboard navigation (↑ / ↓ between pages)
 - Progress saved automatically as you read
-- Smooth scrolling without page flicker when moving between pages
 
 ### Annotations & export
 - Highlights and notes stored per user, per book, per page
-- Book details view with highlights and notes grouped by page (syncs local cache + database)
-- **Download annotated PDF** — highlights and notes embedded on the original pages
-- Arabic note text supported in export via embedded Noto Sans Arabic (TTF)
+- Book details view with Highlights and Notes tabs grouped by page
+- Download annotated PDF with highlights and notes embedded on the original pages
+- Arabic note text supported in export via embedded Noto Sans Arabic
 
 ### Offline & sync
 - IndexedDB cache for PDFs and annotations
 - Offline reading after a book has been opened once online
-- Background sync queue pushes local changes when connectivity returns
+- Background sync when connectivity returns
+
+### Admin (optional)
+- Dashboard at `/admin` for emails listed in `ADMIN_EMAILS`
+- Platform stats: users, books, notes, highlights
+- User management: sign out or delete accounts
+- Admins land on the dashboard after login; regular users go to their shelf
 
 ---
 
@@ -58,31 +67,32 @@ ReadShelf gives you a single private shelf where every book, bookmark, highlight
 | Framework | Next.js 16 (App Router), React 19, TypeScript |
 | Styling | Tailwind CSS 4 |
 | Auth & database | Supabase (Auth, PostgreSQL, Row Level Security) |
-| File storage | Supabase Storage (default) or Cloudflare R2 (optional) |
+| File storage | Supabase Storage |
+| Auth emails | Nodemailer + your SMTP (e.g. Gmail app password) |
 | PDF rendering | pdfjs-dist 6 (worker + cmaps + wasm + standard fonts) |
 | PDF export | pdf-lib + @pdf-lib/fontkit |
 | Offline | IndexedDB + custom sync queue |
-| Deploy | Vercel-ready |
+| Deploy | Vercel |
 
 ---
 
-## Architecture overview
+## Architecture
 
 ```
 Browser (Next.js)
-  ├── Shelf UI ──────────────► Supabase (auth, books, highlights, notes)
+  ├── Auth UI ───────────────► Supabase Auth + custom SMTP emails
+  ├── Shelf UI ──────────────► Supabase (books, highlights, notes)
   ├── PDF Reader ────────────► pdfjs-dist + canvas overlay
   ├── Offline layer ─────────► IndexedDB (PDF cache, annotations, sync queue)
   └── Export ────────────────► Server route → pdf-lib annotated PDF
 
 Storage
-  ├── Supabase Storage  (default, ~1 GB free)
-  └── Cloudflare R2     (optional, ~10 GB free — PDFs & covers only)
+  └── Supabase Storage (PDFs & covers, signed access)
 ```
 
-Each user's data is isolated with Supabase RLS policies. PDF files never appear in public URLs without signed access.
+Each user's data is isolated with Supabase RLS. PDF files are not served from public URLs without signed access.
 
-On `npm install`, a **postinstall** script copies pdf.js runtime assets (`pdf.worker`, `cmaps`, `wasm`, `iccs`, `standard_fonts`) into `public/` so scanned and Arabic PDFs render correctly in the browser.
+On `npm install`, **postinstall** copies pdf.js runtime assets (`pdf.worker`, `cmaps`, `wasm`, `iccs`, `standard_fonts`) into `public/` so scanned and Arabic PDFs render correctly.
 
 ---
 
@@ -92,7 +102,7 @@ On `npm install`, a **postinstall** script copies pdf.js runtime assets (`pdf.wo
 
 - Node.js 20+
 - A [Supabase](https://supabase.com) project (free tier works)
-- Optional: [Cloudflare R2](https://developers.cloudflare.com/r2/) bucket for larger libraries
+- SMTP credentials for auth emails (Gmail with an [app password](https://support.google.com/accounts/answer/185833) works well)
 
 ### 1. Clone and install
 
@@ -102,11 +112,21 @@ cd ReadShelf
 npm install
 ```
 
-`npm install` runs `postinstall` and copies pdf.js assets into `public/`. If pages render blank after deploy, run `node scripts/copy-pdf-worker.mjs` locally or redeploy after a fresh install.
+If PDF pages render blank after deploy, run `node scripts/copy-pdf-worker.mjs` or redeploy after a fresh install.
 
 ### 2. Environment variables
 
-Copy `.env.local.example` to `.env.local` and fill in your Supabase keys.
+Copy `.env.local.example` to `.env.local` and fill in:
+
+| Variable | Purpose |
+|----------|---------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key |
+| `NEXT_PUBLIC_SITE_URL` | App URL (e.g. `http://localhost:3000` locally) |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server-only; required for signup emails and admin stats |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` | Send confirmation and password-reset emails |
+| `EMAIL_FROM` | From address (e.g. `ReadShelf <you@gmail.com>`) |
+| `ADMIN_EMAILS` | Comma-separated admin emails (optional) |
 
 ### 3. Supabase setup
 
@@ -114,19 +134,16 @@ Copy `.env.local.example` to `.env.local` and fill in your Supabase keys.
 npm run setup:supabase
 ```
 
-Apply migrations from `supabase/migrations/` in your Supabase SQL editor.
+Apply migrations from `supabase/migrations/` in the Supabase SQL editor. Email templates live in `supabase/templates/` and are loaded by the app when sending mail.
 
-### 4. Optional: Cloudflare R2
+In Supabase **Authentication → URL Configuration**, add your site URL and redirect URLs:
 
-```bash
-npm run setup:r2        # guided setup
-npm run setup:r2:auto   # Wrangler-based automated setup
-npm run test:r2         # verify R2 connection
-```
+- `https://your-domain.com/auth/callback`
+- `http://localhost:3000/auth/callback` (local dev)
 
-When all `R2_*` variables are set, new uploads go to R2 automatically. Auth and database stay on Supabase.
+Enable email confirmations in Supabase Auth settings.
 
-### 5. Run locally
+### 4. Run locally
 
 ```bash
 npm run dev
@@ -140,13 +157,14 @@ Open [http://localhost:3000](http://localhost:3000).
 
 1. Push this repository to GitHub.
 2. Import the project in [Vercel](https://vercel.com).
-3. Add environment variables (`NEXT_PUBLIC_SUPABASE_*`, and optional `R2_*`).
-4. Deploy — Vercel runs `npm install`, which triggers the pdf.js **postinstall** copy step.
+3. Add all environment variables from `.env.local.example` (including SMTP and `SUPABASE_SERVICE_ROLE_KEY`).
+4. Set `NEXT_PUBLIC_SITE_URL` to your production URL (e.g. `https://readshelf-rust.vercel.app`).
+5. Deploy. Vercel runs `npm install`, which triggers the pdf.js postinstall copy.
 
 After deploy:
 
-- Add your Vercel URL to Supabase **Authentication → URL Configuration → Redirect URLs** (needed for password reset).
-- Update R2 CORS `origins` to include your production domain.
+- Add your production URL to Supabase **Redirect URLs**.
+- Send a test signup to confirm confirmation emails arrive (check spam if needed).
 
 ---
 
@@ -154,22 +172,25 @@ After deploy:
 
 ```
 src/
-  app/                    # Next.js routes (landing, auth, shelf, reader, API)
-  components/             # UI, shelf, reader, book, layout
+  app/                    # Routes: landing, auth, shelf, reader, admin, API
+  components/             # UI, shelf, reader, book, auth, admin, layout
   lib/
-    supabase/             # Client, server, middleware
-    storage/              # Supabase Storage + R2 abstraction
+    supabase/             # Client, server, middleware, service role
+    storage/              # Supabase Storage uploads and signed URLs
+    email/                # SMTP send, templates, signup/recovery links
     pdf/                  # PDF loading, cover extraction, annotated export
     offline/              # IndexedDB, cache, sync queue
     reader/               # Coordinates, constants, hit-testing
     annotations/          # Merge local + server annotations
     books/                # Database queries
+    admin/                # Stats and user management
   types/                  # Shared TypeScript types
 assets/
   fonts/                  # Noto Sans Arabic (PDF export)
 supabase/
   migrations/             # SQL schema + RLS policies
-scripts/                  # Supabase/R2 setup, pdf.js asset copy
+  templates/              # HTML email templates (confirmation, recovery OTP)
+scripts/                  # Supabase setup, pdf.js asset copy, admin helpers
 public/                   # Icons, favicon, pdf.js worker + cmaps + wasm (generated)
 ```
 
@@ -184,18 +205,20 @@ public/                   # Icons, favicon, pdf.js worker + cmaps + wasm (genera
 | `npm run start` | Start production server |
 | `npm run lint` | Run ESLint |
 | `npm run setup:supabase` | Guided Supabase setup (Windows) |
-| `npm run setup:r2` | Guided R2 setup |
+| `npm run apply:supabase-auth` | Apply Supabase auth configuration |
+| `npm run create:admin` | Create an admin user |
 | `npm run reset:data` | Wipe app data on linked Supabase project |
 
-`postinstall` (automatic): `node scripts/copy-pdf-worker.mjs` — copies pdf.js worker, fonts, cmaps, wasm, and iccs into `public/`.
+`postinstall` (automatic): `node scripts/copy-pdf-worker.mjs`
 
 ---
 
 ## Known limitations
 
-- **PDF size limit:** 50 MB per upload (MVP)
-- **Very large libraries:** Hundreds of pages load on demand; first visit to a distant page may take a moment to render
-- **Storage:** Without R2, Supabase free tier storage is ~1 GB
+- **PDF size limit:** 50 MB per upload
+- **Very large books:** Distant pages load on demand; first visit may take a moment
+- **Storage:** Supabase free tier storage is ~1 GB
+- **Auth emails:** Require working SMTP; without it, signup cannot send confirmation mail
 
 ---
 
@@ -207,6 +230,6 @@ Private project — all rights reserved unless otherwise specified by the reposi
 
 ## Author
 
-Built by **Sadeel Shaban** — a personal tool that became a product.
+Built by **Sadeel Shaban** — a personal reading tool turned into a product.
 
 Questions or collaboration: [sadeelshabanmedia@gmail.com](mailto:sadeelshabanmedia@gmail.com)
