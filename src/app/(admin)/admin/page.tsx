@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AdminUsersPanel } from "@/components/admin/AdminUsersPanel";
 import { getPlatformStats } from "@/lib/admin/stats";
@@ -59,18 +58,10 @@ export default async function AdminDashboardPage() {
 
   return (
     <div>
-      <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="font-serif text-3xl font-semibold text-text sm:text-4xl">
-            Dashboard
-          </h1>
-        </div>
-        <Link
-          href="/shelf"
-          className="rounded-xl border border-primary/15 bg-background-elevated px-4 py-2 text-sm font-medium text-primary transition hover:bg-card"
-        >
-          Back to shelf
-        </Link>
+      <div className="mb-8">
+        <h1 className="font-serif text-3xl font-semibold text-text sm:text-4xl">
+          Dashboard
+        </h1>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

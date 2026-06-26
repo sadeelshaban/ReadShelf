@@ -71,5 +71,16 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  const isUserAppRoute =
+    path.startsWith("/shelf") ||
+    path.startsWith("/book") ||
+    path.startsWith("/settings");
+
+  if (user && isAdminEmail(user.email) && isUserAppRoute) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/admin";
+    return NextResponse.redirect(url);
+  }
+
   return supabaseResponse;
 }
