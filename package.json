@@ -13,6 +13,8 @@
     "deploy:vercel": "powershell -ExecutionPolicy Bypass -File ./scripts/deploy-vercel.ps1",
     "migrate:r2-to-supabase": "node scripts/migrate-r2-to-supabase.mjs",
     "create:admin": "node scripts/create-admin-user.mjs",
+    "create:demo": "node scripts/create-demo-user.mjs",
+    "seed:demo": "node scripts/seed-demo-shelf.mjs",
     "apply:supabase-auth": "node scripts/apply-supabase-auth.mjs"
   },
   "dependencies": {

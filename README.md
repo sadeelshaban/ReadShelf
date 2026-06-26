@@ -2,7 +2,7 @@
 
 **Your personal digital reading shelf — PDFs, progress, highlights, and notes in one place.**
 
-[Live app](https://readshelf-rust.vercel.app)
+[Live app](https://readshelf-rust.vercel.app) · [Platform overview](https://readshelf-rust.vercel.app/platform) (for acquisition)
 
 ReadShelf is a web app for people who read PDFs for study, work, or personal learning. Upload books to your private shelf, read in the browser, annotate page by page, and pick up exactly where you left off from any device. Everything stays tied to your account: covers, progress, highlights, and notes.
 
@@ -207,6 +207,7 @@ public/                   # Icons, favicon, pdf.js worker + cmaps + wasm (genera
 | `npm run setup:supabase` | Guided Supabase setup (Windows) |
 | `npm run apply:supabase-auth` | Apply Supabase auth configuration |
 | `npm run create:admin` | Create an admin user |
+| `npm run create:demo` | Create a confirmed demo user for acquisition walkthroughs |
 | `npm run reset:data` | Wipe app data on linked Supabase project |
 
 `postinstall` (automatic): `node scripts/copy-pdf-worker.mjs`
@@ -219,6 +220,19 @@ public/                   # Icons, favicon, pdf.js worker + cmaps + wasm (genera
 - **Very large books:** Distant pages load on demand; first visit may take a moment
 - **Storage:** Supabase free tier storage is ~1 GB
 - **Auth emails:** Require working SMTP; without it, signup cannot send confirmation mail
+
+---
+
+## Product acquisition
+
+ReadShelf is available as a **full product acquisition** for EdTech, publishers, agencies, and internal knowledge teams.
+
+- **One-pager:** [/platform](https://readshelf-rust.vercel.app/platform)
+- **Live demo:** production deployment with shelf, reader, annotations, and admin analytics
+- **Demo user:** `npm run create:demo` (confirmed account for buyer walkthroughs)
+- **Contact:** [sadeelshabanmedia@gmail.com](mailto:sadeelshabanmedia@gmail.com)
+
+What's included: source code, Supabase schema, deployment, admin dashboard with engagement analytics, and handover support.
 
 ---
 

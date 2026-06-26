@@ -126,6 +126,15 @@ export default function HomePage() {
           </div>
         </section>
       </main>
+
+      <footer className="relative mx-auto max-w-7xl px-6 pb-8 lg:px-8">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/15 pt-6 text-sm text-white/65">
+          <p>ReadShelf — personal PDF reading infrastructure</p>
+          <Link href="/platform" className="font-medium text-white/85 hover:underline">
+            Platform overview
+          </Link>
+        </div>
+      </footer>
     </div>
   );
 }
