@@ -2,10 +2,8 @@
 
 import Link from "next/link";
 import { FormEvent, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -18,20 +16,27 @@ export default function ForgotPasswordPage() {
     setMessage(null);
     setLoading(true);
 
-    const supabase = createClient();
-    const { error: authError } = await supabase.auth.resetPasswordForEmail(
-      email,
-      { redirectTo: `${window.location.origin}/login` },
-    );
+    try {
+      const response = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
 
-    if (authError) {
-      setError(authError.message);
+      const body = (await response.json()) as { error?: string; message?: string };
+
+      if (!response.ok) {
+        setError(body.error ?? "Could not send reset link. Please try again.");
+        setLoading(false);
+        return;
+      }
+
+      setMessage(body.message ?? "If that email exists, a reset link has been sent.");
       setLoading(false);
-      return;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not send reset link.");
+      setLoading(false);
     }
-
-    setMessage("If that email exists, a reset link has been sent.");
-    setLoading(false);
   }
 
   return (

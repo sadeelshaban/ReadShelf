@@ -42,7 +42,7 @@ export async function updateSession(request: NextRequest) {
   const user = session?.user;
 
   const path = request.nextUrl.pathname;
-  const isAuthRoute =
+  const isLoginSignupForgot =
     path.startsWith("/login") ||
     path.startsWith("/signup") ||
     path.startsWith("/forgot-password");
@@ -65,7 +65,7 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (user && isAuthRoute) {
+  if (user && isLoginSignupForgot) {
     const url = request.nextUrl.clone();
     url.pathname = homePathForUser(user);
     return NextResponse.redirect(url);

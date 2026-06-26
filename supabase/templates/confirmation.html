@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Welcome to ReadShelf</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background-color: #FBF7F0;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+    }
+    .wrapper {
+      width: 100%;
+      table-layout: fixed;
+      background-color: #FBF7F0;
+      padding-bottom: 40px;
+    }
+    .main-table {
+      width: 100%;
+      max-width: 500px;
+      margin: 40px auto;
+      background-color: #F7F1E5;
+      border-radius: 12px;
+      border: 1px solid #EADBC8;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+      border-collapse: collapse;
+    }
+    .header {
+      text-align: center;
+      padding: 35px 20px 20px 20px;
+    }
+    .logo {
+      max-width: 56px;
+      height: auto;
+      display: block;
+      margin: 0 auto 12px auto;
+    }
+    .content {
+      padding: 0 40px 30px 40px;
+      text-align: center;
+    }
+    h1 {
+      color: #3C2A21;
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      margin-top: 0;
+    }
+    p {
+      color: #645C53;
+      font-size: 15px;
+      line-height: 1.6;
+      margin-bottom: 24px;
+      margin-top: 0;
+    }
+    .btn-container {
+      margin: 30px 0;
+    }
+    .button {
+      background-color: #634832;
+      color: #FBF7F0 !important;
+      text-decoration: none;
+      padding: 12px 30px;
+      font-size: 15px;
+      font-weight: 600;
+      border-radius: 8px;
+      display: inline-block;
+      box-shadow: 0 2px 4px rgba(99, 72, 50, 0.2);
+    }
+    .footer {
+      text-align: center;
+      padding: 0 40px 35px 40px;
+      font-size: 12px;
+      color: #A09383;
+      border-top: 1px solid #EADBC8;
+    }
+    .footer p {
+      font-size: 12px;
+      color: #A09383;
+      margin: 15px 0 0 0;
+    }
+    @media screen and (max-width: 520px) {
+      .main-table { margin: 20px 10px; }
+      .content { padding: 0 20px 25px 20px; }
+    }
+  </style>
+</head>
+<body>
+  <center class="wrapper">
+    <table class="main-table" role="presentation">
+      <tr>
+        <td class="header">
+          <img src="{{ .SiteURL }}/favicon.png" alt="ReadShelf" class="logo">
+          <h2 style="color: #634832; font-size: 20px; margin: 0; font-family: Georgia, serif;">ReadShelf</h2>
+        </td>
+      </tr>
+      <tr>
+        <td class="content">
+          <h1>Verify your email address</h1>
+          <p>Thank you for signing up for ReadShelf! Click the button below to confirm your account and set up your personal digital reading shelf.</p>
+          <div class="btn-container">
+            <a href="{{ .ConfirmationURL }}" class="button" target="_blank">Confirm Email</a>
+          </div>
+          <p style="font-size: 13px; color: #8C7E72; margin-bottom: 0;">
+            Once confirmed, everything is set! You can safely return to your previous tab to log in and access your library.
+          </p>
+        </td>
+      </tr>
+      <tr>
+        <td class="footer">
+          <p>ReadShelf. Your digital books, progress, and highlights in one place.</p>
+        </td>
+      </tr>
+    </table>
+  </center>
+</body>
+</html>
