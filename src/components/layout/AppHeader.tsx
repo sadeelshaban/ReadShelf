@@ -25,7 +25,7 @@ export async function AppHeader() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-white/60 bg-card/85 backdrop-blur-xl">
-      <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
         <Link href="/shelf" className="flex min-w-0 items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-white/80 shadow-sm ring-1 ring-black/5">
             <Image
@@ -49,7 +49,32 @@ export async function AppHeader() {
           </div>
         </Link>
 
-        <nav className="flex shrink-0 items-center">
+        <nav className="flex shrink-0 items-center gap-1">
+          <Link
+            href="/shelf"
+            className="mr-1 hidden items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-text/80 transition hover:bg-white/50 hover:text-primary sm:inline-flex"
+          >
+            <svg
+              className="h-4 w-4"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.75"
+              aria-hidden
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"
+              />
+            </svg>
+            My Shelf
+          </Link>
           <Link
             href="/settings"
             aria-label="Settings"

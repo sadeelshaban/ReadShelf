@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { FormEvent, useId, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   extractPdfMetadata,
@@ -14,6 +14,55 @@ import {
 } from "@/lib/storage/client-upload";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+
+function FileField({
+  label,
+  accept,
+  required,
+  optional,
+  fileName,
+  onChange,
+}: {
+  label: string;
+  accept: string;
+  required?: boolean;
+  optional?: boolean;
+  fileName: string | null;
+  onChange: (file: File | null) => void;
+}) {
+  const inputId = useId();
+
+  return (
+    <div className="space-y-2">
+      <label htmlFor={inputId} className="block text-sm font-medium text-[#3c2a21]">
+        {label}
+        {optional && (
+          <span className="ml-1 font-normal text-[#8a7968]">(optional)</span>
+        )}
+      </label>
+      <div className="flex flex-wrap items-center gap-3">
+        <label
+          htmlFor={inputId}
+          className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-primary-light"
+        >
+          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v12m0 0 4-4m-4 4-4-4M4 21h16" />
+          </svg>
+          Choose file
+        </label>
+        <span className="text-sm text-[#8a7968]">{fileName ?? "No file chosen"}</span>
+      </div>
+      <input
+        id={inputId}
+        type="file"
+        accept={accept}
+        required={required}
+        className="sr-only"
+        onChange={(e) => onChange(e.target.files?.[0] ?? null)}
+      />
+    </div>
+  );
+}
 
 export default function AddBookPage() {
   const router = useRouter();
@@ -137,72 +186,76 @@ export default function AddBookPage() {
   }
 
   return (
-    <div className="mx-auto max-w-xl">
-      <Link href="/shelf" className="text-sm text-primary hover:underline">
-        ← Back to shelf
-      </Link>
-      <h1 className="mt-4 font-serif text-3xl font-semibold text-text">
-        Add a book
-      </h1>
-      <p className="mt-2 text-text/70">Upload a PDF up to 50 MB.</p>
+    <div className="mx-auto flex max-w-xl justify-center py-4 sm:py-8">
+      <div className="w-full rounded-3xl border border-[#eadbc8]/70 bg-white p-8 shadow-sm sm:p-10">
+        <Link
+          href="/shelf"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-[#8a7968] transition hover:text-primary"
+        >
+          <span aria-hidden>←</span> Back to shelf
+        </Link>
 
-      <form onSubmit={handleSubmit} className="mt-8 space-y-4">
-        <Input
-          label="Title"
-          required
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-        />
-        <Input
-          label="Author"
-          value={author}
-          onChange={(e) => setAuthor(e.target.value)}
-        />
-        <div className="space-y-1.5">
-          <label className="block text-sm font-medium text-text">PDF file</label>
-          <input
-            type="file"
+        <h1 className="mt-6 font-serif text-3xl font-semibold text-[#3c2a21] sm:text-4xl">
+          Add a book
+        </h1>
+        <p className="mt-2 text-[#8a7968]">Upload a PDF up to 50 MB.</p>
+
+        <form onSubmit={handleSubmit} className="mt-8 space-y-5">
+          <Input
+            label="Title"
+            required
+            placeholder="Enter book title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="border-[#eadbc8]/80 bg-[#fbf7f0]/60 focus:bg-white"
+          />
+          <Input
+            label="Author"
+            placeholder="Enter author name"
+            value={author}
+            onChange={(e) => setAuthor(e.target.value)}
+            className="border-[#eadbc8]/80 bg-[#fbf7f0]/60 focus:bg-white"
+          />
+          <FileField
+            label="PDF file"
             accept="application/pdf"
             required
-            onChange={(e) => setPdfFile(e.target.files?.[0] ?? null)}
-            className="block w-full text-sm text-text file:mr-4 file:rounded-lg file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-primary/90"
+            fileName={pdfFile?.name ?? null}
+            onChange={setPdfFile}
           />
-        </div>
-        <div className="space-y-1.5">
-          <label className="block text-sm font-medium text-text">
-            Cover image (optional)
-          </label>
-          <input
-            type="file"
+          <FileField
+            label="Cover image"
             accept="image/*"
-            onChange={(e) => setCoverFile(e.target.files?.[0] ?? null)}
-            className="block w-full text-sm text-text file:mr-4 file:rounded-lg file:border-0 file:bg-card file:px-4 file:py-2 file:text-sm file:font-medium file:text-text file:ring-1 file:ring-soft-gray/50"
+            optional
+            fileName={coverFile?.name ?? null}
+            onChange={setCoverFile}
           />
-        </div>
 
-        {progress && (
-          <div className="space-y-2">
-            <p className="text-sm text-primary">{progress}</p>
-            {uploadPercent !== null && (
-              <div className="h-2 overflow-hidden rounded-full bg-background">
-                <div
-                  className="h-full rounded-full bg-accent transition-all duration-300"
-                  style={{ width: `${uploadPercent}%` }}
-                />
-              </div>
-            )}
-          </div>
-        )}
-        {error && (
-          <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
-            {error}
-          </p>
-        )}
+          {progress && (
+            <div className="space-y-2 rounded-xl bg-[#fbf7f0] px-4 py-3">
+              <p className="text-sm font-medium text-primary">{progress}</p>
+              {uploadPercent !== null && (
+                <div className="h-2 overflow-hidden rounded-full bg-white">
+                  <div
+                    className="h-full rounded-full bg-primary transition-all duration-300"
+                    style={{ width: `${uploadPercent}%` }}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+          {error && (
+            <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>
+          )}
 
-        <Button type="submit" className="w-full" disabled={loading}>
-          {loading ? "Uploading..." : "Add to shelf"}
-        </Button>
-      </form>
+          <Button type="submit" className="mt-2 w-full gap-2 py-3" disabled={loading}>
+            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14M5 12h14" />
+            </svg>
+            {loading ? "Uploading..." : "Add to shelf"}
+          </Button>
+        </form>
+      </div>
     </div>
   );
 }

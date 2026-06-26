@@ -23,9 +23,9 @@ export function BookCard({ book, coverUrl }: BookCardProps) {
   const readLabel = getReadButtonLabel(book);
 
   return (
-    <article className="group relative w-[168px] shrink-0 sm:w-[176px]">
+    <article className="group relative w-[140px] shrink-0 sm:w-[152px]">
       <div className="relative">
-        <div className="relative aspect-square w-full overflow-hidden rounded-2xl bg-background-elevated shadow-md ring-1 ring-black/5 transition-all duration-300 ease-out group-hover:z-10 group-hover:scale-[1.14] group-hover:shadow-xl group-hover:ring-primary/30">
+        <div className="relative aspect-[3/4] w-full overflow-hidden rounded-2xl bg-background-elevated shadow-md ring-1 ring-black/5 transition-all duration-300 ease-out group-hover:z-10 group-hover:scale-[1.14] group-hover:shadow-xl group-hover:ring-primary/30">
           {coverUrl ? (
             <Image
               src={coverUrl}
