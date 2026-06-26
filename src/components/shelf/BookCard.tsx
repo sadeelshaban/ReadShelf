@@ -21,6 +21,10 @@ const overlayBtn =
 export function BookCard({ book, coverUrl }: BookCardProps) {
   const label = bookLabel(book.title, book.author);
   const readLabel = getReadButtonLabel(book);
+  const progressLabel = book.total_pages
+    ? `${book.progress_percent}% · ${book.last_page}/${book.total_pages}`
+    : `${book.progress_percent}% · p. ${book.last_page}`;
+  const pagesLabel = book.total_pages ? `${book.total_pages} PAGES` : "— PAGES";
 
   return (
     <article className="group relative w-[140px] shrink-0 sm:w-[152px]">
@@ -70,11 +74,14 @@ export function BookCard({ book, coverUrl }: BookCardProps) {
         </p>
       </Link>
 
-      <p className="mt-1.5 text-center text-[10px] text-text-muted opacity-0 transition-opacity group-hover:opacity-100">
-        {book.total_pages
-          ? `${book.progress_percent}% · ${book.last_page}/${book.total_pages}`
-          : `${book.progress_percent}% · p. ${book.last_page}`}
-      </p>
+      <div className="relative mt-2 h-4">
+        <p className="absolute inset-x-0 top-0 text-center text-[10px] font-semibold uppercase tracking-[0.12em] text-text-muted transition-opacity duration-200 group-hover:opacity-0">
+          {pagesLabel}
+        </p>
+        <p className="absolute inset-x-0 top-0 text-center text-[10px] text-text-muted opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+          {progressLabel}
+        </p>
+      </div>
     </article>
   );
 }

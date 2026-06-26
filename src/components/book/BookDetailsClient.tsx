@@ -332,8 +332,8 @@ export function BookDetailsClient({
         </div>
       )}
 
-      <div className="flex flex-col gap-8 lg:flex-row lg:items-start">
-        <div className="mx-auto w-full max-w-[240px] shrink-0 lg:mx-0">
+      <div className="flex flex-row items-start gap-5 sm:gap-8">
+        <div className="w-[128px] shrink-0 sm:w-[168px] lg:w-[200px]">
           <div className="relative aspect-[3/4] overflow-hidden rounded-2xl bg-[#f3ece2] shadow-lg ring-1 ring-black/5">
             {coverUrl ? (
               <Image
@@ -350,25 +350,21 @@ export function BookDetailsClient({
               </div>
             )}
             {isUnread && (
-              <span className="absolute left-3 top-3 rounded-lg bg-[#f3ece2]/95 px-2.5 py-1 text-xs font-semibold text-[#5b4028] shadow-sm ring-1 ring-[#eadbc8]">
+              <span className="absolute left-2 top-2 rounded-lg bg-[#f3ece2]/95 px-2 py-0.5 text-[10px] font-semibold text-[#5b4028] shadow-sm ring-1 ring-[#eadbc8] sm:left-3 sm:top-3 sm:px-2.5 sm:py-1 sm:text-xs">
                 To Read
               </span>
             )}
           </div>
-          <p className="mt-3 flex items-center justify-center gap-2 text-sm text-[#8a7968]">
-            <span className="h-2 w-2 rounded-full bg-emerald-500" aria-hidden />
-            Available in your library
-          </p>
         </div>
 
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 text-left">
           <h1
-            className="font-serif text-3xl font-semibold leading-tight text-[#3c2a21] sm:text-4xl"
+            className="text-left font-serif text-2xl font-semibold leading-tight text-[#3c2a21] sm:text-3xl lg:text-4xl"
             dir="auto"
           >
             {book.title}
           </h1>
-          <p className="mt-2 text-lg text-[#8a7968]" dir="auto">
+          <p className="mt-2 text-left text-base text-[#8a7968] sm:text-lg" dir="auto">
             {book.author || "Unknown author"}
           </p>
 

@@ -20,6 +20,7 @@ function FileField({
   accept,
   required,
   optional,
+  variant = "primary",
   fileName,
   onChange,
 }: {
@@ -27,6 +28,7 @@ function FileField({
   accept: string;
   required?: boolean;
   optional?: boolean;
+  variant?: "primary" | "secondary";
   fileName: string | null;
   onChange: (file: File | null) => void;
 }) {
@@ -43,11 +45,25 @@ function FileField({
       <div className="flex flex-wrap items-center gap-3">
         <label
           htmlFor={inputId}
-          className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-primary-light"
+          className={
+            variant === "primary"
+              ? "inline-flex cursor-pointer items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-primary-light"
+              : "inline-flex cursor-pointer items-center gap-2 rounded-xl border border-[#eadbc8] bg-white px-4 py-2.5 text-sm font-medium text-[#3c2a21] transition hover:bg-[#fbf7f0]"
+          }
         >
-          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v12m0 0 4-4m-4 4-4-4M4 21h16" />
-          </svg>
+          {variant === "primary" ? (
+            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 13V7m0 0 3-3m-3 3 3 3" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M20 16.5A4.5 4.5 0 0 0 16.5 6H16a6 6 0 1 0-11.31 2.86" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 20h16" />
+            </svg>
+          ) : (
+            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+              <rect x="3" y="5" width="18" height="14" rx="2" />
+              <circle cx="8.5" cy="10.5" r="1.5" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="m21 16-5.5-5.5a2 2 0 0 0-3 0L5 21" />
+            </svg>
+          )}
           Choose file
         </label>
         <span className="text-sm text-[#8a7968]">{fileName ?? "No file chosen"}</span>
@@ -227,6 +243,7 @@ export default function AddBookPage() {
             label="Cover image"
             accept="image/*"
             optional
+            variant="secondary"
             fileName={coverFile?.name ?? null}
             onChange={setCoverFile}
           />
