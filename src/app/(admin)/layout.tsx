@@ -17,6 +17,14 @@ export default function AdminLayout({
           <Link href="/admin" className="font-serif text-xl font-semibold text-primary">
             Admin
           </Link>
+          <nav className="flex items-center gap-3 text-sm">
+            <Link
+              href="/admin/settings"
+              className="text-text-muted transition hover:text-primary"
+            >
+              Settings
+            </Link>
+          </nav>
         </div>
       </header>
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">{children}</main>
