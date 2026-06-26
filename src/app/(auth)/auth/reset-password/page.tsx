@@ -23,7 +23,7 @@ export default function ResetPasswordPage() {
     const supabase = createClient();
     void supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) {
-        router.replace("/login?error=reset_link_expired");
+        router.replace("/forgot-password");
         return;
       }
       setReady(true);

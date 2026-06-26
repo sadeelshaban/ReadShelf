@@ -44,22 +44,17 @@ export async function createSignupLink(
   return { actionLink };
 }
 
-export async function createRecoveryLink(
-  request: Request,
-  email: string,
-): Promise<string | null> {
+export async function createRecoveryOtp(email: string): Promise<string | null> {
   const supabase = createServiceClient();
-  const redirectTo = authCallbackUrl(request, "/auth/reset-password");
 
   const { data, error } = await supabase.auth.admin.generateLink({
     type: "recovery",
     email,
-    options: { redirectTo },
   });
 
-  if (error || !data.properties?.action_link) {
+  if (error || !data.properties?.email_otp) {
     return null;
   }
 
-  return data.properties.action_link;
+  return data.properties.email_otp;
 }

@@ -13,10 +13,22 @@ function renderTemplate(template: string, siteUrl: string, confirmationUrl: stri
     .replaceAll("{{CONFIRMATION_URL}}", confirmationUrl);
 }
 
+function renderOtpTemplate(template: string, siteUrl: string, token: string): string {
+  return template
+    .replaceAll("{{ .SiteURL }}", siteUrl)
+    .replaceAll("{{SITE_URL}}", siteUrl)
+    .replaceAll("{{ .Token }}", token)
+    .replaceAll("{{TOKEN}}", token);
+}
+
 export function confirmationEmailHtml(siteUrl: string, confirmationUrl: string): string {
   return renderTemplate(loadTemplate("confirmation.html"), siteUrl, confirmationUrl);
 }
 
 export function recoveryEmailHtml(siteUrl: string, confirmationUrl: string): string {
   return renderTemplate(loadTemplate("recovery.html"), siteUrl, confirmationUrl);
+}
+
+export function recoveryOtpEmailHtml(siteUrl: string, token: string): string {
+  return renderOtpTemplate(loadTemplate("recovery-otp.html"), siteUrl, token);
 }

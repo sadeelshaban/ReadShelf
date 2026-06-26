@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { createRecoveryLink } from "@/lib/email/auth-links";
+import { createRecoveryOtp } from "@/lib/email/auth-links";
 import { getSiteUrl, isEmailConfigured } from "@/lib/email/config";
 import { sendEmail } from "@/lib/email/send";
-import { recoveryEmailHtml } from "@/lib/email/templates";
+import { recoveryOtpEmailHtml } from "@/lib/email/templates";
 
-const GENERIC_MESSAGE = "If that email exists, a reset link has been sent.";
+const GENERIC_MESSAGE = "If that email exists, a reset code has been sent.";
 
 export async function POST(request: Request) {
   let body: { email?: string };
@@ -23,29 +23,26 @@ export async function POST(request: Request) {
 
   if (!isEmailConfigured()) {
     return NextResponse.json(
-      {
-        error:
-          "Email sending is not configured. Add SMTP_HOST, SMTP_USER, and SMTP_PASS.",
-      },
+      { error: "Email sending is not configured on the server." },
       { status: 503 },
     );
   }
 
   try {
-    const actionLink = await createRecoveryLink(request, email);
+    const otp = await createRecoveryOtp(email);
 
-    if (actionLink) {
+    if (otp) {
       const siteUrl = getSiteUrl(request);
       await sendEmail({
         to: email,
-        subject: "Reset your ReadShelf password",
-        html: recoveryEmailHtml(siteUrl, actionLink),
+        subject: "Your ReadShelf password reset code",
+        html: recoveryOtpEmailHtml(siteUrl, otp),
       });
     }
 
     return NextResponse.json({ ok: true, message: GENERIC_MESSAGE });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Could not send reset email.";
+    const message = error instanceof Error ? error.message : "Could not send reset code.";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
