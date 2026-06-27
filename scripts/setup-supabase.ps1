@@ -68,7 +68,7 @@ Write-Host "Step 1/5: Supabase login" -ForegroundColor Yellow
 if (Test-SupabaseLogin) {
     Write-Host "Already logged in to Supabase CLI."
 } else {
-    Write-Host "If a browser opens, sign in with: sadeelshabanmedia@gmail.com"
+    Write-Host "If a browser opens, sign in with your Supabase account."
     Write-Host ""
     Invoke-SupabaseCli login | Out-Null
 }
@@ -151,6 +151,6 @@ Write-Host ""
 Write-Host "=== Done! ===" -ForegroundColor Green
 Write-Host "1. Restart dev server: npm run dev"
 Write-Host "2. Open http://localhost:3000/signup"
-Write-Host "3. Sign up with: sadeelshabanmedia@gmail.com"
+Write-Host "3. Sign up with your email on the deployed site."
 Write-Host "4. Optional: Supabase Dashboard -> Authentication -> Email -> disable Confirm email"
 Write-Host ""

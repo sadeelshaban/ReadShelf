@@ -5,7 +5,7 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 export async function createClient() {
   if (!isSupabaseConfigured()) {
     throw new Error(
-      "Supabase is not configured. Copy .env.local.example to .env.local or run npm run setup:supabase.",
+      "Supabase is not configured. Create .env.local with your project keys or run npm run setup:supabase.",
     );
   }
 

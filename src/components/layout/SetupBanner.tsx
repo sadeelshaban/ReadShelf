@@ -7,9 +7,8 @@ export function SetupBanner() {
   return (
     <div className="border-b border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
       <p className="mx-auto max-w-6xl">
-        <strong>Supabase not configured.</strong> Copy{" "}
-        <code className="rounded bg-amber-100 px-1">.env.local.example</code> to{" "}
-        <code className="rounded bg-amber-100 px-1">.env.local</code>, add your
+        <strong>Supabase not configured.</strong> Create{" "}
+        <code className="rounded bg-amber-100 px-1">.env.local</code> with your
         project URL and anon key, then run the SQL in{" "}
         <code className="rounded bg-amber-100 px-1">
           supabase/migrations/001_initial_schema.sql

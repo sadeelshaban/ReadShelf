@@ -116,7 +116,7 @@ If PDF pages render blank after deploy, run `node scripts/copy-pdf-worker.mjs` o
 
 ### 2. Environment variables
 
-Copy `.env.local.example` to `.env.local` and fill in:
+Create `.env.local` in the project root (never commit this file) and add:
 
 | Variable | Purpose |
 |----------|---------|
@@ -157,7 +157,7 @@ Open [http://localhost:3000](http://localhost:3000).
 
 1. Push this repository to GitHub.
 2. Import the project in [Vercel](https://vercel.com).
-3. Add all environment variables from `.env.local.example` (including SMTP and `SUPABASE_SERVICE_ROLE_KEY`).
+3. Add all environment variables listed in **Getting started → Environment variables** (including SMTP and `SUPABASE_SERVICE_ROLE_KEY`).
 4. Set `NEXT_PUBLIC_SITE_URL` to your production URL (e.g. `https://readshelf-rust.vercel.app`).
 5. Deploy. Vercel runs `npm install`, which triggers the pdf.js postinstall copy.
 
@@ -221,9 +221,13 @@ public/                   # Icons, favicon, pdf.js worker + cmaps + wasm (genera
 - **Storage:** Supabase free tier storage is ~1 GB
 - **Auth emails:** Require working SMTP; without it, signup cannot send confirmation mail
 
----
+## Secrets and environment files
 
-## Product acquisition
+- **`.env.local`** holds real keys (Supabase, SMTP, etc.). It is **gitignored** and must never be committed.
+- Production secrets live in **Vercel Environment Variables**, not in the repository.
+- See **Getting started → Environment variables** for the full list of required keys.
+
+---
 
 ReadShelf is available as a **full product acquisition** for EdTech, publishers, agencies, and internal knowledge teams.
 

@@ -90,8 +90,8 @@ function Set-EnvVar {
 }
 
 if (-not (Test-Path $EnvFile)) {
-    Write-Host "Creating .env.local from example..." -ForegroundColor Yellow
-    Copy-Item (Join-Path $Root ".env.local.example") $EnvFile
+    Write-Host "Creating .env.local..." -ForegroundColor Yellow
+    New-Item -Path $EnvFile -ItemType File -Force | Out-Null
 }
 
 Set-EnvVar -Path $EnvFile -Name "R2_ACCOUNT_ID" -Value $accountId.Trim()

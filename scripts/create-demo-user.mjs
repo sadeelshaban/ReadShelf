@@ -35,7 +35,12 @@ loadEnvFile();
 const email = (process.argv[2] ?? process.env.NEXT_PUBLIC_DEMO_EMAIL ?? "demo@readshelf.app")
   .trim()
   .toLowerCase();
-const password = process.argv[3] ?? process.env.DEMO_USER_PASSWORD ?? "ReadShelfDemo2026";
+const password = process.argv[3] ?? process.env.DEMO_USER_PASSWORD;
+
+if (!password) {
+  console.error("Set DEMO_USER_PASSWORD in .env.local or pass it as the second argument.");
+  process.exit(1);
+}
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;

@@ -84,11 +84,9 @@ export default function SetupPage() {
             Manual setup
           </h2>
           <p className="mt-2 text-text/80">
-            Copy{" "}
-            <code className="rounded bg-background px-1">.env.local.example</code>{" "}
-            to{" "}
-            <code className="rounded bg-background px-1">.env.local</code>, run
-            the SQL in{" "}
+            Create{" "}
+            <code className="rounded bg-background px-1">.env.local</code> with your
+            Supabase URL and anon key, run the SQL in{" "}
             <code className="rounded bg-background px-1">
               supabase/migrations/001_initial_schema.sql
             </code>

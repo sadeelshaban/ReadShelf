@@ -137,7 +137,7 @@ $plainSecret = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
 )
 
 if (-not (Test-Path $EnvFile)) {
-    Copy-Item (Join-Path $Root ".env.local.example") $EnvFile
+    New-Item -Path $EnvFile -ItemType File -Force | Out-Null
 }
 
 Set-EnvVar -Path $EnvFile -Name "R2_ACCOUNT_ID" -Value $accountId.Trim()

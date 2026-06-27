@@ -9,7 +9,7 @@ Set-Location $Root
 
 $EnvFile = Join-Path $Root ".env.local"
 if (-not (Test-Path $EnvFile)) {
-    throw "Missing .env.local. Copy .env.local.example and fill in your keys first."
+    throw "Missing .env.local. Run npm run setup:supabase or create .env.local with your keys first."
 }
 
 Write-Host ""
