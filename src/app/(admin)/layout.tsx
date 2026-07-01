@@ -6,30 +6,42 @@ export const metadata: Metadata = {
   title: "Admin",
 };
 
+const navLinks = [
+  { href: "/admin", label: "Dashboard" },
+  { href: "/admin#engagement", label: "Analytics" },
+  { href: "/admin#users", label: "Users" },
+  { href: "/admin/settings", label: "Settings" },
+] as const;
+
 export default function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <div className="ambient-bg min-h-screen">
+    <div className="admin-bg min-h-screen">
       <header className="border-b border-white/50 bg-card/60 backdrop-blur-md">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
-          <Link href="/admin" className="font-serif text-xl font-semibold text-primary">
-            Admin
-          </Link>
-          <nav className="flex items-center gap-3 text-sm">
-            <Link
-              href="/admin/settings"
-              className="text-text-muted transition hover:text-primary"
-            >
-              Settings
+        <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-6 px-4 py-4 sm:px-6">
+          <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:gap-8">
+            <Link href="/admin" className="font-serif text-xl font-semibold text-primary">
+              Admin
             </Link>
-          </nav>
+            <nav className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+              {navLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="text-text-muted transition hover:text-primary"
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </nav>
+          </div>
         </div>
       </header>
-      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">{children}</main>
-      <div className="mx-auto max-w-6xl px-4 pb-8 sm:px-6">
+      <main className="mx-auto max-w-[1400px] px-4 py-8 sm:px-6 sm:py-10">{children}</main>
+      <div className="mx-auto max-w-[1400px] px-4 pb-8 sm:px-6">
         <SiteFooter />
       </div>
     </div>

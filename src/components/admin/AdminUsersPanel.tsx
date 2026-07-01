@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
+import { StatusBadge, UserRowActions } from "@/components/admin/UserRowActions";
 
 type AdminUserRow = {
   id: string;
@@ -145,10 +146,12 @@ export function AdminUsersPanel() {
   }
 
   return (
-    <section className="mt-10">
+    <section id="users" className="mt-12 scroll-mt-24">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="font-serif text-2xl font-semibold text-text">Users</h2>
+          <h2 className="font-serif text-[2.125rem] font-semibold tracking-tight text-text">
+            Users
+          </h2>
           <p className="mt-1 text-sm text-text-muted">
             Sorted by storage use. Send a storage notice when trial space is tight.
           </p>
@@ -214,66 +217,28 @@ export function AdminUsersPanel() {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="inline-flex items-center gap-2">
-                        <span
-                          className={
-                            user.isOnline
-                              ? "h-2 w-2 rounded-full bg-emerald-500"
-                              : "h-2 w-2 rounded-full bg-stone-400"
-                          }
-                          aria-hidden
-                        />
-                        <span
-                          className={
-                            user.isOnline
-                              ? "text-xs font-medium text-emerald-800"
-                              : "text-xs font-medium text-stone-600"
-                          }
-                        >
-                          {user.isOnline ? "Online" : "Offline"}
-                        </span>
-                      </span>
+                      <StatusBadge online={user.isOnline} />
                     </td>
                     <td className="px-4 py-3 text-text-muted">
                       {formatDate(user.lastSignInAt)}
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex flex-wrap gap-2">
-                        {!user.isAdmin && (
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            disabled={busyId === user.id}
-                            onClick={() =>
-                              void handleStorageNotice(
-                                user.id,
-                                user.email,
-                                formatStorage(user.storageBytes),
-                              )
-                            }
-                          >
-                            Storage notice
-                          </Button>
-                        )}
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          disabled={busyId === user.id}
-                          onClick={() => void handleSignOut(user.id)}
-                        >
-                          Sign out
-                        </Button>
-                        {!user.isAdmin && (
-                          <Button
-                            variant="danger"
-                            size="sm"
-                            disabled={busyId === user.id}
-                            onClick={() => void handleUnregister(user.id, user.email)}
-                          >
-                            Delete
-                          </Button>
-                        )}
-                      </div>
+                      <UserRowActions
+                        userId={user.id}
+                        email={user.email}
+                        storageLabel={formatStorage(user.storageBytes)}
+                        isAdmin={user.isAdmin}
+                        busy={busyId === user.id}
+                        onStorageNotice={() =>
+                          void handleStorageNotice(
+                            user.id,
+                            user.email,
+                            formatStorage(user.storageBytes),
+                          )
+                        }
+                        onSignOut={() => void handleSignOut(user.id)}
+                        onDelete={() => void handleUnregister(user.id, user.email)}
+                      />
                     </td>
                   </tr>
                 ))

@@ -45,6 +45,13 @@ body {
     var(--background);
 }
 
+.admin-bg {
+  background:
+    radial-gradient(ellipse 70% 45% at 10% -5%, rgba(201, 149, 42, 0.06), transparent),
+    radial-gradient(ellipse 50% 35% at 95% 0%, rgba(111, 69, 40, 0.04), transparent),
+    linear-gradient(180deg, #f7f2ea 0%, #f2ece2 100%);
+}
+
 .readshelf-scroll {
   scrollbar-width: thin;
   scrollbar-color: rgba(111, 69, 40, 0.35) transparent;

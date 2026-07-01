@@ -1,28 +1,18 @@
 import { redirect } from "next/navigation";
+import { AdminStatCard } from "@/components/admin/AdminStatCard";
 import { AdminUsersPanel } from "@/components/admin/AdminUsersPanel";
-import { getEngagementStats, getPlatformStats } from "@/lib/admin/stats";
+import {
+  getEngagementStats,
+  getPlatformStats,
+  getPlatformTrends,
+} from "@/lib/admin/stats";
 import { formatStorageBytes, getPlatformStorageBytes } from "@/lib/admin/storage-usage";
 import { isAdminUser } from "@/lib/admin";
 import { createClient } from "@/lib/supabase/server";
 
-function StatCard({
-  label,
-  value,
-  hint,
-}: {
-  label: string;
-  value: string | number;
-  hint: string;
-}) {
-  return (
-    <article className="glass-panel rounded-2xl p-6">
-      <p className="text-sm font-medium text-text-muted">{label}</p>
-      <p className="mt-2 font-serif text-4xl font-semibold tracking-tight text-primary sm:text-5xl">
-        {typeof value === "number" ? value.toLocaleString() : value}
-      </p>
-      <p className="mt-3 text-sm text-text-muted">{hint}</p>
-    </article>
-  );
+function formatTrend(count: number, period: string) {
+  if (count <= 0) return undefined;
+  return `↑ +${count.toLocaleString()} ${period}`;
 }
 
 export default async function AdminDashboardPage() {
@@ -41,11 +31,15 @@ export default async function AdminDashboardPage() {
 
   let stats;
   let engagement;
+  let trends;
   let totalStorageBytes = 0;
   try {
     stats = await getPlatformStats();
-    engagement = await getEngagementStats(stats);
-    totalStorageBytes = await getPlatformStorageBytes();
+    [engagement, trends, totalStorageBytes] = await Promise.all([
+      getEngagementStats(stats),
+      getPlatformTrends(),
+      getPlatformStorageBytes(),
+    ]);
   } catch {
     return (
       <div className="rounded-2xl border border-accent/40 bg-card p-8 text-center">
@@ -63,57 +57,88 @@ export default async function AdminDashboardPage() {
 
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="font-serif text-3xl font-semibold text-text sm:text-4xl">
+      <div className="mb-10">
+        <h1 className="font-serif text-4xl font-semibold tracking-tight text-text sm:text-5xl">
           Dashboard
         </h1>
+        <p className="mt-2 text-sm text-text-muted">
+          Platform overview and user management.
+        </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        <StatCard label="Users" value={stats.users} hint="Total accounts" />
-        <StatCard label="Books uploaded" value={stats.books} hint="PDFs on shelves" />
-        <StatCard
-          label="Storage used"
-          value={formatStorageBytes(totalStorageBytes)}
-          hint="PDFs and covers in Supabase Storage"
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
+        <AdminStatCard
+          featured
+          value={stats.users}
+          label="Users"
+          hint="Total accounts"
+          icon={<span aria-hidden>👤</span>}
+          trend={formatTrend(trends.newUsers30d, "this month")}
         />
-        <StatCard label="Notes" value={stats.notes} hint="All notes" />
-        <StatCard label="Highlights" value={stats.highlights} hint="All highlights" />
+        <AdminStatCard
+          value={stats.books}
+          label="Books uploaded"
+          hint="PDFs on shelves"
+          icon={<span aria-hidden>📚</span>}
+          trend={formatTrend(trends.newBooks7d, "this week")}
+        />
+        <AdminStatCard
+          value={formatStorageBytes(totalStorageBytes)}
+          label="Storage used"
+          hint="PDFs and covers in Supabase Storage"
+          icon={<span aria-hidden>💾</span>}
+        />
+        <AdminStatCard
+          value={stats.notes}
+          label="Notes"
+          hint="All notes"
+          icon={<span aria-hidden>📝</span>}
+        />
+        <AdminStatCard
+          value={stats.highlights}
+          label="Highlights"
+          hint="All highlights"
+          icon={<span aria-hidden>✨</span>}
+        />
       </div>
 
-      <div className="mt-10">
-        <h2 className="font-serif text-2xl font-semibold text-text">Reading engagement</h2>
+      <section id="engagement" className="mt-12 scroll-mt-24">
+        <h2 className="font-serif text-[2.125rem] font-semibold tracking-tight text-text">
+          Reading engagement
+        </h2>
         <p className="mt-1 text-sm text-text-muted">
           Platform-wide metrics for completion and activity.
         </p>
         <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          <StatCard
-            label="Avg. progress"
+          <AdminStatCard
             value={`${engagement.avgProgressPercent}%`}
+            label="Avg. progress"
             hint="Average progress across all books"
+            percent={engagement.avgProgressPercent}
           />
-          <StatCard
-            label="Completion rate"
+          <AdminStatCard
             value={`${engagement.completionRate}%`}
+            label="Completion rate"
             hint={`${engagement.completedBooks} books at 90%+ progress`}
+            percent={engagement.completionRate}
           />
-          <StatCard
-            label="Active readers"
+          <AdminStatCard
             value={engagement.activeReaders30d}
+            label="Active readers"
             hint="Users who opened a book in the last 30 days"
           />
-          <StatCard
-            label="Books opened"
+          <AdminStatCard
             value={engagement.booksOpened7d}
+            label="Books opened"
             hint="Books opened in the last 7 days"
           />
-          <StatCard
-            label="Annotations per book"
+          <AdminStatCard
             value={engagement.avgAnnotationsPerBook}
+            label="Annotations per book"
             hint="Average highlights + notes per uploaded book"
           />
         </div>
-      </div>
+      </section>
 
       <AdminUsersPanel />
 

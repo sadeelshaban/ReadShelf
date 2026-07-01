@@ -7,6 +7,11 @@ export type PlatformStats = {
   highlights: number;
 };
 
+export type PlatformTrends = {
+  newUsers30d: number;
+  newBooks7d: number;
+};
+
 export type EngagementStats = {
   avgProgressPercent: number;
   completionRate: number;
@@ -44,6 +49,36 @@ export async function getPlatformStats(): Promise<PlatformStats> {
   ]);
 
   return { users, books, notes, highlights };
+}
+
+async function countSince(
+  table: "profiles" | "books",
+  since: Date,
+): Promise<number> {
+  const supabase = createServiceClient();
+  const { count, error } = await supabase
+    .from(table)
+    .select("*", { count: "exact", head: true })
+    .gte("created_at", since.toISOString());
+
+  if (error) {
+    throw new Error(`Could not count recent ${table}: ${error.message}`);
+  }
+
+  return count ?? 0;
+}
+
+export async function getPlatformTrends(): Promise<PlatformTrends> {
+  const now = Date.now();
+  const thirtyDaysAgo = new Date(now - 30 * 24 * 60 * 60 * 1000);
+  const sevenDaysAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
+
+  const [newUsers30d, newBooks7d] = await Promise.all([
+    countSince("profiles", thirtyDaysAgo),
+    countSince("books", sevenDaysAgo),
+  ]);
+
+  return { newUsers30d, newBooks7d };
 }
 
 export async function getEngagementStats(
