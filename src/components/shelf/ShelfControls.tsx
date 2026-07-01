@@ -26,7 +26,6 @@ export function ShelfControls({
           placeholder="Title or author..."
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="border-[#eadbc8]/80 bg-background-elevated/60 shadow-none focus:bg-background-elevated/80"
         />
       </div>
       <div className="flex flex-wrap items-end gap-3 sm:ml-auto sm:pl-6">
@@ -38,7 +37,7 @@ export function ShelfControls({
             id="shelf-sort"
             value={sort}
             onChange={(e) => onSortChange(e.target.value as SortOption)}
-            className="rounded-xl border border-[#eadbc8]/80 bg-background-elevated/60 px-3 py-2.5 text-sm text-text focus:border-primary/30 focus:outline-none focus:ring-4 focus:ring-primary/10"
+            className="rounded-xl border border-white/70 bg-white/55 px-3 py-2.5 text-sm text-text shadow-sm backdrop-blur-sm focus:border-primary/30 focus:outline-none focus:ring-4 focus:ring-primary/10"
           >
             <option value="recent">Recently opened</option>
             <option value="added">Date added</option>

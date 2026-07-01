@@ -25,7 +25,7 @@ export function ShelfStats({ books }: ShelfStatsProps) {
       {items.map((item) => (
         <div
           key={item.label}
-          className="rounded-full border border-[#eadbc8]/80 bg-background-elevated/60 px-3.5 py-1.5 text-xs"
+          className="rounded-full border border-white/70 bg-white/50 px-3.5 py-1.5 text-xs backdrop-blur-sm"
         >
           <span className="text-text-muted">{item.label}</span>{" "}
           <span className="font-semibold text-text">{item.value}</span>

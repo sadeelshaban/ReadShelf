@@ -45,15 +45,17 @@ export function ShelfGrid({ books, coverUrls, loading = false }: ShelfGridProps)
   }
 
   return (
-    <div className="space-y-6">
-      <ShelfControls
-        search={search}
-        sort={sort}
-        onSearchChange={setSearch}
-        onSortChange={setSort}
-      />
+    <div className="space-y-4">
+      <div className="glass-panel rounded-2xl p-4 sm:p-5">
+        <ShelfControls
+          search={search}
+          sort={sort}
+          onSearchChange={setSearch}
+          onSortChange={setSort}
+        />
+      </div>
 
-      <div>
+      <div className="glass-panel rounded-3xl p-5 sm:p-7">
         {filtered.length === 0 ? (
           <p className="py-10 text-center text-text-muted">
             No books match your search.
