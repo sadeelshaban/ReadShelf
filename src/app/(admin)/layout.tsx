@@ -20,7 +20,7 @@ export default function AdminLayout({
 }) {
   return (
     <div className="admin-bg min-h-screen">
-      <header className="border-b border-white/50 bg-card/60 backdrop-blur-md">
+      <header className="sticky top-0 z-40 border-b border-white/50 bg-background-elevated [transform:translateZ(0)]">
         <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-6 px-4 py-4 sm:px-6">
           <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:gap-8">
             <Link href="/admin" className="font-serif text-xl font-semibold text-primary">

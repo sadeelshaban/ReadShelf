@@ -25,7 +25,7 @@ export function BookCard({ book, coverUrl }: BookCardProps) {
   return (
     <article className="group relative flex w-[140px] shrink-0 flex-col sm:w-[152px]">
       <div className="relative">
-        <div className="relative aspect-[2/3] w-full overflow-hidden rounded-2xl bg-background-elevated shadow-md ring-1 ring-black/5 transition-all duration-300 ease-out group-hover:z-10 group-hover:scale-[1.14] group-hover:shadow-xl group-hover:ring-primary/30">
+        <div className="book-card-cover relative aspect-[2/3] w-full overflow-hidden rounded-2xl bg-background-elevated shadow-md ring-1 ring-black/5">
           {coverUrl ? (
             <Image
               src={coverUrl}
@@ -42,7 +42,7 @@ export function BookCard({ book, coverUrl }: BookCardProps) {
           )}
         </div>
 
-        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 rounded-2xl p-2.5 opacity-0 pointer-events-none transition-opacity duration-300 group-hover:opacity-100 group-hover:pointer-events-auto">
+        <div className="book-card-overlay absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 rounded-2xl p-2.5 opacity-0 pointer-events-none transition-opacity duration-200">
           <Link
             href={`/book/${book.id}/read`}
             className={cn(

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import type { ReactNode } from "react";
 import { COPYRIGHT_NOTICE, legalLinks } from "@/lib/legal/constants";
 
@@ -26,13 +27,14 @@ export function AuthShell({ eyebrow, children }: AuthShellProps) {
       <div className="relative flex min-h-screen items-center justify-center px-4 py-10 sm:px-6">
         <div className="w-full max-w-md rounded-[2rem] border border-white/18 bg-white/12 p-8 text-white shadow-[0_24px_70px_rgba(0,0,0,0.22)] backdrop-blur-2xl sm:p-9">
           <Link href="/" className="inline-flex items-center gap-3">
-            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white/88 shadow-sm">
-              <img
-                src="/logo.png"
-                alt="ReadShelf"
-                className="h-8 w-8 object-cover rounded-lg"
-              />
-            </span>
+            <Image
+              src="/logo.png"
+              alt="ReadShelf"
+              width={44}
+              height={44}
+              className="h-11 w-11 shrink-0 rounded-xl object-cover shadow-sm ring-1 ring-white/25"
+              unoptimized
+            />
             <span>
               <span className="block font-serif text-2xl font-semibold text-white">
                 ReadShelf

@@ -32,6 +32,12 @@ body {
   color: var(--text);
   font-family: var(--font-inter), system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+  overflow-x: clip;
+  overscroll-behavior-y: none;
+}
+
+html {
+  scroll-behavior: auto;
 }
 
 .font-serif {
@@ -39,6 +45,16 @@ body {
 }
 
 .ambient-bg {
+  position: relative;
+  isolation: isolate;
+}
+
+.ambient-bg::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
   background:
     radial-gradient(ellipse 70% 45% at 10% -5%, rgba(201, 149, 42, 0.08), transparent),
     radial-gradient(ellipse 50% 35% at 95% 0%, rgba(111, 69, 40, 0.056), transparent),
@@ -46,6 +62,16 @@ body {
 }
 
 .admin-bg {
+  position: relative;
+  isolation: isolate;
+}
+
+.admin-bg::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
   background:
     radial-gradient(ellipse 70% 45% at 10% -5%, rgba(201, 149, 42, 0.06), transparent),
     radial-gradient(ellipse 50% 35% at 95% 0%, rgba(111, 69, 40, 0.04), transparent),
@@ -55,6 +81,8 @@ body {
 .readshelf-scroll {
   scrollbar-width: thin;
   scrollbar-color: rgba(111, 69, 40, 0.35) transparent;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .readshelf-scroll::-webkit-scrollbar {
@@ -77,16 +105,38 @@ body {
 @keyframes book-tab-fade-in {
   from {
     opacity: 0;
-    transform: translateY(6px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 
 .book-tab-panel {
-  animation: book-tab-fade-in 0.25s ease;
+  animation: book-tab-fade-in 0.2s ease;
+  overscroll-behavior: contain;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .book-card-cover {
+    transition:
+      transform 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 0.2s ease;
+    will-change: transform;
+  }
+
+  .group:hover .book-card-cover {
+    z-index: 10;
+    transform: scale(1.06);
+    box-shadow:
+      0 0 0 1px rgba(111, 69, 40, 0.3),
+      0 10px 25px rgba(31, 22, 16, 0.12),
+      0 4px 10px rgba(31, 22, 16, 0.06);
+  }
+
+  .group:hover .book-card-overlay {
+    opacity: 1;
+    pointer-events: auto;
+  }
 }
 
 .glass-panel {
