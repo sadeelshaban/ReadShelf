@@ -556,7 +556,7 @@ export function BookDetailsClient({
                 {displayBookmarks.map((bookmark) => (
                   <li key={bookmark.id}>
                     <Link
-                      href={`/book/${book.id}/read?page=${bookmark.page_number}&scroll=${bookmark.scroll_y}`}
+                      href={`/book/${book.id}/read?page=${bookmark.page_number}`}
                       className="block rounded-xl border border-[#eadbc8]/70 bg-[#fbf7f0] px-4 py-3 transition hover:border-primary/30 hover:bg-[#f7f1e5]"
                     >
                       <div className="flex items-start justify-between gap-3">

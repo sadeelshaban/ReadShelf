@@ -64,7 +64,7 @@ export function PageBookmarkRibbon({
         "group absolute top-0 z-10 flex w-7 flex-col items-center border-0 bg-transparent p-0",
         onClick || onDoubleClick ? "cursor-pointer" : "pointer-events-none",
       )}
-      style={{ right: 14 + offsetIndex * 28 }}
+      style={{ left: 14 + offsetIndex * 28 }}
     >
       <span
         className="relative flex h-[6rem] w-6 flex-col items-center shadow-[4px_5px_12px_rgba(0,0,0,0.24)]"

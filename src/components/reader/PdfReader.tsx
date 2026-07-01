@@ -1061,19 +1061,9 @@ export function PdfReader({
 
   const jumpToBookmark = useCallback(
     (bookmark: Bookmark) => {
-      const viewer = viewerRef.current;
-      if (bookmark.scroll_y > 0 && viewer) {
-        programmaticScrollTargetRef.current = bookmark.page_number;
-        viewer.scrollTop = bookmark.scroll_y;
-        window.setTimeout(() => {
-          programmaticScrollTargetRef.current = null;
-          syncPageFromScroll({ force: true });
-        }, 150);
-        return;
-      }
       scrollToPage(bookmark.page_number);
     },
-    [scrollToPage, syncPageFromScroll],
+    [scrollToPage],
   );
 
   const handleAddBookmark = useCallback(async () => {
