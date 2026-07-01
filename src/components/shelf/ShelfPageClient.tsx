@@ -4,12 +4,16 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ShelfGrid } from "@/components/shelf/ShelfGrid";
 import { ShelfStats } from "@/components/shelf/ShelfStats";
-import { buildCoverUrlMap } from "@/lib/books/cover-url-cache";
 import {
   fetchBooksWithCountsClient,
   fetchCoverUrlsClient,
 } from "@/lib/books/client-queries";
-import { cacheBooks, getCachedBooks } from "@/lib/offline/books-store";
+import {
+  cacheBooks,
+  getCachedBooks,
+  getCachedCoverUrlMap,
+  persistCachedCoverUrls,
+} from "@/lib/offline/books-store";
 import { isOnline } from "@/lib/offline/online";
 import { flushSyncQueue } from "@/lib/offline/reader-api";
 import type { BookWithCounts } from "@/types";
@@ -27,7 +31,7 @@ export function ShelfPageClient() {
 
     if (cached.length > 0) {
       setBooks(cached);
-      setCoverUrls(buildCoverUrlMap(cached));
+      setCoverUrls(await getCachedCoverUrlMap(cached));
       setLoading(false);
     } else if (!silent) {
       setLoading(true);
@@ -35,7 +39,7 @@ export function ShelfPageClient() {
 
     if (!isOnline()) {
       setBooks(cached);
-      setCoverUrls(buildCoverUrlMap(cached));
+      setCoverUrls(await getCachedCoverUrlMap(cached));
       setOffline(true);
       setLoading(false);
       return;
@@ -55,10 +59,11 @@ export function ShelfPageClient() {
       const urls = await fetchCoverUrlsClient(fetched);
       if (cancelled()) return;
       setCoverUrls(urls);
+      void persistCachedCoverUrls(fetched, urls).catch(() => undefined);
     } catch {
       if (cancelled()) return;
       setBooks(cached);
-      setCoverUrls(buildCoverUrlMap(cached));
+      setCoverUrls(await getCachedCoverUrlMap(cached));
       setOffline(!isOnline());
       setLoading(false);
     }

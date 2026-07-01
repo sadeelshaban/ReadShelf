@@ -8,6 +8,8 @@ import type { Book, BookWithCounts } from "@/types";
 
 type CachedBook = BookWithCounts & {
   cachedAt: string;
+  cover_read_url?: string | null;
+  cover_read_url_expires_at?: number;
 };
 
 export async function cacheBooks(books: BookWithCounts[]) {
@@ -22,12 +24,15 @@ export async function cacheBooks(books: BookWithCounts[]) {
   );
 
   await Promise.all(
-    books.map((book) =>
-      idbPut<CachedBook>("books", {
+    books.map(async (book) => {
+      const existing = await idbGet<CachedBook>("books", book.id);
+      await idbPut<CachedBook>("books", {
         ...book,
+        cover_read_url: existing?.cover_read_url ?? null,
+        cover_read_url_expires_at: existing?.cover_read_url_expires_at,
         cachedAt,
-      }),
-    ),
+      });
+    }),
   );
 }
 
@@ -41,6 +46,8 @@ export async function cacheBook(book: Book) {
     ...book,
     highlight_count: existing?.highlight_count ?? 0,
     note_count: existing?.note_count ?? 0,
+    cover_read_url: existing?.cover_read_url ?? null,
+    cover_read_url_expires_at: existing?.cover_read_url_expires_at,
     cachedAt: new Date().toISOString(),
   });
 }
@@ -56,6 +63,54 @@ export async function getCachedBooks(): Promise<BookWithCounts[]> {
     const bTime = b.last_opened_at ? new Date(b.last_opened_at).getTime() : 0;
     return bTime - aTime;
   });
+}
+
+export async function getCachedCoverUrlMap(
+  books: BookWithCounts[],
+): Promise<Record<string, string | null>> {
+  const { buildCoverUrlMap, rememberCoverUrl } = await import("@/lib/books/cover-url-cache");
+  const map = buildCoverUrlMap(books);
+  const now = Date.now();
+
+  await Promise.all(
+    books.map(async (book) => {
+      if (map[book.id]) return;
+
+      const cached = await idbGet<CachedBook>("books", book.id);
+      const url = cached?.cover_read_url;
+      const expiresAt = cached?.cover_read_url_expires_at ?? 0;
+      if (!url || expiresAt <= now) return;
+
+      map[book.id] = url;
+      rememberCoverUrl(book.cover_path, url);
+    }),
+  );
+
+  return map;
+}
+
+export async function persistCachedCoverUrls(
+  books: BookWithCounts[],
+  urls: Record<string, string | null>,
+) {
+  const { rememberCoverUrl } = await import("@/lib/books/cover-url-cache");
+  const expiresAt = Date.now() + 55 * 60 * 1000;
+
+  await Promise.all(
+    books.map(async (book) => {
+      const url = urls[book.id] ?? null;
+      rememberCoverUrl(book.cover_path, url);
+
+      const existing = await idbGet<CachedBook>("books", book.id);
+      if (!existing) return;
+
+      await idbPut<CachedBook>("books", {
+        ...existing,
+        cover_read_url: url,
+        cover_read_url_expires_at: url ? expiresAt : undefined,
+      });
+    }),
+  );
 }
 
 export async function getCachedBook(bookId: string) {
