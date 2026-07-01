@@ -23,7 +23,7 @@ ReadShelf is a full-stack web product for reading PDF books in the browser. User
 | **Status** | Production-deployed, actively maintained codebase |
 | **Stack** | Next.js 16 · React 19 · TypeScript · Supabase · Vercel |
 | **Differentiators** | Offline-first sync, Arabic PDF export, reading resume (scroll + zoom), bookmarks, engagement analytics |
-| **Delivery** | Full source, 7 SQL migrations, deployment docs, demo seeding, handover support |
+| **Delivery** | Full source, 7 SQL migrations, deployment docs, handover support |
 
 ---
 
@@ -104,10 +104,8 @@ ReadShelf is a full-stack web product for reading PDF books in the browser. User
 - User management: sign out or delete accounts
 - Gated by `ADMIN_EMAILS` environment variable
 
-### Acquisition & demo tooling
+### Acquisition
 - Public **[/platform](https://readshelf-rust.vercel.app/platform)** one-pager for buyers
-- `npm run create:demo` — confirmed demo user for walkthroughs
-- `npm run seed:demo` — sample shelf with books for live demos
 - `npm run create:admin` — admin account setup
 
 ---
@@ -176,29 +174,16 @@ Key `books` fields beyond basics:
 - Production Vercel deployment configuration
 - Admin dashboard with engagement analytics
 - Offline sync layer (IndexedDB + queue)
-- Demo user and shelf seeding scripts
 - Platform acquisition page (`/platform`)
 - Handover support and deployment walkthrough
 
-**Not included:** Supabase/Vercel hosting costs, SMTP account, custom branding beyond white-labeling, or ongoing maintenance (negotiable separately).
+**Not included:** Supabase/Vercel hosting costs, SMTP account, custom branding beyond white-labeling, or ongoing maintenance and feature development (negotiable separately). A **30-day post-close window for critical bug fixes in delivered code** may be included in acquisition — see [Handover Checklist](./docs/handover-checklist.md#post-handover-support-negotiate); that is not general maintenance.
 
 ---
 
 ## Data Room (due diligence)
 
-Full buyer documentation in [`docs/`](./docs/README.md):
-
-| Document | Contents |
-|----------|----------|
-| [Architecture](./docs/architecture.md) | System design, offline sync, security |
-| [ERD](./docs/erd.md) | Mermaid entity-relationship diagram |
-| [Database](./docs/database.md) | Tables, columns, RLS, migrations |
-| [API](./docs/api.md) | All HTTP endpoints |
-| [Deployment](./docs/deployment.md) | Local + Vercel + Supabase setup |
-| [Costs](./docs/costs.md) | Monthly operating estimates |
-| [Analytics](./docs/analytics.md) | Engagement metrics + SQL export |
-| [Branding](./docs/branding.md) | Logo assets and white-label guide |
-| [Handover](./docs/handover-checklist.md) | Post-acquisition checklist |
+Canonical index: **[docs/README.md](./docs/README.md)** — architecture, ERD, database, API, deployment, security, backup, roadmap, costs, analytics, branding, handover, and legal pages.
 
 ---
 
@@ -211,12 +196,12 @@ See [docs/branding.md](./docs/branding.md) for palette, fonts, and white-label s
 
 ## Evaluate before you buy
 
-1. Open the **[live demo](https://readshelf-rust.vercel.app)** and create an account, or request demo credentials.
+1. Open the **[live site](https://readshelf-rust.vercel.app)** and create an account, or email for a guided walkthrough.
 2. Upload a PDF, read a few pages, add highlights, a note, and a bookmark.
 3. Close the tab and reopen — confirm **Continue Reading** restores your position.
 4. Visit **book details** — check Last opened, progress, and annotation tabs.
 5. Export an annotated PDF and verify highlights appear.
-6. Review **[/platform](https://readshelf-rust.vercel.app/platform)** and the admin analytics (demo admin available on request).
+6. Review **[/platform](https://readshelf-rust.vercel.app/platform)** and the admin analytics (admin access available on request).
 7. Email **[sadeelshabanmedia@gmail.com](mailto:sadeelshabanmedia@gmail.com)** for source access, pricing, and handover terms.
 
 ---
@@ -250,7 +235,6 @@ Create `.env.local` in the project root (**never commit this file**):
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` | Auth email delivery |
 | `EMAIL_FROM` | From address (e.g. `ReadShelf <you@gmail.com>`) |
 | `ADMIN_EMAILS` | Comma-separated admin emails (optional) |
-| `NEXT_PUBLIC_DEMO_EMAIL` | Demo account email shown on `/platform` |
 
 ### Supabase
 
@@ -304,7 +288,7 @@ assets/fonts/             # Noto Sans Arabic (PDF export)
 supabase/
   migrations/             # 001–007: schema + RLS
   templates/              # Email HTML templates
-scripts/                  # Setup, demo seed, pdf.js copy, admin helpers
+scripts/                  # Setup, pdf.js copy, admin helpers
 public/                   # Icons, pdf.js worker + cmaps + wasm (generated)
 ```
 
@@ -321,9 +305,8 @@ public/                   # Icons, pdf.js worker + cmaps + wasm (generated)
 | `npm run setup:supabase` | Guided Supabase setup (Windows) |
 | `npm run apply:supabase-auth` | Apply Supabase auth configuration |
 | `npm run create:admin` | Create an admin user |
-| `npm run create:demo` | Create a confirmed demo user |
-| `npm run seed:demo` | Seed demo shelf with sample books |
 | `npm run reset:data` | Wipe app data on linked Supabase project |
+| `npm run migrate:r2-to-supabase` | Optional: copy PDF objects from Cloudflare R2 into Supabase Storage |
 | `npm run deploy:vercel` | Deploy helper (Windows) |
 
 `postinstall` runs automatically: `node scripts/copy-pdf-worker.mjs`
@@ -367,4 +350,4 @@ ReadShelf is offered as a **full product sale** — source code, database schema
 
 Built by **Sadeel Shaban**.
 
-Questions, demos, or acquisition terms: [sadeelshabanmedia@gmail.com](mailto:sadeelshabanmedia@gmail.com)
+Questions or acquisition terms: [sadeelshabanmedia@gmail.com](mailto:sadeelshabanmedia@gmail.com)

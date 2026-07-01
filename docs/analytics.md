@@ -86,12 +86,12 @@ Not included by default. Buyers may add Vercel Analytics, PostHog, or similar if
 
 ---
 
-## Demo data disclaimer
+## Test accounts
 
-`npm run seed:demo` creates sample books for walkthroughs. Exclude demo user (`demo@readshelf.app`) from buyer-facing metrics:
+Exclude internal or walkthrough accounts from buyer-facing metrics by filtering known test emails in SQL exports, for example:
 
 ```sql
 SELECT COUNT(*) FROM books b
 JOIN auth.users u ON u.id = b.user_id
-WHERE u.email != 'demo@readshelf.app';
+WHERE u.email NOT IN ('admin@yourcompany.com');  -- add test addresses you use
 ```

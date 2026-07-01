@@ -6,79 +6,82 @@ Use this checklist when transferring ReadShelf to a buyer.
 
 ## Pre-handover (seller)
 
-- [ ] Confirm latest `main` deployed to production
-- [ ] All 7 migrations applied on production Supabase
-- [ ] Logo assets present (`public/logo.png`, `public/favicon.png`)
-- [ ] Data Room docs complete in `docs/`
+- [ ] Confirm the latest `main` is deployed to production
+- [ ] All 7 migrations are applied on the production Supabase project
+- [ ] Logo assets are present (`public/logo.png`, `public/favicon.png`)
+- [ ] Data Room docs are complete in `docs/`
 - [ ] Demo video recorded and linked from `/platform` (optional)
-- [ ] Remove seller personal accounts or transfer ownership
-- [ ] Export anonymized analytics screenshot from `/admin`
+- [ ] Remove seller personal accounts, or transfer ownership
+- [ ] Export an anonymized analytics screenshot from `/admin`
 
 ---
 
 ## Repository transfer
 
-- [ ] Transfer GitHub repo OR grant buyer admin access
-- [ ] Confirm `.env.local` is **not** in repository
-- [ ] Provide env var template (see `docs/deployment.md`)
+- [ ] Transfer the GitHub repo, or grant the buyer admin access
+- [ ] Confirm `.env.local` is **not** in the repository
+- [ ] Provide the env var template (see [Deployment guide](./deployment.md))
 - [ ] Document any fork-specific branches or tags
 
 ---
 
 ## Supabase handover
 
-- [ ] Add buyer as Organization owner OR transfer project
-- [ ] Provide: project URL, anon key, service role key
-- [ ] Buyer rotates service role key after transfer
-- [ ] Verify RLS policies active (Table Editor → Policies)
-- [ ] Confirm storage buckets `book-pdfs`, `book-covers` exist
-- [ ] Update Auth redirect URLs to buyer domain
+- [ ] Add the buyer as an Organization owner, or transfer the project
+- [ ] Provide the project URL, anon key, and service role key
+- [ ] Buyer rotates the service role key after transfer
+- [ ] Verify RLS policies are active (Table Editor → Policies)
+- [ ] Confirm the storage buckets `book-pdfs` and `book-covers` exist
+- [ ] Update Auth redirect URLs to the buyer's domain
 
 ---
 
 ## Vercel handover
 
-- [ ] Transfer project to buyer team OR redeploy from buyer's Vercel account
+- [ ] Transfer the project to the buyer's team, or redeploy from the buyer's Vercel account
 - [ ] Buyer sets all environment variables
-- [ ] Configure custom domain (if applicable)
-- [ ] Verify production build succeeds
+- [ ] Configure a custom domain (if applicable)
+- [ ] Verify the production build succeeds
 
 ---
 
 ## SMTP / email
 
-- [ ] Transfer SMTP credentials OR buyer creates new account
+- [ ] Transfer SMTP credentials, or have the buyer create a new account
 - [ ] Update `SMTP_*` and `EMAIL_FROM` in Vercel
-- [ ] Send test signup + password reset emails
-- [ ] Update `EMAIL_FROM` domain SPF/DKIM if using custom domain
+- [ ] Send test signup and password reset emails
+- [ ] Update SPF/DKIM records if the buyer uses a custom `EMAIL_FROM` domain
 
 ---
 
 ## Admin access
 
-- [ ] Set `ADMIN_EMAILS` to buyer admin addresses
-- [ ] Run `npm run create:admin` for buyer admin user (if needed)
-- [ ] Verify `/admin` loads platform + engagement stats
+- [ ] Set `ADMIN_EMAILS` to the buyer's admin addresses
+- [ ] Run `npm run create:admin` for the buyer's admin user (if needed)
+- [ ] Verify `/admin` loads platform and engagement stats correctly
 
 ---
 
 ## Buyer verification (acceptance)
 
-- [ ] Sign up new test user on production
-- [ ] Upload PDF, read, highlight, note, bookmark
-- [ ] Close and reopen — Continue Reading works
-- [ ] Complete book to 100% — Read Again prompt appears
-- [ ] Export annotated PDF
-- [ ] Test offline: open book online, go offline, annotate, reconnect
-- [ ] Admin dashboard shows correct counts
+- [ ] Sign up a new test user on production
+- [ ] Upload a PDF, read it, add a highlight, a note, and a bookmark
+- [ ] Close and reopen the app — confirm Continue Reading works
+- [ ] Complete a book to 100% — confirm the Read Again prompt appears
+- [ ] Export an annotated PDF
+- [ ] Test offline mode: open a book online, go offline, annotate, then reconnect
+- [ ] Confirm the admin dashboard shows correct counts
 
 ---
 
 ## Post-handover support (negotiate)
 
-| Item | Typical |
-|------|---------|
-| Bug fixes (30 days) | Included in acquisition |
+Terms below are **typical acquisition add-ons**, not part of the live SaaS Terms of Service. They are separate from **ongoing maintenance** (hosting, feature work, and general support after handover).
+
+| Item | Typical scope |
+|------|---------------|
+| Critical bug fixes (30 days post-close) | Often included — **defects in delivered code only**, not new features or general maintenance |
+| Ongoing maintenance & feature development | Separate written agreement |
 | Deployment walkthrough | 1–2 sessions |
 | Custom branding | Separate scope |
 | Stripe / billing integration | Separate scope |

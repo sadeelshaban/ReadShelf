@@ -48,9 +48,9 @@ export default function CopyrightPage() {
       <section>
         <h2 className="font-serif text-xl font-semibold text-primary">Trademarks</h2>
         <p>
-          &quot;ReadShelf&quot; and the ReadShelf logo are trademarks of the platform
-          operator. Do not use them in any way that suggests endorsement without written
-          permission.
+          The &quot;ReadShelf&quot; name and logo are proprietary identifiers of the
+          platform operator. Do not use them in any way that suggests endorsement without
+          written permission.
         </p>
       </section>
 

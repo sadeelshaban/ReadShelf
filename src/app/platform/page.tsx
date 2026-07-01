@@ -47,7 +47,8 @@ const included = [
 const tech = [
   "Next.js 16 (App Router)",
   "React 19 + TypeScript",
-  "Supabase (Auth, Postgres, Storage)",
+  "Supabase (Auth, PostgreSQL)",
+  "Supabase Storage (PDF & cover object storage)",
   "pdfjs-dist + pdf-lib",
   "IndexedDB offline layer",
   "Vercel deployment",
@@ -150,9 +151,10 @@ export default function PlatformPage() {
         <section className="mt-10 glass-panel rounded-2xl p-6 sm:p-8">
           <h2 className="font-serif text-3xl font-semibold text-primary">Data Room</h2>
           <p className="mt-3 text-sm leading-6 text-text-muted">
-            Due-diligence documentation ships with the repository: architecture, ERD,
-            API reference, database schema, deployment guide, cost model, analytics export,
-            branding assets, and handover checklist. See{" "}
+            Due-diligence documentation ships with the repository: architecture diagram,
+            ERD, database schema, API reference, deployment guide, cost model, backup
+            strategy, security overview, product roadmap, analytics export, branding
+            assets, and handover checklist. See{" "}
             <code className="rounded bg-background px-1.5 py-0.5 text-text">docs/</code>{" "}
             in the source repo.
           </p>
@@ -193,7 +195,7 @@ export default function PlatformPage() {
             </Link>
           </p>
           <p className="mt-3 text-sm leading-6 text-text-muted">
-            Contact us for demo credentials and a guided walkthrough.
+            Contact us for a guided walkthrough.
           </p>
         </section>
 

@@ -14,13 +14,11 @@ PostgreSQL on Supabase. All user tables use **Row Level Security (RLS)**.
 | `006_reading_position_and_bookmarks.sql` | `reading_scroll_y`, `reading_zoom`, `bookmarks` table |
 | `007_book_read_count.sql` | `books.read_count`, backfill for completed books |
 
-Apply via Supabase SQL editor or:
+Apply via the Supabase SQL editor, or:
 
 ```bash
 npx supabase db push
 ```
-
----
 
 ## Table: `books`
 
@@ -42,9 +40,7 @@ npx supabase db push
 | `last_opened_at` | timestamptz | Last reader session |
 | `created_at` | timestamptz | Upload time |
 
-**RLS:** Users CRUD only their own rows (`user_id = auth.uid()`).
-
----
+**RLS:** users can only CRUD their own rows (`user_id = auth.uid()`).
 
 ## Table: `highlights`
 
@@ -54,13 +50,11 @@ npx supabase db push
 | `book_id` | uuid FK | Parent book |
 | `user_id` | uuid FK | Owner |
 | `page_number` | int | 1-based page |
-| `selected_text` | text | Selected text (if any) |
+| `selected_text` | text | Selected text, if any |
 | `color` | text | Hex or preset name |
 | `highlight_type` | text | `highlight` or `pen` |
 | `position` | jsonb | Strokes/rects + viewport size |
 | `created_at` | timestamptz | |
-
----
 
 ## Table: `notes`
 
@@ -69,15 +63,13 @@ npx supabase db push
 | `id` | uuid PK | |
 | `book_id` | uuid FK | |
 | `user_id` | uuid FK | |
-| `highlight_id` | uuid FK nullable | Linked highlight |
+| `highlight_id` | uuid FK, nullable | Linked highlight |
 | `page_number` | int | |
 | `note_text` | text | Content |
 | `text_color` | text | black, red, blue, etc. |
 | `position` | jsonb | x, y, width, height, fontSize |
 | `created_at` | timestamptz | |
 | `updated_at` | timestamptz | |
-
----
 
 ## Table: `bookmarks`
 
@@ -87,27 +79,23 @@ npx supabase db push
 | `book_id` | uuid FK | |
 | `user_id` | uuid FK | |
 | `page_number` | int | |
-| `scroll_y` | float | Legacy; navigation uses page only |
+| `scroll_y` | float | Legacy; navigation now uses page only |
 | `label` | text | Optional one-word label |
-| `note_text` | text | Unused in UI (reserved) |
+| `note_text` | text | Reserved, unused in UI |
 | `color` | text | yellow, blue, red |
 | `created_at` | timestamptz | |
 | `updated_at` | timestamptz | |
-
----
 
 ## Table: `profiles`
 
 | Column | Type | Description |
 |--------|------|-------------|
-| `id` | uuid PK FK → auth.users | |
-| `is_admin` | boolean | Set by `create:admin` script |
+| `id` | uuid PK, FK → auth.users | |
+| `is_admin` | boolean | Set by the `create:admin` script |
 | `last_seen_at` | timestamptz | Presence heartbeat |
 | `created_at` | timestamptz | |
 
-**RLS:** Users read/update own profile only.
-
----
+**RLS:** users can only read/update their own profile.
 
 ## RLS policy summary
 
@@ -119,9 +107,7 @@ npx supabase db push
 | bookmarks | own | own | own | own |
 | profiles | own | trigger | own | — |
 
-Storage policies restrict bucket access to owning `user_id` path prefix.
-
----
+Storage policies restrict bucket access to the owning `user_id` path prefix.
 
 ## Indexes
 
@@ -130,8 +116,6 @@ Storage policies restrict bucket access to owning `user_id` path prefix.
 - `notes(book_id)`, `notes(user_id)`
 - `bookmarks(book_id)`, `bookmarks(user_id)`, `bookmarks(book_id, page_number)`
 
----
-
 ## Realtime
 
-Publications enabled for `highlights` and `notes` (migration 002) for future multi-device sync extensions.
+Publications are enabled for `highlights` and `notes` (migration 002) to support future multi-device sync extensions.

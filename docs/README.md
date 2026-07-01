@@ -9,6 +9,9 @@ Due-diligence documentation for buyers evaluating ReadShelf as a digital asset o
 | [Database](./database.md) | Tables, columns, RLS policies, migrations |
 | [API Reference](./api.md) | HTTP endpoints, auth, payloads |
 | [Deployment](./deployment.md) | Local setup, Vercel, Supabase, env vars |
+| [Security](./security.md) | Auth, RLS, storage, processors, hardening options |
+| [Backup](./backup.md) | Database, storage, and recovery procedures |
+| [Roadmap](./roadmap.md) | Shipped features and buyer evolution path |
 | [Costs](./costs.md) | Monthly operating cost estimates by scale |
 | [Analytics](./analytics.md) | Built-in engagement metrics and export guide |
 | [Branding](./branding.md) | Logo assets and visual identity |

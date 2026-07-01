@@ -56,9 +56,11 @@ export default function PrivacyPage() {
           4. Storage &amp; Processors
         </h2>
         <p>
-          Data is stored on Supabase (PostgreSQL and object storage) and served through
-          Vercel. Email delivery uses your configured SMTP provider. These processors act
-          on our instructions and maintain their own security programs.
+          Application data (accounts, library metadata, annotations, and progress) is
+          stored in Supabase (PostgreSQL). PDF files and cover images are stored in
+          Supabase Storage. The application is served through Vercel. Email delivery uses
+          your configured SMTP provider. These processors act on our instructions and
+          maintain their own security programs.
         </p>
       </section>
 

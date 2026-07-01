@@ -88,17 +88,17 @@ erDiagram
 
 | Bucket | Content | Access |
 |--------|---------|--------|
-| `book-pdfs` | Original PDF files | Signed URL per user |
-| `book-covers` | JPEG/PNG covers | Signed URL per user |
+| `book-pdfs` | Original PDF files | Signed URL, per user |
+| `book-covers` | JPEG/PNG covers | Signed URL, per user |
 
 Path pattern: `{user_id}/{book_id}/file.pdf`
 
 ## Relationships
 
-- **Cascade delete:** Deleting a `book` removes its highlights, notes, and bookmarks
-- **Cascade delete:** Deleting `auth.users` removes profile, books, and all annotations
-- **Notes → highlights:** Optional `highlight_id`; note can exist standalone on a page
+- **Cascade delete:** deleting a `book` removes its highlights, notes, and bookmarks
+- **Cascade delete:** deleting an `auth.users` row removes the profile, books, and all annotations
+- **Notes → highlights:** the `highlight_id` link is optional; a note can exist standalone on a page
 
 ## Auth note
 
-`profiles.is_admin` exists in schema but **admin access is gated by `ADMIN_EMAILS` env** in application code (`src/lib/admin.ts`). Buyers may unify on DB flag if preferred.
+`profiles.is_admin` exists in the schema, but **admin access is currently gated by the `ADMIN_EMAILS` env var** in application code (`src/lib/admin.ts`). Buyers may choose to unify on the database flag instead.
