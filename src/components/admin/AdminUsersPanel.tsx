@@ -12,7 +12,22 @@ type AdminUserRow = {
   lastSignInAt: string | null;
   createdAt: string;
   isAdmin: boolean;
+  storageBytes: number;
+  bookCount: number;
 };
+
+function formatStorage(bytes: number) {
+  if (bytes <= 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB"] as const;
+  let value = bytes;
+  let unitIndex = 0;
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+  const digits = value >= 100 || unitIndex === 0 ? 0 : value >= 10 ? 1 : 2;
+  return `${value.toFixed(digits)} ${units[unitIndex]}`;
+}
 
 function formatDate(value: string | null) {
   if (!value) return "Never";
@@ -102,11 +117,41 @@ export function AdminUsersPanel() {
     }
   }
 
+  async function handleStorageNotice(userId: string, email: string, storageLabel: string) {
+    if (
+      !confirm(
+        `Send ${email} an email asking them to reduce shelf storage? Current usage: ${storageLabel}.`,
+      )
+    ) {
+      return;
+    }
+
+    setBusyId(userId);
+    setError(null);
+    try {
+      const response = await fetch(`/api/admin/users/${userId}/storage-notice`, {
+        method: "POST",
+        credentials: "same-origin",
+      });
+      const body = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        throw new Error(body.error ?? "Could not send storage notice.");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not send storage notice.");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   return (
     <section className="mt-10">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="font-serif text-2xl font-semibold text-text">Users</h2>
+          <p className="mt-1 text-sm text-text-muted">
+            Sorted by storage use. Send a storage notice when trial space is tight.
+          </p>
         </div>
         <Button
           variant="secondary"
@@ -131,6 +176,7 @@ export function AdminUsersPanel() {
               <tr>
                 <th className="px-4 py-3 font-medium">Name</th>
                 <th className="px-4 py-3 font-medium">Email</th>
+                <th className="px-4 py-3 font-medium">Storage</th>
                 <th className="px-4 py-3 font-medium">Status</th>
                 <th className="px-4 py-3 font-medium">Last sign-in</th>
                 <th className="px-4 py-3 font-medium">Actions</th>
@@ -139,13 +185,13 @@ export function AdminUsersPanel() {
             <tbody>
               {initialLoading ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-text-muted">
+                  <td colSpan={6} className="px-4 py-8 text-center text-text-muted">
                     Loading users...
                   </td>
                 </tr>
               ) : users.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-text-muted">
+                  <td colSpan={6} className="px-4 py-8 text-center text-text-muted">
                     No users found.
                   </td>
                 </tr>
@@ -161,6 +207,12 @@ export function AdminUsersPanel() {
                       )}
                     </td>
                     <td className="px-4 py-3 text-text-muted">{user.email}</td>
+                    <td className="px-4 py-3 text-text-muted">
+                      <span className="font-medium text-text">{formatStorage(user.storageBytes)}</span>
+                      <span className="mt-0.5 block text-xs">
+                        {user.bookCount === 1 ? "1 book" : `${user.bookCount} books`}
+                      </span>
+                    </td>
                     <td className="px-4 py-3">
                       <span className="inline-flex items-center gap-2">
                         <span
@@ -187,6 +239,22 @@ export function AdminUsersPanel() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-2">
+                        {!user.isAdmin && (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            disabled={busyId === user.id}
+                            onClick={() =>
+                              void handleStorageNotice(
+                                user.id,
+                                user.email,
+                                formatStorage(user.storageBytes),
+                              )
+                            }
+                          >
+                            Storage notice
+                          </Button>
+                        )}
                         <Button
                           variant="secondary"
                           size="sm"

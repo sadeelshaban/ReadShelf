@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { AdminUsersPanel } from "@/components/admin/AdminUsersPanel";
 import { getEngagementStats, getPlatformStats } from "@/lib/admin/stats";
+import { formatStorageBytes, getPlatformStorageBytes } from "@/lib/admin/storage-usage";
 import { isAdminUser } from "@/lib/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -40,9 +41,11 @@ export default async function AdminDashboardPage() {
 
   let stats;
   let engagement;
+  let totalStorageBytes = 0;
   try {
     stats = await getPlatformStats();
     engagement = await getEngagementStats(stats);
+    totalStorageBytes = await getPlatformStorageBytes();
   } catch {
     return (
       <div className="rounded-2xl border border-accent/40 bg-card p-8 text-center">
@@ -66,9 +69,14 @@ export default async function AdminDashboardPage() {
         </h1>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <StatCard label="Users" value={stats.users} hint="Total accounts" />
         <StatCard label="Books uploaded" value={stats.books} hint="PDFs on shelves" />
+        <StatCard
+          label="Storage used"
+          value={formatStorageBytes(totalStorageBytes)}
+          hint="PDFs and covers in Supabase Storage"
+        />
         <StatCard label="Notes" value={stats.notes} hint="All notes" />
         <StatCard label="Highlights" value={stats.highlights} hint="All highlights" />
       </div>

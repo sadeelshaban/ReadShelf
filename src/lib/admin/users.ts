@@ -1,5 +1,9 @@
 import type { User } from "@supabase/supabase-js";
 import { isAdminEmail } from "@/lib/admin";
+import { storageNoticeEmailHtml } from "@/lib/email/admin-templates";
+import { getSiteUrl } from "@/lib/email/config";
+import { sendEmail } from "@/lib/email/send";
+import { formatStorageBytes, getUserStorageUsageMap } from "@/lib/admin/storage-usage";
 import { isUserOnline } from "@/lib/presence";
 import { createServiceClient } from "@/lib/supabase/service";
 
@@ -12,6 +16,8 @@ export type AdminUserRow = {
   lastSignInAt: string | null;
   createdAt: string;
   isAdmin: boolean;
+  storageBytes: number;
+  bookCount: number;
 };
 
 function displayName(user: User): string {
@@ -24,7 +30,11 @@ function displayName(user: User): string {
   return "User";
 }
 
-function toRow(user: User, lastSeenAt: string | null): AdminUserRow {
+function toRow(
+  user: User,
+  lastSeenAt: string | null,
+  usage: { storageBytes: number; bookCount: number },
+): AdminUserRow {
   return {
     id: user.id,
     email: user.email ?? "",
@@ -34,6 +44,8 @@ function toRow(user: User, lastSeenAt: string | null): AdminUserRow {
     lastSignInAt: user.last_sign_in_at ?? null,
     createdAt: user.created_at,
     isAdmin: isAdminEmail(user.email),
+    storageBytes: usage.storageBytes,
+    bookCount: usage.bookCount,
   };
 }
 
@@ -70,9 +82,16 @@ export async function listAdminUsers(): Promise<AdminUserRow[]> {
     (profiles ?? []).map((profile) => [profile.id, profile.last_seen_at as string | null]),
   );
 
+  const usageByUser = await getUserStorageUsageMap(users.map((user) => user.id));
+
   return users
-    .map((user) => toRow(user, lastSeenByUser.get(user.id) ?? null))
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    .map((user) =>
+      toRow(user, lastSeenByUser.get(user.id) ?? null, usageByUser.get(user.id) ?? {
+        storageBytes: 0,
+        bookCount: 0,
+      }),
+    )
+    .sort((a, b) => b.storageBytes - a.storageBytes || b.createdAt.localeCompare(a.createdAt));
 }
 
 export async function signOutUserGlobally(userId: string) {
@@ -139,6 +158,38 @@ async function removeUserStorage(userId: string) {
       throw new Error(coverError.message);
     }
   }
+}
+
+export async function sendUserStorageNotice(userId: string, request?: Request) {
+  const supabase = createServiceClient();
+  const { data, error: userError } = await supabase.auth.admin.getUserById(userId);
+
+  if (userError || !data.user) {
+    throw new Error(userError?.message ?? "User not found.");
+  }
+
+  const email = data.user.email?.trim();
+  if (!email) {
+    throw new Error("User has no email address.");
+  }
+
+  const usage = (await getUserStorageUsageMap([userId])).get(userId) ?? {
+    storageBytes: 0,
+    bookCount: 0,
+  };
+
+  const siteUrl = getSiteUrl(request);
+  const usageLabel = formatStorageBytes(usage.storageBytes);
+
+  await sendEmail({
+    to: email,
+    subject: `ReadShelf — please reduce shelf storage (${usageLabel})`,
+    html: storageNoticeEmailHtml({
+      siteUrl,
+      storageBytes: usage.storageBytes,
+      bookCount: usage.bookCount,
+    }),
+  });
 }
 
 export async function unregisterUser(userId: string) {
