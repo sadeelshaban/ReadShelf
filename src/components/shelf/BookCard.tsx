@@ -24,10 +24,10 @@ export function BookCard({ book, coverUrl }: BookCardProps) {
   const progressLabel = book.total_pages
     ? `${book.progress_percent}% · ${book.last_page}/${book.total_pages}`
     : `${book.progress_percent}% · p. ${book.last_page}`;
-  const pagesLabel = book.total_pages ? `${book.total_pages} PAGES` : "— PAGES";
+  const pagesLabel = book.total_pages ? `${book.total_pages} Pages` : "— Pages";
 
   return (
-    <article className="group relative w-[140px] shrink-0 sm:w-[152px]">
+    <article className="group relative flex w-[140px] shrink-0 flex-col sm:w-[152px]">
       <div className="relative">
         <div className="relative aspect-[3/4] w-full overflow-hidden rounded-2xl bg-background-elevated shadow-md ring-1 ring-black/5 transition-all duration-300 ease-out group-hover:z-10 group-hover:scale-[1.14] group-hover:shadow-xl group-hover:ring-primary/30">
           {coverUrl ? (
@@ -68,14 +68,18 @@ export function BookCard({ book, coverUrl }: BookCardProps) {
         </div>
       </div>
 
-      <Link href={`/book/${book.id}`} className="mt-3 block min-w-0" title={label}>
+      <Link
+        href={`/book/${book.id}`}
+        className="mt-3 block min-h-[2.75rem] min-w-0 sm:min-h-[3rem]"
+        title={label}
+      >
         <p className="line-clamp-2 text-center text-xs leading-snug text-text/90 sm:text-sm" dir="auto">
           {label}
         </p>
       </Link>
 
-      <div className="relative mt-2 h-4">
-        <p className="absolute inset-x-0 top-0 text-center text-[10px] font-semibold uppercase tracking-[0.12em] text-text-muted transition-opacity duration-200 group-hover:opacity-0">
+      <div className="relative mt-2 h-4 shrink-0">
+        <p className="absolute inset-x-0 top-0 text-center text-[10px] font-medium text-text-muted transition-opacity duration-200 group-hover:opacity-0">
           {pagesLabel}
         </p>
         <p className="absolute inset-x-0 top-0 text-center text-[10px] text-text-muted opacity-0 transition-opacity duration-200 group-hover:opacity-100">

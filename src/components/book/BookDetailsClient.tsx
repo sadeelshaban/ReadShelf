@@ -187,9 +187,6 @@ export function BookDetailsClient({
   const noteGroups = groupNotesByPage(displayNotes);
   const readLabel = getReadButtonLabel(book);
   const isUnread = !book.last_opened_at;
-  const savedZoomPercent = book.reading_zoom
-    ? Math.round(book.reading_zoom * 100)
-    : 50;
 
   function startEditing() {
     setEditTitle(book.title);
@@ -399,16 +396,6 @@ export function BookDetailsClient({
             </MetaPill>
           </div>
 
-          {!isUnread && (
-            <div className="mt-5 rounded-2xl border border-[#eadbc8]/80 bg-[#fbf7f0] px-4 py-3 text-sm text-[#5b4028]">
-              <p className="font-medium text-[#3c2a21]">Auto-saved position</p>
-              <p className="mt-1 text-[#8a7968]">
-                Page {book.last_page}
-                {book.total_pages ? ` of ${book.total_pages}` : ""} · {savedZoomPercent}% zoom
-              </p>
-            </div>
-          )}
-
           <div className="mt-6 flex flex-wrap gap-3">
             <Link href={`/book/${book.id}/read`}>
               <Button className="gap-2 px-5 py-2.5">
@@ -580,11 +567,6 @@ export function BookDetailsClient({
                           <p className="mt-0.5 text-xs text-[#8a7968]">
                             Page {bookmark.page_number}
                           </p>
-                          {bookmark.note_text && (
-                            <p className="mt-2 text-sm leading-relaxed text-[#5b4028]">
-                              {bookmark.note_text}
-                            </p>
-                          )}
                         </div>
                         <span
                           className="mt-0.5 h-5 w-5 shrink-0 rounded-full border border-[#eadbc8]"

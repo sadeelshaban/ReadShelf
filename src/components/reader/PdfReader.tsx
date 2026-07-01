@@ -55,6 +55,7 @@ import {
   clearNoteText,
   deleteHighlight as deleteHighlightApi,
   deleteNote as deleteNoteApi,
+  deleteBookmark as deleteBookmarkApi,
   flushSyncQueue,
   insertBookmark,
   insertNote,
@@ -74,7 +75,13 @@ import { isOnline } from "@/lib/offline/online";
 import { LeftToolbar, RightToolbar } from "@/components/reader/ReaderToolbars";
 import { ReaderTopBar } from "@/components/reader/ReaderTopBar";
 import { PageBookmarkRibbon } from "@/components/reader/PageBookmarkRibbon";
+import {
+  BookmarkAddPanel,
+  BookmarkDeleteConfirm,
+} from "@/components/reader/BookmarkAddPanel";
 import { ContinueReadingPrompt } from "@/components/reader/ContinueReadingPrompt";
+import type { BookmarkColorId } from "@/lib/reader/bookmarks";
+import { normalizeBookmarkLabel } from "@/lib/reader/bookmarks";
 import { cn } from "@/lib/utils";
 
 type PdfReaderProps = {
@@ -680,9 +687,9 @@ export function PdfReader({
   const [highlights, setHighlights] = useState(initialHighlights);
   const [notes, setNotes] = useState(initialNotes);
   const [bookmarks, setBookmarks] = useState(initialBookmarks);
-  const [bookmarkColor, setBookmarkColor] = useState("gold");
+  const [bookmarkColor, setBookmarkColor] = useState<BookmarkColorId>("yellow");
   const [bookmarkLabel, setBookmarkLabel] = useState("");
-  const [bookmarkNote, setBookmarkNote] = useState("");
+  const [bookmarkToDelete, setBookmarkToDelete] = useState<Bookmark | null>(null);
   const [resumeReady, setResumeReady] = useState(!showResumePrompt);
   const [showResumeOverlay, setShowResumeOverlay] = useState(showResumePrompt);
   const [message, setMessage] = useState<string | null>(null);
@@ -1080,16 +1087,23 @@ export function PdfReader({
       pageNumber: currentPage,
       scrollY,
       label,
-      noteText: bookmarkNote.trim(),
+      noteText: "",
       color: bookmarkColor,
     });
     setBookmarks((prev) =>
       [...prev, created].sort((a, b) => a.page_number - b.page_number),
     );
     setBookmarkLabel("");
-    setBookmarkNote("");
+    setTool("read");
     setMessage(`Bookmark added on page ${currentPage}.`);
-  }, [bookId, userId, bookmarkColor, bookmarkLabel, bookmarkNote]);
+  }, [bookId, userId, bookmarkColor, bookmarkLabel]);
+
+  const handleConfirmDeleteBookmark = useCallback(async () => {
+    if (!bookmarkToDelete) return;
+    await deleteBookmarkApi(bookmarkToDelete.id);
+    setBookmarks((prev) => prev.filter((entry) => entry.id !== bookmarkToDelete.id));
+    setBookmarkToDelete(null);
+  }, [bookmarkToDelete]);
 
   const renderPage = useCallback(async (pageNumber: number, zoom: number) => {
     const pdf = pdfRef.current;
@@ -2199,15 +2213,27 @@ export function PdfReader({
           onHighlightStrokeWidthChange={setHighlightStrokeWidthAndSave}
           onPenStrokeWidthChange={setPenStrokeWidthAndSave}
           onEraserStrokeWidthChange={setEraserStrokeWidthAndSave}
-          bookmarkColor={bookmarkColor}
-          bookmarkLabel={bookmarkLabel}
-          bookmarkNote={bookmarkNote}
-          currentPage={page}
-          onBookmarkColorChange={setBookmarkColor}
-          onBookmarkLabelChange={setBookmarkLabel}
-          onBookmarkNoteChange={setBookmarkNote}
-          onAddBookmark={() => void handleAddBookmark()}
         />
+
+        {tool === "bookmark" && !bookmarkToDelete && (
+          <BookmarkAddPanel
+            page={page}
+            color={bookmarkColor}
+            label={bookmarkLabel}
+            onColorChange={setBookmarkColor}
+            onLabelChange={(value) => setBookmarkLabel(normalizeBookmarkLabel(value))}
+            onAdd={() => void handleAddBookmark()}
+            onClose={() => setTool("read")}
+          />
+        )}
+
+        {bookmarkToDelete && (
+          <BookmarkDeleteConfirm
+            label={bookmarkToDelete.label || `Page ${bookmarkToDelete.page_number}`}
+            onConfirm={() => void handleConfirmDeleteBookmark()}
+            onCancel={() => setBookmarkToDelete(null)}
+          />
+        )}
 
         {showResumeOverlay && !resumeReady && (
           <ContinueReadingPrompt
@@ -2284,6 +2310,7 @@ export function PdfReader({
                       label={bookmark.label || `Page ${pageNumber}`}
                       offsetIndex={bookmarkIndex}
                       onClick={() => jumpToBookmark(bookmark)}
+                      onDoubleClick={() => setBookmarkToDelete(bookmark)}
                     />
                   ))}
                   {renderedPages.has(pageNumber) ? (

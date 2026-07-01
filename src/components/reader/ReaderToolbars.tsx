@@ -10,7 +10,6 @@ import {
   MIN_STROKE_WIDTH,
   NOTE_TEXT_COLORS,
 } from "@/lib/reader/constants";
-import { BOOKMARK_COLORS } from "@/lib/reader/bookmarks";
 import { cn } from "@/lib/utils";
 import { DraggableToolbar } from "@/components/reader/DraggableToolbar";
 import {
@@ -244,14 +243,6 @@ type LeftToolbarProps = {
   onHighlightStrokeWidthChange: (width: number) => void;
   onPenStrokeWidthChange: (width: number) => void;
   onEraserStrokeWidthChange: (width: number) => void;
-  bookmarkColor: string;
-  bookmarkLabel: string;
-  bookmarkNote: string;
-  currentPage: number;
-  onBookmarkColorChange: (colorId: string) => void;
-  onBookmarkLabelChange: (label: string) => void;
-  onBookmarkNoteChange: (note: string) => void;
-  onAddBookmark: () => void;
 };
 
 export function LeftToolbar({
@@ -273,14 +264,6 @@ export function LeftToolbar({
   onHighlightStrokeWidthChange,
   onPenStrokeWidthChange,
   onEraserStrokeWidthChange,
-  bookmarkColor,
-  bookmarkLabel,
-  bookmarkNote,
-  currentPage,
-  onBookmarkColorChange,
-  onBookmarkLabelChange,
-  onBookmarkNoteChange,
-  onAddBookmark,
 }: LeftToolbarProps) {
   const [openGroup, setOpenGroup] = useState<"nav" | "thickness" | "eraserThickness" | null>(
     null,
@@ -288,7 +271,6 @@ export function LeftToolbar({
   const showDrawColors = tool === "highlight" || tool === "pen";
   const showEraserControls = tool === "eraser";
   const showNoteColors = tool === "note" || editingNote;
-  const showBookmarkControls = tool === "bookmark";
 
   return (
     <DraggableToolbar id="left-toolbar">
@@ -334,47 +316,6 @@ export function LeftToolbar({
       >
         <BookmarkIcon />
       </ToolButton>
-
-      {showBookmarkControls && (
-        <div className="mt-1.5 flex w-9 flex-col items-center gap-1.5 border-t border-white/10 pt-1.5">
-          {BOOKMARK_COLORS.map((preset) => (
-            <button
-              key={preset.id}
-              type="button"
-              title={preset.name}
-              className={cn(
-                "h-3.5 w-3.5 rounded-full border transition hover:scale-110",
-                bookmarkColor === preset.id
-                  ? "border-white ring-1 ring-[#0a84ff]"
-                  : "border-white/25",
-              )}
-              style={{ backgroundColor: preset.value }}
-              onClick={() => onBookmarkColorChange(preset.id)}
-            />
-          ))}
-          <input
-            type="text"
-            value={bookmarkLabel}
-            onChange={(e) => onBookmarkLabelChange(e.target.value)}
-            placeholder="Label"
-            className="w-full rounded border border-white/15 bg-black/30 px-1 py-0.5 text-[9px] text-white placeholder:text-white/35"
-          />
-          <textarea
-            value={bookmarkNote}
-            onChange={(e) => onBookmarkNoteChange(e.target.value)}
-            placeholder="Note"
-            rows={2}
-            className="w-full resize-none rounded border border-white/15 bg-black/30 px-1 py-0.5 text-[9px] text-white placeholder:text-white/35"
-          />
-          <button
-            type="button"
-            onClick={onAddBookmark}
-            className="w-full rounded bg-[#0a84ff] px-1 py-1 text-[9px] font-semibold text-white"
-          >
-            Page {currentPage}
-          </button>
-        </div>
-      )}
 
       {showEraserControls && (
         <div className="mt-1.5 flex flex-col items-center border-t border-white/10 pt-1.5">
