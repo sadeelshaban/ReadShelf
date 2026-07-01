@@ -21,6 +21,7 @@ import { purgeBookFromLocalCache } from "@/lib/offline/purge-book-cache";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { BookTabEmptyState } from "@/components/book/BookTabEmptyState";
+import { BookmarkIcon, HighlighterIcon, NoteIcon } from "@/components/reader/ReaderIcons";
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
 
@@ -588,17 +589,11 @@ export function BookDetailsClient({
               )}
             >
               {item.id === "highlights" ? (
-                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 20h4l10.5-10.5a2.12 2.12 0 1 0-3-3L5 17v3Z" />
-                </svg>
+                <HighlighterIcon className="h-4 w-4" />
               ) : item.id === "notes" ? (
-                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6Z" />
-                </svg>
+                <NoteIcon className="h-4 w-4" />
               ) : (
-                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 4.5h8a1 1 0 0 1 1 1v12.8l-3.2-2.2-2.8 2.2-2.8-2.2L7 18.3V5.5a1 1 0 0 1 1-1z" />
-                </svg>
+                <BookmarkIcon className="h-4 w-4" />
               )}
               {item.label}
               <span className="rounded-full bg-[#fff8f1] px-2 py-0.5 text-xs font-semibold text-[#5b4028] ring-1 ring-[#eadbc8]/80">

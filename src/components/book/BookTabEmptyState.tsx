@@ -1,36 +1,11 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
+import { BookmarkIcon, HighlighterIcon, NoteIcon } from "@/components/reader/ReaderIcons";
 
 type BookTabEmptyStateProps = {
   variant: "highlights" | "notes" | "bookmarks";
   bookId: string;
 };
-
-function BookOpenIllustration() {
-  return (
-    <svg
-      className="h-16 w-16 text-[#8B6F52]"
-      viewBox="0 0 64 64"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      aria-hidden
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M12 14c0-2.2 1.8-4 4-4h14v44H16c-2.2 0-4-1.8-4-4V14Z"
-      />
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M36 10h14c2.2 0 4 1.8 4 4v36c0 2.2-1.8 4-4 4H36V10Z"
-      />
-      <path strokeLinecap="round" d="M32 10v44" />
-      <path strokeLinecap="round" d="M18 22h8M18 28h8M42 22h8M42 28h8" />
-    </svg>
-  );
-}
 
 function BookOpenIcon() {
   return (
@@ -56,24 +31,27 @@ const COPY = {
     title: "No highlights yet",
     description:
       "Start reading this book and highlight your favorite passages to see them here.",
+    icon: HighlighterIcon,
   },
   notes: {
     title: "No notes yet",
     description: "Start reading this book and add notes on any page to see them here.",
+    icon: NoteIcon,
   },
   bookmarks: {
     title: "No bookmarks yet",
     description: "Use the bookmark tool in the reader to save labeled places you want to return to.",
+    icon: BookmarkIcon,
   },
 } as const;
 
 export function BookTabEmptyState({ variant, bookId }: BookTabEmptyStateProps) {
-  const { title, description } = COPY[variant];
+  const { title, description, icon: VariantIcon } = COPY[variant];
 
   return (
     <div className="book-tab-panel flex min-h-[18rem] flex-col items-center justify-center px-6 py-12 text-center">
       <span className="mb-6 flex h-24 w-24 items-center justify-center rounded-3xl border border-[#eadbc8]/80 bg-[#fff8f1] shadow-[0_12px_28px_rgba(0,0,0,0.08)]">
-        <BookOpenIllustration />
+        <VariantIcon className="h-10 w-10 text-[#8B6F52]" />
       </span>
       <h3 className="font-serif text-2xl font-semibold text-[#3c2a21]">{title}</h3>
       <p className="mt-3 max-w-md text-sm leading-relaxed text-[#8a7968]">{description}</p>
