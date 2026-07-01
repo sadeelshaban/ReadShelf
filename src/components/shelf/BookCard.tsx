@@ -11,32 +11,28 @@ type BookCardProps = {
   coverUrl: string | null;
 };
 
-function bookLabel(title: string, author: string) {
-  return `${title} - ${author.trim() || "Unknown"}`;
-}
-
 const overlayBtn =
   "interactive-lift flex w-full items-center justify-center rounded-xl px-3 py-2 text-center text-[11px] font-semibold leading-tight transition-colors sm:text-xs";
 
 export function BookCard({ book, coverUrl }: BookCardProps) {
-  const label = bookLabel(book.title, book.author);
   const readLabel = getReadButtonLabel(book);
   const progressLabel = book.total_pages
     ? `${book.progress_percent}% · ${book.last_page}/${book.total_pages}`
     : `${book.progress_percent}% · p. ${book.last_page}`;
   const pagesLabel = book.total_pages ? `${book.total_pages} Pages` : "— Pages";
+  const author = book.author.trim() || "Unknown";
 
   return (
     <article className="group relative flex w-[140px] shrink-0 flex-col sm:w-[152px]">
       <div className="relative">
-        <div className="relative aspect-[3/4] w-full overflow-hidden rounded-2xl bg-background-elevated shadow-md ring-1 ring-black/5 transition-all duration-300 ease-out group-hover:z-10 group-hover:scale-[1.14] group-hover:shadow-xl group-hover:ring-primary/30">
+        <div className="relative aspect-[2/3] w-full overflow-hidden rounded-2xl bg-background-elevated shadow-md ring-1 ring-black/5 transition-all duration-300 ease-out group-hover:z-10 group-hover:scale-[1.14] group-hover:shadow-xl group-hover:ring-primary/30">
           {coverUrl ? (
             <Image
               src={coverUrl}
               alt=""
               fill
               sizes="176px"
-              className="object-cover"
+              className="object-cover object-center"
               unoptimized
             />
           ) : (
@@ -70,15 +66,21 @@ export function BookCard({ book, coverUrl }: BookCardProps) {
 
       <Link
         href={`/book/${book.id}`}
-        className="mt-3 block min-h-[2.75rem] min-w-0 sm:min-h-[3rem]"
-        title={label}
+        className="mt-2.5 block min-w-0"
+        title={`${book.title} — ${author}`}
       >
-        <p className="line-clamp-2 text-center text-xs leading-snug text-text/90 sm:text-sm" dir="auto">
-          {label}
+        <p
+          className="line-clamp-2 text-center text-xs font-medium leading-snug text-text/90 sm:text-sm"
+          dir="auto"
+        >
+          {book.title}
+        </p>
+        <p className="mt-0.5 truncate text-center text-[10px] text-text-muted sm:text-[11px]" dir="auto">
+          {author}
         </p>
       </Link>
 
-      <div className="relative mt-2 h-4 shrink-0">
+      <div className="relative mt-1.5 h-4 shrink-0">
         <p className="absolute inset-x-0 top-0 text-center text-[10px] font-medium text-text-muted transition-opacity duration-200 group-hover:opacity-0">
           {pagesLabel}
         </p>

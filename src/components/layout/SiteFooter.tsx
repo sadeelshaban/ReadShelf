@@ -5,17 +5,19 @@ import { cn } from "@/lib/utils";
 type SiteFooterProps = {
   variant?: "dark" | "light";
   className?: string;
+  compact?: boolean;
 };
 
-export function SiteFooter({ variant = "light", className }: SiteFooterProps) {
+export function SiteFooter({ variant = "light", className, compact }: SiteFooterProps) {
   const isDark = variant === "dark";
 
   return (
     <footer className={cn("text-center text-sm", className)}>
       <div
         className={cn(
-          "flex flex-col items-center gap-3 border-t pt-6",
-          isDark ? "border-white/15" : "border-[#eadbc8]/70",
+          "flex flex-col items-center gap-3 border-t",
+          compact ? "border-[#eadbc8]/45 pt-4" : "pt-6",
+          isDark ? "border-white/15" : compact ? "border-[#eadbc8]/45" : "border-[#eadbc8]/70",
         )}
       >
         <p
@@ -36,8 +38,8 @@ export function SiteFooter({ variant = "light", className }: SiteFooterProps) {
               key={link.href}
               href={link.href}
               className={cn(
-                "transition hover:underline",
-                isDark ? "hover:text-white/70" : "hover:text-text-muted",
+                "transition-colors duration-200 hover:underline",
+                isDark ? "hover:text-white/80" : "hover:text-text/80",
               )}
             >
               {link.label}
@@ -46,8 +48,8 @@ export function SiteFooter({ variant = "light", className }: SiteFooterProps) {
           <Link
             href="/platform"
             className={cn(
-              "transition hover:underline",
-              isDark ? "hover:text-white/70" : "hover:text-text-muted",
+              "transition-colors duration-200 hover:underline",
+              isDark ? "hover:text-white/80" : "hover:text-text/80",
             )}
           >
             Platform

@@ -14,10 +14,10 @@ export function ShelfStats({ books }: ShelfStatsProps) {
       : 0;
 
   const items = [
-    { label: "Books", value: String(total) },
-    { label: "Progress", value: `${avgProgress}%` },
-    { label: "Highlights", value: String(highlights) },
-    { label: "Notes", value: String(notes) },
+    { value: String(total), label: total === 1 ? "Book" : "Books" },
+    { value: `${avgProgress}%`, label: "Progress" },
+    { value: String(highlights), label: highlights === 1 ? "Highlight" : "Highlights" },
+    { value: String(notes), label: notes === 1 ? "Note" : "Notes" },
   ];
 
   return (
@@ -27,8 +27,8 @@ export function ShelfStats({ books }: ShelfStatsProps) {
           key={item.label}
           className="rounded-full border border-[#eadbc8]/80 bg-background-elevated/60 px-3.5 py-1.5 text-xs"
         >
-          <span className="text-text-muted">{item.label}</span>{" "}
-          <span className="font-semibold text-text">{item.value}</span>
+          <span className="font-semibold tabular-nums text-text">{item.value}</span>{" "}
+          <span className="text-text-muted">{item.label}</span>
         </div>
       ))}
     </div>

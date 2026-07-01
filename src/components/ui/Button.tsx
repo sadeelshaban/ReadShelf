@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 
 type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: "primary" | "secondary" | "ghost" | "danger";
+  variant?: "primary" | "secondary" | "ghost" | "danger" | "danger-outline";
   size?: "sm" | "md" | "lg";
 };
 
@@ -22,6 +22,8 @@ export function Button({
         variant === "ghost" && "text-text/80 hover:bg-white/45",
         variant === "danger" &&
           "bg-red-600 text-white shadow-sm hover:bg-red-700",
+        variant === "danger-outline" &&
+          "border border-red-500/70 bg-transparent text-red-600 hover:border-red-500 hover:bg-red-50/80",
         size === "sm" && "px-3.5 py-2 text-sm",
         size === "md" && "px-4 py-2.5 text-sm",
         size === "lg" && "px-6 py-3 text-base",

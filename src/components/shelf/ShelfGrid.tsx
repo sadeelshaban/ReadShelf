@@ -59,7 +59,7 @@ export function ShelfGrid({ books, coverUrls, loading = false }: ShelfGridProps)
             No books match your search.
           </p>
         ) : (
-          <div className="flex flex-wrap gap-x-7 gap-y-9">
+          <div className="flex flex-wrap gap-x-7 gap-y-5">
             {filtered.map((book) => (
               <BookCard
                 key={book.id}

@@ -24,15 +24,15 @@ export async function AppHeader() {
     : null;
 
   return (
-    <header className="sticky top-0 z-40 border-b border-[#eadbc8]/70 bg-background/80 backdrop-blur-xl">
-      <div className="flex w-full items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
-        <Link href="/shelf" className="flex min-w-0 items-center gap-2.5">
+    <header className="sticky top-0 z-40 border-b border-[#eadbc8]/55 bg-background/85 backdrop-blur-xl">
+      <div className="flex w-full items-center justify-between gap-4 px-4 py-2.5 sm:px-6 lg:px-8">
+        <Link href="/shelf" className="flex min-w-0 items-center gap-3">
           <Image
             src="/logo.png"
             alt="ReadShelf"
-            width={36}
-            height={36}
-            className="h-9 w-9 shrink-0 rounded-lg object-cover"
+            width={40}
+            height={40}
+            className="h-10 w-10 shrink-0 rounded-lg object-cover"
             unoptimized
           />
           <div className="min-w-0 leading-tight">
@@ -40,7 +40,7 @@ export async function AppHeader() {
               ReadShelf
             </span>
             {displayName && (
-              <span className="block truncate text-xs text-text-muted">
+              <span className="block truncate text-xs font-medium text-text/80">
                 {displayName}
               </span>
             )}
@@ -51,7 +51,7 @@ export async function AppHeader() {
           <Link
             href="/settings"
             aria-label="Settings"
-            className="rounded-xl p-2.5 text-text/75 transition hover:bg-white/50 hover:text-primary"
+            className="rounded-xl p-2.5 text-text/70 transition-all hover:bg-background-elevated hover:text-primary hover:shadow-sm"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
