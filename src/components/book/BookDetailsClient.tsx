@@ -8,6 +8,7 @@ import type { Book, Bookmark, Highlight, Note } from "@/types";
 import { mergeAnnotationsById } from "@/lib/annotations/merge";
 import { getReadButtonLabel } from "@/lib/pdf";
 import { formatLastOpened, formatReadCount } from "@/lib/books/reading-stats";
+import { rememberCoverUrl } from "@/lib/books/cover-url-cache";
 import { bookmarkColorHex } from "@/lib/reader/bookmarks";
 import {
   HIGHLIGHT_PRESETS,
@@ -248,6 +249,11 @@ export function BookDetailsClient({
   useEffect(() => {
     void refreshAnnotations();
   }, [refreshAnnotations]);
+
+  useEffect(() => {
+    router.prefetch("/shelf");
+    rememberCoverUrl(book.cover_path, coverUrl);
+  }, [router, book.cover_path, coverUrl]);
 
   useEffect(() => {
     function onFocus() {

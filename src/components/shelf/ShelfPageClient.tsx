@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { ShelfGrid } from "@/components/shelf/ShelfGrid";
 import { ShelfStats } from "@/components/shelf/ShelfStats";
+import { buildCoverUrlMap } from "@/lib/books/cover-url-cache";
 import {
   fetchBooksWithCountsClient,
   fetchCoverUrlsClient,
@@ -14,43 +15,58 @@ import { flushSyncQueue } from "@/lib/offline/reader-api";
 import type { BookWithCounts } from "@/types";
 
 export function ShelfPageClient() {
-  const pathname = usePathname();
+  const router = useRouter();
   const [books, setBooks] = useState<BookWithCounts[]>([]);
   const [coverUrls, setCoverUrls] = useState<Record<string, string | null>>({});
   const [loading, setLoading] = useState(true);
   const [offline, setOffline] = useState(false);
-  const [reloadToken, setReloadToken] = useState(0);
 
-  const loadShelf = useCallback(async (cancelled: () => boolean) => {
-    setLoading(true);
-
-    if (isOnline()) {
-      try {
-        const fetched = await fetchBooksWithCountsClient();
-        if (cancelled()) return;
-
-        await cacheBooks(fetched);
-        const urls = await fetchCoverUrlsClient(fetched);
-        if (cancelled()) return;
-
-        setBooks(fetched);
-        setCoverUrls(urls);
-        setOffline(false);
-        void flushSyncQueue();
-        setLoading(false);
-        return;
-      } catch {
-        // Fall back to cached shelf when the network request fails.
-      }
-    }
-
+  const loadShelf = useCallback(async (cancelled: () => boolean, silent = false) => {
     const cached = await getCachedBooks();
     if (cancelled()) return;
-    setBooks(cached);
-    setCoverUrls({});
-    setOffline(!isOnline());
-    setLoading(false);
+
+    if (cached.length > 0) {
+      setBooks(cached);
+      setCoverUrls(buildCoverUrlMap(cached));
+      setLoading(false);
+    } else if (!silent) {
+      setLoading(true);
+    }
+
+    if (!isOnline()) {
+      setBooks(cached);
+      setCoverUrls(buildCoverUrlMap(cached));
+      setOffline(true);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      void flushSyncQueue();
+      const fetched = await fetchBooksWithCountsClient();
+      if (cancelled()) return;
+
+      setBooks(fetched);
+      setOffline(false);
+      setLoading(false);
+
+      void cacheBooks(fetched).catch(() => undefined);
+
+      const urls = await fetchCoverUrlsClient(fetched);
+      if (cancelled()) return;
+      setCoverUrls(urls);
+    } catch {
+      if (cancelled()) return;
+      setBooks(cached);
+      setCoverUrls(buildCoverUrlMap(cached));
+      setOffline(!isOnline());
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    router.prefetch("/shelf");
+  }, [router]);
 
   useEffect(() => {
     let cancelled = false;
@@ -58,16 +74,16 @@ export function ShelfPageClient() {
     return () => {
       cancelled = true;
     };
-  }, [loadShelf, pathname, reloadToken]);
+  }, [loadShelf]);
 
   useEffect(() => {
     function refreshShelf() {
-      setReloadToken((value) => value + 1);
+      void loadShelf(() => false, true);
     }
 
     window.addEventListener("focus", refreshShelf);
     return () => window.removeEventListener("focus", refreshShelf);
-  }, []);
+  }, [loadShelf]);
 
   return (
     <div className="space-y-5">
