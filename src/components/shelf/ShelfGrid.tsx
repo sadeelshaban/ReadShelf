@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { BookCard } from "@/components/shelf/BookCard";
-import { EmptyShelf } from "@/components/shelf/EmptyShelf";
+import { EmptyShelf, EmptyShelfSkeleton } from "@/components/shelf/EmptyShelf";
 import { ShelfControls } from "@/components/shelf/ShelfControls";
 import type { BookWithCounts, SortOption } from "@/types";
 
@@ -40,7 +40,7 @@ export function ShelfGrid({ books, coverUrls, loading = false }: ShelfGridProps)
   }, [books, search, sort]);
 
   if (books.length === 0) {
-    if (loading) return null;
+    if (loading) return <EmptyShelfSkeleton />;
     return <EmptyShelf />;
   }
 
