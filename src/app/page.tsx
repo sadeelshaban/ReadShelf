@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/Button";
+import { SiteFooter } from "@/components/layout/SiteFooter";
 
 const features = [
   {
@@ -36,11 +37,11 @@ export default function HomePage() {
       <header className="relative mx-auto flex max-w-7xl items-center justify-between px-6 py-5 lg:px-8">
         <div className="flex items-center gap-3">
           <Image
-            src="/favicon.png"
+            src="/logo.png"
             alt="ReadShelf"
-            width={40}
-            height={40}
-            className="h-10 w-10 shrink-0 rounded-xl object-cover"
+            width={48}
+            height={48}
+            className="h-12 w-12 shrink-0 rounded-xl object-cover shadow-sm ring-1 ring-white/20"
             unoptimized
           />
           <span className="font-serif text-2xl font-semibold text-white">
@@ -128,12 +129,7 @@ export default function HomePage() {
       </main>
 
       <footer className="relative mx-auto max-w-7xl px-6 pb-8 lg:px-8">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/15 pt-6 text-sm text-white/65">
-          <p>ReadShelf — personal PDF reading infrastructure</p>
-          <Link href="/platform" className="font-medium text-white/85 hover:underline">
-            Platform overview
-          </Link>
-        </div>
+        <SiteFooter variant="dark" />
       </footer>
     </div>
   );

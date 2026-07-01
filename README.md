@@ -6,6 +6,7 @@
 |---|---|
 | **Live demo** | [readshelf-rust.vercel.app](https://readshelf-rust.vercel.app) |
 | **Acquisition one-pager** | [/platform](https://readshelf-rust.vercel.app/platform) |
+| **Data Room (docs)** | [docs/README.md](./docs/README.md) |
 | **Contact** | [sadeelshabanmedia@gmail.com](mailto:sadeelshabanmedia@gmail.com) |
 
 ReadShelf is a full-stack web product for reading PDF books in the browser. Users upload books to a personal shelf, annotate page by page, resume exactly where they left off, and export annotated PDFs. Built on Next.js, Supabase, and a custom offline layer — deployable on Vercel in under an hour.
@@ -157,8 +158,7 @@ Storage
 | `highlights` | Freehand and text highlights with JSON position data |
 | `notes` | Page notes with position, color, font size |
 | `bookmarks` | Manual page bookmarks with label and color |
-| `profiles` | User profile metadata |
-| `user_presence` | Online presence tracking |
+| `profiles` | User profile metadata, presence (`last_seen_at`) |
 
 **Migrations** (apply in order): `supabase/migrations/001` → `007`
 
@@ -181,6 +181,31 @@ Key `books` fields beyond basics:
 - Handover support and deployment walkthrough
 
 **Not included:** Supabase/Vercel hosting costs, SMTP account, custom branding beyond white-labeling, or ongoing maintenance (negotiable separately).
+
+---
+
+## Data Room (due diligence)
+
+Full buyer documentation in [`docs/`](./docs/README.md):
+
+| Document | Contents |
+|----------|----------|
+| [Architecture](./docs/architecture.md) | System design, offline sync, security |
+| [ERD](./docs/erd.md) | Mermaid entity-relationship diagram |
+| [Database](./docs/database.md) | Tables, columns, RLS, migrations |
+| [API](./docs/api.md) | All HTTP endpoints |
+| [Deployment](./docs/deployment.md) | Local + Vercel + Supabase setup |
+| [Costs](./docs/costs.md) | Monthly operating estimates |
+| [Analytics](./docs/analytics.md) | Engagement metrics + SQL export |
+| [Branding](./docs/branding.md) | Logo assets and white-label guide |
+| [Handover](./docs/handover-checklist.md) | Post-acquisition checklist |
+
+---
+
+## Branding
+
+Logo files: `public/logo.png` (UI) and `public/favicon.png` (browser tab + emails).  
+See [docs/branding.md](./docs/branding.md) for palette, fonts, and white-label steps.
 
 ---
 
@@ -225,6 +250,8 @@ Create `.env.local` in the project root (**never commit this file**):
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` | Auth email delivery |
 | `EMAIL_FROM` | From address (e.g. `ReadShelf <you@gmail.com>`) |
 | `ADMIN_EMAILS` | Comma-separated admin emails (optional) |
+| `NEXT_PUBLIC_PLAUSIBLE_DOMAIN` | Plausible site domain (tracking script) |
+| `PLAUSIBLE_API_KEY` | Plausible API key (traffic stats in `/admin`) |
 
 ### Supabase
 

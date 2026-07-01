@@ -3,6 +3,8 @@ import { Inter, Lora } from "next/font/google";
 import { OfflineSyncRegister } from "@/components/offline/OfflineSyncRegister";
 import { PresenceHeartbeat } from "@/components/presence/PresenceHeartbeat";
 import { SetupBanner } from "@/components/layout/SetupBanner";
+import { PlausibleAnalytics } from "@/components/analytics/PlausibleAnalytics";
+import { LegalAcceptanceGate } from "@/components/legal/LegalAcceptanceGate";
 import "./globals.css";
 
 const inter = Inter({
@@ -25,6 +27,13 @@ export const metadata: Metadata = {
   icons: {
     icon: [{ url: "/favicon.png", type: "image/png" }],
     shortcut: "/favicon.png",
+    apple: "/logo.png",
+  },
+  openGraph: {
+    title: "ReadShelf",
+    description:
+      "A personal digital shelf that saves books, reading progress, highlights, and notes.",
+    images: [{ url: "/logo.png", width: 512, height: 512, alt: "ReadShelf" }],
   },
 };
 
@@ -46,6 +55,8 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="min-h-full antialiased" suppressHydrationWarning>
+        <PlausibleAnalytics />
+        <LegalAcceptanceGate />
         <SetupBanner />
         {children}
         <PresenceHeartbeat />

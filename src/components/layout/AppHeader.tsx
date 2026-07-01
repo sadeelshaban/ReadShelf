@@ -29,7 +29,7 @@ export async function AppHeader() {
         <Link href="/shelf" className="flex min-w-0 items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-white/80 shadow-sm ring-1 ring-black/5">
             <Image
-              src="/favicon.png"
+              src="/logo.png"
               alt="ReadShelf"
               width={28}
               height={28}

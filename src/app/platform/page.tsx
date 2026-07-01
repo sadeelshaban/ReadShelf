@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
+import { SiteFooter } from "@/components/layout/SiteFooter";
 
 export const metadata: Metadata = {
   title: "Platform overview",
@@ -37,9 +38,11 @@ const included = [
   "Full Next.js source code and database migrations",
   "Supabase schema with row-level security",
   "Auth flow: signup, email confirmation, password reset",
-  "PDF reader with highlights, notes, pen, and export",
+  "PDF reader with highlights, notes, pen, bookmarks, and export",
+  "Reading resume (scroll + zoom) and read-again flow",
   "Offline cache and background sync",
   "Admin dashboard with platform and engagement analytics",
+  "Data Room documentation (docs/) for due diligence",
   "Production deployment on Vercel + handover support",
 ];
 
@@ -59,10 +62,10 @@ export default function PlatformPage() {
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4 sm:px-6">
           <Link href="/" className="flex items-center gap-3">
             <Image
-              src="/favicon.png"
+              src="/logo.png"
               alt="ReadShelf"
-              width={36}
-              height={36}
+              width={40}
+              height={40}
               className="h-9 w-9 rounded-lg object-cover"
               unoptimized
             />
@@ -140,8 +143,21 @@ export default function PlatformPage() {
             <li>Highlights, notes, pen, and eraser in the reader</li>
             <li>Annotated PDF export with Arabic text support</li>
             <li>Offline reading after first open online</li>
+            <li>Bookmarks with color-coded page ribbons</li>
+            <li>Continue Reading and Read Again (100% complete) flows</li>
             <li>Admin dashboard with engagement analytics</li>
           </ul>
+        </section>
+
+        <section className="mt-10 glass-panel rounded-2xl p-6 sm:p-8">
+          <h2 className="font-serif text-3xl font-semibold text-primary">Data Room</h2>
+          <p className="mt-3 text-sm leading-6 text-text-muted">
+            Due-diligence documentation ships with the repository: architecture, ERD,
+            API reference, database schema, deployment guide, cost model, analytics export,
+            branding assets, and handover checklist. See{" "}
+            <code className="rounded bg-background px-1.5 py-0.5 text-text">docs/</code>{" "}
+            in the source repo.
+          </p>
         </section>
 
         <section className="mt-10 grid gap-6 lg:grid-cols-2">
@@ -205,6 +221,10 @@ export default function PlatformPage() {
             <Button size="lg">Contact Sadeel Shaban</Button>
           </a>
         </section>
+
+        <div className="mt-10">
+          <SiteFooter />
+        </div>
       </main>
     </div>
   );

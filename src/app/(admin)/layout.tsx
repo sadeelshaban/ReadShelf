@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { SiteFooter } from "@/components/layout/SiteFooter";
 
 export const metadata: Metadata = {
   title: "Admin",
@@ -28,6 +29,9 @@ export default function AdminLayout({
         </div>
       </header>
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">{children}</main>
+      <div className="mx-auto max-w-6xl px-4 pb-8 sm:px-6">
+        <SiteFooter />
+      </div>
     </div>
   );
 }

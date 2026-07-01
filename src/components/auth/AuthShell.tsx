@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { COPYRIGHT_NOTICE, legalLinks } from "@/lib/legal/constants";
 
 type AuthShellProps = {
   eyebrow: string;
@@ -27,10 +28,9 @@ export function AuthShell({ eyebrow, children }: AuthShellProps) {
           <Link href="/" className="inline-flex items-center gap-3">
             <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white/88 shadow-sm">
               <img
-                src="/favicon.png"
-                alt=""
-                className="h-7 w-7 object-contain"
-                aria-hidden
+                src="/logo.png"
+                alt="ReadShelf"
+                className="h-8 w-8 object-cover rounded-lg"
               />
             </span>
             <span>
@@ -44,6 +44,17 @@ export function AuthShell({ eyebrow, children }: AuthShellProps) {
           </Link>
           {children}
         </div>
+      </div>
+
+      <div className="relative mx-auto max-w-md px-4 pb-8 text-center text-xs text-white/55">
+        <p>{COPYRIGHT_NOTICE}</p>
+        <p className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+          {legalLinks.map((link) => (
+            <Link key={link.href} href={link.href} className="hover:text-white/80 hover:underline">
+              {link.label}
+            </Link>
+          ))}
+        </p>
       </div>
     </section>
   );

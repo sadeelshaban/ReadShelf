@@ -13,9 +13,14 @@ export default function SignupPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [signupSuccess, setSignupSuccess] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    if (!acceptedTerms) {
+      setError("Please accept the Terms of Service and Privacy Policy to continue.");
+      return;
+    }
     setError(null);
     setLoading(true);
     setSignupSuccess(false);
@@ -98,12 +103,32 @@ export default function SignupPage() {
               onChange={(e) => setPassword(e.target.value)}
               className="border-white/20 bg-white/92 text-[#24180f] placeholder:text-[#8a7968] focus:border-[#f0dfc4] focus:bg-white focus:ring-[#f2e3c8]/35"
             />
+            <label className="flex items-start gap-3 text-sm leading-6 text-white/78">
+              <input
+                type="checkbox"
+                checked={acceptedTerms}
+                onChange={(e) => setAcceptedTerms(e.target.checked)}
+                className="mt-1 h-4 w-4 rounded border-white/30 accent-[#7B4B2A]"
+                required
+              />
+              <span>
+                I agree to the{" "}
+                <Link href="/terms" className="font-medium text-[#f2dfbf] hover:underline">
+                  Terms of Service
+                </Link>{" "}
+                and{" "}
+                <Link href="/privacy" className="font-medium text-[#f2dfbf] hover:underline">
+                  Privacy Policy
+                </Link>
+                .
+              </span>
+            </label>
             {error && (
               <p className="rounded-2xl border border-[#e5c79d]/28 bg-[#2f241b]/52 px-4 py-3 text-sm text-[#fff4e3] backdrop-blur-md">
                 {error}
               </p>
             )}
-            <Button type="submit" className="mt-2 w-full" disabled={loading}>
+            <Button type="submit" className="mt-2 w-full" disabled={loading || !acceptedTerms}>
               {loading ? "Creating account..." : "Sign up"}
             </Button>
           </form>
