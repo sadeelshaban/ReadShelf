@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import { AdminUsersPanel } from "@/components/admin/AdminUsersPanel";
-import { AdminTrafficPanel } from "@/components/admin/AdminTrafficPanel";
 import { getEngagementStats, getPlatformStats } from "@/lib/admin/stats";
 import { isAdminUser } from "@/lib/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -107,8 +106,6 @@ export default async function AdminDashboardPage() {
           />
         </div>
       </div>
-
-      <AdminTrafficPanel />
 
       <AdminUsersPanel />
 

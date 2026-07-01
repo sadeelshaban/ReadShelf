@@ -8,6 +8,8 @@
     "postinstall": "node scripts/copy-pdf-worker.mjs",
     "start": "next start",
     "lint": "eslint",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "setup:supabase": "powershell -ExecutionPolicy Bypass -File ./scripts/setup-supabase.ps1",
     "reset:data": "powershell -ExecutionPolicy Bypass -File ./scripts/reset-data.ps1",
     "deploy:vercel": "powershell -ExecutionPolicy Bypass -File ./scripts/deploy-vercel.ps1",
@@ -36,9 +38,12 @@
     "@types/nodemailer": "^8.0.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^6.0.3",
     "eslint": "^9",
     "eslint-config-next": "16.2.9",
+    "jsdom": "^29.1.1",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.9"
   }
 }

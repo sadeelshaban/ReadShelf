@@ -1,0 +1,8 @@
+export const MIN_ZOOM = 0.25;
+export const MAX_ZOOM = 4;
+export const ZOOM_STEP = 0.25;
+export const PAGE_RENDER_BUFFER = 2;
+export const SCROLL_SYNC_DEBOUNCE_MS = 60;
+export const SCROLL_PROGRESS_DEBOUNCE_MS = 400;
+export const READING_IDLE_SAVE_MS = 5000;
+export const PROGRAMMATIC_SCROLL_TIMEOUT_MS = 900;

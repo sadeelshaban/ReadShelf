@@ -16,33 +16,52 @@ import type {
   ReaderTool,
 } from "@/types";
 import { createClient } from "@/lib/supabase/client";
-import {
-  canvasPointFromClient,
-  displayFontSizeFromLayout,
-  displayRectFromPagePosition,
-  pagePositionFromDisplay,
-  scaleStroke,
-  type ViewportSize,
-} from "@/lib/reader/coordinates";
+import { canvasPointFromClient, type ViewportSize } from "@/lib/reader/coordinates";
 import {
   DEFAULT_NOTE_FONT_SIZE,
-  HIGHLIGHT_PRESETS,
-  HIGHLIGHT_DRAW_ALPHA,
   MAX_NOTE_FONT_SIZE,
   MIN_NOTE_FONT_SIZE,
-  NOTE_TEXT_COLORS,
-  hexToRgba,
   loadEraserStrokeWidth,
   loadHighlightStrokeWidth,
   loadLastHighlightColor,
   loadPenStrokeWidth,
   loadRecentHighlightColors,
-  noteTextCss,
   saveEraserStrokeWidth,
   saveHighlightStrokeWidth,
   savePenStrokeWidth,
   saveRecentHighlightColor,
 } from "@/lib/reader/constants";
+import { redrawHighlightLayer } from "@/lib/reader/pdf-reader-canvas";
+import {
+  MAX_ZOOM,
+  MIN_ZOOM,
+  PROGRAMMATIC_SCROLL_TIMEOUT_MS,
+  READING_IDLE_SAVE_MS,
+  SCROLL_PROGRESS_DEBOUNCE_MS,
+  SCROLL_SYNC_DEBOUNCE_MS,
+  ZOOM_STEP,
+} from "@/lib/reader/pdf-reader-config";
+import {
+  bindMapRef,
+  canvasRefForPage,
+  isTouchDevice,
+} from "@/lib/reader/pdf-reader-dom";
+import {
+  type HighlightChange,
+  type HistoryAction,
+  mergeHighlightChanges,
+} from "@/lib/reader/pdf-reader-history";
+import {
+  mergeRenderedPages,
+  resolveVisiblePage,
+  scrollViewerToPage,
+} from "@/lib/reader/pdf-reader-scroll";
+import {
+  canNavigatePages as canNavigatePagesCheck,
+  isDrawingTool,
+  isInteractiveDrawLayer,
+  isNoteTextTarget,
+} from "@/lib/reader/pdf-reader-tools";
 import { findNoteAtPoint } from "@/lib/reader/hit-test";
 import {
   applyEraserChanges,
@@ -81,6 +100,7 @@ import {
   BookmarkDeleteConfirm,
 } from "@/components/reader/BookmarkAddPanel";
 import { ContinueReadingPrompt } from "@/components/reader/ContinueReadingPrompt";
+import { PageNote } from "@/components/reader/PageNote";
 import { ReadAgainPrompt } from "@/components/reader/ReadAgainPrompt";
 import type { BookmarkColorId } from "@/lib/reader/bookmarks";
 import { normalizeBookmarkLabel } from "@/lib/reader/bookmarks";
@@ -103,506 +123,6 @@ type PdfReaderProps = {
   initialBookmarks: Bookmark[];
 };
 
-
-const MIN_ZOOM = 0.25;
-const MAX_ZOOM = 4;
-const ZOOM_STEP = 0.25;
-const PAGE_RENDER_BUFFER = 2;
-const SCROLL_SYNC_DEBOUNCE_MS = 60;
-const SCROLL_PROGRESS_DEBOUNCE_MS = 400;
-const READING_IDLE_SAVE_MS = 5000;
-const PROGRAMMATIC_SCROLL_TIMEOUT_MS = 900;
-
-type HighlightChange = {
-  before: Highlight;
-  after: Highlight | null;
-};
-
-type HistoryAction =
-  | { type: "add_highlight"; highlight: Highlight }
-  | { type: "delete_highlight"; highlight: Highlight }
-  | { type: "batch_highlight"; changes: HighlightChange[] }
-  | { type: "add_note"; note: Note }
-  | { type: "delete_note"; note: Note };
-
-function mergeHighlightChanges(
-  highlights: Highlight[],
-  changes: HighlightChange[],
-): Highlight[] {
-  let next = [...highlights];
-  for (const change of changes) {
-    if (change.after === null) {
-      next = next.filter((entry) => entry.id !== change.before.id);
-    } else {
-      const index = next.findIndex((entry) => entry.id === change.before.id);
-      if (index >= 0) next[index] = change.after;
-    }
-  }
-  return next;
-}
-
-function mergeRenderedPages(
-  prev: Set<number>,
-  center: number,
-  maxPage: number,
-  buffer = PAGE_RENDER_BUFFER,
-) {
-  const next = new Set(prev);
-  let changed = false;
-  const start = Math.max(1, center - buffer);
-  const end = Math.min(maxPage, center + buffer);
-  for (let pageNumber = start; pageNumber <= end; pageNumber += 1) {
-    if (!next.has(pageNumber)) {
-      next.add(pageNumber);
-      changed = true;
-    }
-  }
-  return changed ? next : prev;
-}
-
-function scrollViewerToPage(
-  viewer: HTMLDivElement,
-  pageWrap: HTMLElement,
-  behavior: ScrollBehavior = "smooth",
-) {
-  const viewerRect = viewer.getBoundingClientRect();
-  const pageRect = pageWrap.getBoundingClientRect();
-  const nextTop = viewer.scrollTop + (pageRect.top - viewerRect.top) - 8;
-  viewer.scrollTo({ top: Math.max(0, nextTop), behavior });
-}
-
-function resolveVisiblePage(
-  viewer: HTMLDivElement,
-  pageWraps: Map<number, HTMLElement>,
-  maxPage: number,
-) {
-  const viewerRect = viewer.getBoundingClientRect();
-  const centerY = viewerRect.top + viewerRect.height / 2;
-
-  let bestPage = 1;
-  let bestScore = -Infinity;
-
-  for (let pageNumber = 1; pageNumber <= maxPage; pageNumber += 1) {
-    const wrap = pageWraps.get(pageNumber);
-    if (!wrap) continue;
-
-    const rect = wrap.getBoundingClientRect();
-    const visibleTop = Math.max(rect.top, viewerRect.top);
-    const visibleBottom = Math.min(rect.bottom, viewerRect.bottom);
-    const visibleHeight = Math.max(0, visibleBottom - visibleTop);
-    if (visibleHeight <= 0) continue;
-
-    const centerInPage = centerY >= rect.top && centerY <= rect.bottom;
-    const score = (centerInPage ? 1_000_000 : 0) + visibleHeight;
-
-    if (score > bestScore) {
-      bestScore = score;
-      bestPage = pageNumber;
-    }
-  }
-
-  return bestPage;
-}
-
-function drawStroke(
-  ctx: CanvasRenderingContext2D,
-  stroke: HighlightStroke,
-  colorHex: string,
-) {
-  if (stroke.points.length < 2) return;
-  ctx.save();
-  ctx.strokeStyle = hexToRgba(colorHex, HIGHLIGHT_DRAW_ALPHA);
-  ctx.lineWidth = stroke.width;
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
-  ctx.globalCompositeOperation = "multiply";
-  ctx.beginPath();
-  ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
-  for (let i = 1; i < stroke.points.length; i++) {
-    ctx.lineTo(stroke.points[i].x, stroke.points[i].y);
-  }
-  ctx.stroke();
-  ctx.restore();
-}
-
-function drawPenStroke(
-  ctx: CanvasRenderingContext2D,
-  stroke: HighlightStroke,
-  colorHex: string,
-) {
-  if (stroke.points.length < 2) return;
-  ctx.save();
-  ctx.strokeStyle = colorHex;
-  ctx.lineWidth = stroke.width;
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
-  ctx.globalCompositeOperation = "source-over";
-  ctx.beginPath();
-  ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
-  for (let i = 1; i < stroke.points.length; i++) {
-    ctx.lineTo(stroke.points[i].x, stroke.points[i].y);
-  }
-  ctx.stroke();
-  ctx.restore();
-}
-
-function redrawHighlightLayer(
-  canvas: HTMLCanvasElement,
-  highlights: Highlight[],
-  page: number,
-  draft?: {
-    stroke: HighlightStroke;
-    color: string;
-    type: "freeform" | "pen";
-  },
-  eraserPreview?: { x: number; y: number; diameter: number },
-) {
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return;
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  highlights
-    .filter((h) => h.page_number === page)
-    .forEach((highlight) => {
-      const color = highlight.color || HIGHLIGHT_PRESETS[0].value;
-      const isPen = highlight.highlight_type === "pen";
-      const refW = highlight.position?.viewportWidth ?? canvas.width;
-      const refH = highlight.position?.viewportHeight ?? canvas.height;
-      highlight.position?.strokes?.forEach((stroke) => {
-        const scaled = scaleStroke(stroke, refW, refH, canvas.width, canvas.height);
-        if (isPen) drawPenStroke(ctx, scaled, color);
-        else drawStroke(ctx, scaled, color);
-      });
-    });
-
-  if (draft && draft.stroke.points.length >= 2) {
-    if (draft.type === "pen") drawPenStroke(ctx, draft.stroke, draft.color);
-    else drawStroke(ctx, draft.stroke, draft.color);
-  }
-
-  if (eraserPreview) {
-    ctx.save();
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.85)";
-    ctx.lineWidth = 1.5;
-    ctx.setLineDash([4, 4]);
-    ctx.beginPath();
-    ctx.arc(
-      eraserPreview.x,
-      eraserPreview.y,
-      eraserBrushRadius(eraserPreview.diameter),
-      0,
-      Math.PI * 2,
-    );
-    ctx.stroke();
-    ctx.restore();
-  }
-}
-
-function bindMapRef<T>(map: { current: Map<number, T> }, key: number) {
-  return (el: T | null) => {
-    if (el) map.current.set(key, el);
-    else map.current.delete(key);
-  };
-}
-
-function canvasRefForPage(
-  map: { current: Map<number, HTMLCanvasElement> },
-  pageNumber: number,
-): { current: HTMLCanvasElement | null } {
-  return {
-    get current() {
-      return map.current.get(pageNumber) ?? null;
-    },
-    set current(_value: HTMLCanvasElement | null) {
-      // read-only view into the page canvas map
-    },
-  };
-}
-function isTouchDevice() {
-  if (typeof window === "undefined") return false;
-  return (
-    window.matchMedia("(pointer: coarse)").matches || navigator.maxTouchPoints > 0
-  );
-}
-
-function touchDistance(touches: TouchList) {
-  if (touches.length < 2) return 0;
-  const dx = touches[0].clientX - touches[1].clientX;
-  const dy = touches[0].clientY - touches[1].clientY;
-  return Math.hypot(dx, dy);
-}
-
-type PageNoteProps = {
-  note: Note;
-  editing: boolean;
-  showMenu: boolean;
-  isTouch: boolean;
-  liveFontSize?: number;
-  liveTextColor?: string;
-  onFinish: (id: string, text: string) => void;
-  onDelete: (id: string) => void;
-  onMove: (id: string, position: NotePosition) => void;
-  onStartEdit: (id: string) => void;
-  onShowMenu: (id: string | null) => void;
-  onFontSizeChange: (size: number) => void;
-  onDraftChange: (id: string, text: string) => void;
-  canvasRef: { current: HTMLCanvasElement | null };
-  canvasDisplayWidth: number;
-  pageViewport: ViewportSize;
-};
-
-function PageNote({
-  note,
-  editing,
-  showMenu,
-  isTouch,
-  liveFontSize,
-  liveTextColor,
-  onFinish,
-  onDelete,
-  onMove,
-  onStartEdit,
-  onShowMenu,
-  onFontSizeChange,
-  onDraftChange,
-  canvasRef,
-  canvasDisplayWidth,
-  pageViewport,
-}: PageNoteProps) {
-  const dragRef = useRef<{
-    startX: number;
-    startY: number;
-    origin: { x: number; y: number; width: number; height: number; fontSize: number };
-    dragging: boolean;
-  } | null>(null);
-  const pinchRef = useRef<{ distance: number; fontSize: number } | null>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const noteRootRef = useRef<HTMLDivElement>(null);
-  const onFontSizeChangeRef = useRef(onFontSizeChange);
-  const [localPos, setLocalPos] = useState<{
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-    fontSize: number;
-  } | null>(null);
-  const [text, setText] = useState(note.note_text);
-  const textColor = liveTextColor ?? note.text_color ?? "black";
-
-  useEffect(() => {
-    onFontSizeChangeRef.current = onFontSizeChange;
-  }, [onFontSizeChange]);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || !note.position || dragRef.current) return;
-    setLocalPos(displayRectFromPagePosition(note.position, canvas));
-  }, [note.position, pageViewport, canvasRef]);
-
-  useEffect(() => {
-    if (editing) textareaRef.current?.focus();
-  }, [editing]);
-
-  useEffect(() => {
-    const root = noteRootRef.current;
-    if (!root || !editing) return;
-
-    function onTouchMove(e: TouchEvent) {
-      if (!pinchRef.current || e.touches.length !== 2) return;
-      e.preventDefault();
-      const distance = touchDistance(e.touches);
-      if (distance <= 0 || pinchRef.current.distance <= 0) return;
-      const scale = distance / pinchRef.current.distance;
-      const next = Math.min(
-        MAX_NOTE_FONT_SIZE,
-        Math.max(
-          MIN_NOTE_FONT_SIZE,
-          Math.round(pinchRef.current.fontSize * scale),
-        ),
-      );
-      onFontSizeChangeRef.current(next);
-    }
-
-    root.addEventListener("touchmove", onTouchMove, { passive: false });
-    return () => root.removeEventListener("touchmove", onTouchMove);
-  }, [editing]);
-
-  const fontSize =
-    editing && liveFontSize != null && canvasDisplayWidth > 0
-      ? displayFontSizeFromLayout(
-          liveFontSize,
-          canvasDisplayWidth,
-          pageViewport.width,
-          note.position,
-        )
-      : (localPos?.fontSize ?? DEFAULT_NOTE_FONT_SIZE);
-
-  if (!localPos || !note.position) return null;
-
-  function handleDragStart(e: ReactPointerEvent<HTMLElement>) {
-    if (editing) return;
-    e.stopPropagation();
-    dragRef.current = {
-      startX: e.clientX,
-      startY: e.clientY,
-      origin: localPos!,
-      dragging: false,
-    };
-    e.currentTarget.setPointerCapture(e.pointerId);
-  }
-
-  function handleDragMove(e: ReactPointerEvent<HTMLElement>) {
-    if (!dragRef.current) return;
-    e.stopPropagation();
-    const dx = e.clientX - dragRef.current.startX;
-    const dy = e.clientY - dragRef.current.startY;
-    if (!dragRef.current.dragging) {
-      if (Math.hypot(dx, dy) < 4) return;
-      dragRef.current.dragging = true;
-      e.preventDefault();
-    }
-    setLocalPos({
-      ...dragRef.current.origin,
-      x: dragRef.current.origin.x + dx,
-      y: dragRef.current.origin.y + dy,
-    });
-  }
-
-  function handleDragEnd(e: ReactPointerEvent<HTMLElement>) {
-    if (!dragRef.current) return;
-    e.stopPropagation();
-    const canvas = canvasRef.current;
-    if (dragRef.current.dragging && localPos && canvas) {
-      onMove(
-        note.id,
-        pagePositionFromDisplay(
-          {
-            x: localPos.x,
-            y: localPos.y,
-            width: localPos.width,
-            height: localPos.height,
-            fontSize: note.position?.fontSize,
-          },
-          canvas,
-          note.position,
-        ),
-      );
-    }
-    dragRef.current = null;
-    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
-      e.currentTarget.releasePointerCapture(e.pointerId);
-    }
-  }
-
-  function handleTextChange(value: string) {
-    setText(value);
-    if (editing) onDraftChange(note.id, value);
-  }
-
-  function handleFinish() {
-    onFinish(note.id, text);
-  }
-
-  function handleBlur(e: React.FocusEvent<HTMLTextAreaElement>) {
-    if (!editing || !isTouch) return;
-    const related = e.relatedTarget as Element | null;
-    if (related?.closest("#note-toolbar")) return;
-    if (related && noteRootRef.current?.contains(related)) return;
-    handleFinish();
-  }
-
-  function handleTouchStart(e: React.TouchEvent<HTMLDivElement>) {
-    if (!editing || e.touches.length !== 2) return;
-    pinchRef.current = {
-      distance: touchDistance(e.nativeEvent.touches),
-      fontSize: liveFontSize ?? note.position?.fontSize ?? DEFAULT_NOTE_FONT_SIZE,
-    };
-  }
-
-  function handleTouchEnd() {
-    pinchRef.current = null;
-  }
-
-  return (
-    <div
-      ref={noteRootRef}
-      data-note-id={note.id}
-      className="note-root absolute z-10 min-w-[180px] rounded-md bg-transparent p-1"
-      style={{
-        left: localPos.x,
-        top: localPos.y,
-        width: localPos.width,
-        minHeight: localPos.height,
-      }}
-      onPointerDown={(e) => e.stopPropagation()}
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-      onDoubleClick={(e) => {
-        e.stopPropagation();
-        if (editing) return;
-        if (isTouch) {
-          onStartEdit(note.id);
-        } else {
-          onShowMenu(showMenu ? null : note.id);
-        }
-      }}
-    >
-      {showMenu && !isTouch && (
-        <div className="mb-2 flex gap-2 rounded-md bg-card/95 px-2 py-1 shadow-sm">
-          <button
-            type="button"
-            className="text-xs text-primary underline"
-            onClick={() => {
-              onStartEdit(note.id);
-              onShowMenu(null);
-            }}
-          >
-            Edit
-          </button>
-          <button
-            type="button"
-            className="text-xs text-red-600 underline"
-            onClick={() => {
-              onDelete(note.id);
-              onShowMenu(null);
-            }}
-          >
-            Delete
-          </button>
-        </div>
-      )}
-
-      <textarea
-        ref={textareaRef}
-        className={cn(
-          "min-h-[72px] w-full resize-none bg-transparent outline-none leading-snug",
-          !editing && "cursor-grab select-none active:cursor-grabbing",
-        )}
-        style={{
-          color: noteTextCss(textColor),
-          fontSize,
-          touchAction: editing ? "none" : "auto",
-        }}
-        dir="auto"
-        placeholder="Write your message"
-        value={text}
-        readOnly={!editing}
-        onChange={(e) => {
-          if (editing) handleTextChange(e.target.value);
-        }}
-        onKeyDown={(e) => {
-          if (editing && e.key === "Enter" && !e.shiftKey) {
-            e.preventDefault();
-            handleFinish();
-          }
-        }}
-        onPointerDown={handleDragStart}
-        onPointerMove={handleDragMove}
-        onPointerUp={handleDragEnd}
-        onBlur={handleBlur}
-      />
-    </div>
-  );
-}
 
 export function PdfReader({
   bookId,
@@ -889,18 +409,12 @@ export function PdfReader({
   }, [changeZoom]);
 
   function canNavigatePages() {
-    if (editingNoteIdRef.current || isDrawingRef.current || isErasingRef.current) return false;
-    const activeTool = toolRef.current;
-    if (
-      activeTool === "note" ||
-      activeTool === "highlight" ||
-      activeTool === "pen" ||
-      activeTool === "pan" ||
-      activeTool === "eraser"
-    ) {
-      return false;
-    }
-    return true;
+    return canNavigatePagesCheck({
+      editingNoteId: editingNoteIdRef.current,
+      isDrawing: isDrawingRef.current,
+      isErasing: isErasingRef.current,
+      activeTool: toolRef.current,
+    });
   }
 
   useEffect(() => {
@@ -1568,18 +1082,6 @@ export function PdfReader({
     saveEraserStrokeWidth(width);
   }
 
-  function isDrawingTool(activeTool: ReaderTool) {
-    return activeTool === "highlight" || activeTool === "pen";
-  }
-
-  function isEraserTool(activeTool: ReaderTool) {
-    return activeTool === "eraser";
-  }
-
-  function isInteractiveDrawLayer(activeTool: ReaderTool) {
-    return isDrawingTool(activeTool) || isEraserTool(activeTool);
-  }
-
   function startEditingNote(id: string) {
     const note = notes.find((entry) => entry.id === id);
     if (note) {
@@ -1643,13 +1145,6 @@ export function PdfReader({
     if (undoStackRef.current.length > 100) {
       undoStackRef.current.shift();
     }
-  }
-
-  function isNoteTextTarget(target: EventTarget | null) {
-    return (
-      target instanceof HTMLTextAreaElement &&
-      Boolean(target.closest(".note-root"))
-    );
   }
 
   async function performUndo() {

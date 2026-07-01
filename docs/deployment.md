@@ -42,11 +42,7 @@ SMTP_PASS=app-password
 EMAIL_FROM=ReadShelf <your@gmail.com>
 
 ADMIN_EMAILS=admin@yourcompany.com
-
-# Optional — Plausible traffic in /admin
-NEXT_PUBLIC_PLAUSIBLE_DOMAIN=readshelf-rust.vercel.app
-PLAUSIBLE_API_KEY=
-PLAUSIBLE_SITE_ID=readshelf-rust.vercel.app
+NEXT_PUBLIC_DEMO_EMAIL=demo@readshelf.app
 ```
 
 | Variable | Where used |
@@ -55,9 +51,7 @@ PLAUSIBLE_SITE_ID=readshelf-rust.vercel.app
 | `SUPABASE_SERVICE_ROLE_KEY` | Admin stats, signup emails — **server only** |
 | `SMTP_*` | Auth email delivery |
 | `ADMIN_EMAILS` | Admin route access |
-| `NEXT_PUBLIC_PLAUSIBLE_DOMAIN` | Plausible tracking script (all pages) |
-| `PLAUSIBLE_API_KEY` | Plausible Stats API (admin traffic cards) |
-| `PLAUSIBLE_SITE_ID` | Plausible site id (optional; defaults to domain) |
+| `NEXT_PUBLIC_DEMO_EMAIL` | Demo email on `/platform` acquisition page |
 
 ---
 

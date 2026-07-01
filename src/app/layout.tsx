@@ -3,7 +3,6 @@ import { Inter, Lora } from "next/font/google";
 import { OfflineSyncRegister } from "@/components/offline/OfflineSyncRegister";
 import { PresenceHeartbeat } from "@/components/presence/PresenceHeartbeat";
 import { SetupBanner } from "@/components/layout/SetupBanner";
-import { PlausibleAnalytics } from "@/components/analytics/PlausibleAnalytics";
 import { LegalAcceptanceGate } from "@/components/legal/LegalAcceptanceGate";
 import "./globals.css";
 
@@ -55,7 +54,6 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="min-h-full antialiased" suppressHydrationWarning>
-        <PlausibleAnalytics />
         <LegalAcceptanceGate />
         <SetupBanner />
         {children}

@@ -1,49 +1,10 @@
 # Analytics
 
-## Plausible in the admin dashboard
-
-ReadShelf can show **site traffic** in `/admin` via [Plausible Analytics](https://plausible.io) — useful for buyers who want proof of visits alongside product engagement metrics.
-
-### Setup (3 steps)
-
-1. **Create a Plausible site** at [plausible.io](https://plausible.io)  
-   Use your Vercel URL as the domain, e.g. `readshelf-rust.vercel.app` (custom domain optional later).
-
-2. **Add the tracking script** — set in Vercel / `.env.local`:
-
-```env
-NEXT_PUBLIC_PLAUSIBLE_DOMAIN=readshelf-rust.vercel.app
-```
-
-This loads Plausible on all pages so visits are recorded.
-
-3. **Show stats in admin** — create a Plausible API key (Settings → API keys) and add:
-
-```env
-PLAUSIBLE_API_KEY=your-api-key
-PLAUSIBLE_SITE_ID=readshelf-rust.vercel.app
-```
-
-### What appears in `/admin`
-
-| Card | Source |
-|------|--------|
-| Unique visitors | Plausible API (30d) |
-| Pageviews | Plausible API |
-| Visits | Plausible API |
-| Bounce rate | Plausible API |
-
-Stats refresh every 5 minutes (server cache). Product engagement (progress, completion) remains from Supabase below.
-
----
-
-## Built-in engagement analytics
-
-ReadShelf includes **database-derived analytics** in the admin dashboard (`/admin`). No third-party tracker is required for product usage metrics.
+ReadShelf includes **built-in engagement analytics** in the admin dashboard (`/admin`). No third-party tracker is required — all metrics come from Supabase.
 
 Source: `src/lib/admin/stats.ts`
 
-### Platform stats
+## Platform stats
 
 | Metric | Source |
 |--------|--------|
@@ -52,7 +13,7 @@ Source: `src/lib/admin/stats.ts`
 | Total notes | `notes` count |
 | Total highlights | `highlights` count |
 
-### Engagement stats
+## Engagement stats
 
 | Metric | Calculation |
 |--------|-------------|
@@ -108,15 +69,9 @@ FROM books
 WHERE last_opened_at > NOW() - INTERVAL '30 days';
 ```
 
-### Option 3: Add third-party analytics (buyer enhancement)
+### Option 3: Third-party analytics (optional, buyer post-acquisition)
 
-Not included by default. Recommended for marketing pages only:
-
-- [Vercel Analytics](https://vercel.com/analytics) — page views
-- [Plausible](https://plausible.io) — privacy-friendly traffic
-- PostHog — product funnels
-
-Install as buyer post-acquisition task; document in handover.
+Not included by default. Buyers may add Vercel Analytics, PostHog, or similar if they need marketing-page traffic — document in handover.
 
 ---
 
@@ -124,7 +79,7 @@ Install as buyer post-acquisition task; document in handover.
 
 | Gap | Recommendation |
 |-----|----------------|
-| Page views / traffic | Add Plausible on landing + `/platform` |
+| Marketing page traffic | Optional: Vercel Analytics or PostHog post-acquisition |
 | Reader session duration | Add event on reader mount/unmount |
 | Export downloads | Log in export API route |
 | Funnel (signup → upload → read) | PostHog or custom events table |

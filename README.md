@@ -250,8 +250,7 @@ Create `.env.local` in the project root (**never commit this file**):
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` | Auth email delivery |
 | `EMAIL_FROM` | From address (e.g. `ReadShelf <you@gmail.com>`) |
 | `ADMIN_EMAILS` | Comma-separated admin emails (optional) |
-| `NEXT_PUBLIC_PLAUSIBLE_DOMAIN` | Plausible site domain (tracking script) |
-| `PLAUSIBLE_API_KEY` | Plausible API key (traffic stats in `/admin`) |
+| `NEXT_PUBLIC_DEMO_EMAIL` | Demo account email shown on `/platform` |
 
 ### Supabase
 
