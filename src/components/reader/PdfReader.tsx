@@ -1095,7 +1095,6 @@ export function PdfReader({
     );
     setBookmarkLabel("");
     setTool("read");
-    setMessage(`Bookmark added on page ${currentPage}.`);
   }, [bookId, userId, bookmarkColor, bookmarkLabel]);
 
   const handleConfirmDeleteBookmark = useCallback(async () => {
