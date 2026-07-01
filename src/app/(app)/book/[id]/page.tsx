@@ -13,7 +13,7 @@ export default async function BookPage({ params }: BookPageProps) {
   if (!book) notFound();
 
   const supabase = await createClient();
-  const [{ data: highlights }, { data: notes }] = await Promise.all([
+  const [{ data: highlights }, { data: notes }, { data: bookmarks }] = await Promise.all([
     supabase
       .from("highlights")
       .select("*")
@@ -21,6 +21,11 @@ export default async function BookPage({ params }: BookPageProps) {
       .order("page_number", { ascending: true }),
     supabase
       .from("notes")
+      .select("*")
+      .eq("book_id", book.id)
+      .order("page_number", { ascending: true }),
+    supabase
+      .from("bookmarks")
       .select("*")
       .eq("book_id", book.id)
       .order("page_number", { ascending: true }),
@@ -33,6 +38,7 @@ export default async function BookPage({ params }: BookPageProps) {
       book={book}
       highlights={highlights ?? []}
       notes={notes ?? []}
+      bookmarks={bookmarks ?? []}
       coverUrl={coverUrl}
     />
   );

@@ -1,5 +1,5 @@
 const DB_NAME = "readshelf";
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 
 export function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -30,6 +30,10 @@ export function openDb(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains("books")) {
         db.createObjectStore("books", { keyPath: "id" });
+      }
+      if (!db.objectStoreNames.contains("bookmarks")) {
+        const store = db.createObjectStore("bookmarks", { keyPath: "id" });
+        store.createIndex("book_id", "book_id", { unique: false });
       }
     };
 

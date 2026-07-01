@@ -39,6 +39,8 @@ export type Book = {
   last_page: number;
   total_pages: number | null;
   last_opened_at: string | null;
+  reading_scroll_y: number | null;
+  reading_zoom: number | null;
   created_at: string;
 };
 
@@ -74,4 +76,24 @@ export type BookWithCounts = Book & {
 
 export type SortOption = "recent" | "added" | "progress";
 
-export type ReaderTool = "read" | "pan" | "highlight" | "pen" | "note" | "eraser";
+export type ReaderTool =
+  | "read"
+  | "pan"
+  | "highlight"
+  | "pen"
+  | "note"
+  | "eraser"
+  | "bookmark";
+
+export type Bookmark = {
+  id: string;
+  book_id: string;
+  user_id: string;
+  page_number: number;
+  scroll_y: number;
+  label: string;
+  note_text: string;
+  color: string;
+  created_at: string;
+  updated_at: string;
+};

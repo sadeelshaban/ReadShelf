@@ -8,6 +8,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import type {
+  Bookmark,
   Highlight,
   HighlightStroke,
   Note,
@@ -55,6 +56,7 @@ import {
   deleteHighlight as deleteHighlightApi,
   deleteNote as deleteNoteApi,
   flushSyncQueue,
+  insertBookmark,
   insertNote,
   loadPdfBuffer,
   moveNote as moveNoteApi,
@@ -71,6 +73,8 @@ import {
 import { isOnline } from "@/lib/offline/online";
 import { LeftToolbar, RightToolbar } from "@/components/reader/ReaderToolbars";
 import { ReaderTopBar } from "@/components/reader/ReaderTopBar";
+import { PageBookmarkRibbon } from "@/components/reader/PageBookmarkRibbon";
+import { ContinueReadingPrompt } from "@/components/reader/ContinueReadingPrompt";
 import { cn } from "@/lib/utils";
 
 type PdfReaderProps = {
@@ -78,9 +82,14 @@ type PdfReaderProps = {
   bookTitle: string;
   userId: string;
   initialPage: number;
+  initialScrollY: number | null;
+  initialZoom: number | null;
+  restoreScrollPosition: boolean;
+  showResumePrompt: boolean;
   totalPages: number | null;
   initialHighlights: Highlight[];
   initialNotes: Note[];
+  initialBookmarks: Bookmark[];
 };
 
 
@@ -90,6 +99,7 @@ const ZOOM_STEP = 0.25;
 const PAGE_RENDER_BUFFER = 2;
 const SCROLL_SYNC_DEBOUNCE_MS = 60;
 const SCROLL_PROGRESS_DEBOUNCE_MS = 400;
+const READING_IDLE_SAVE_MS = 5000;
 const PROGRAMMATIC_SCROLL_TIMEOUT_MS = 900;
 
 type HighlightChange = {
@@ -588,9 +598,14 @@ export function PdfReader({
   bookTitle,
   userId,
   initialPage,
+  initialScrollY,
+  initialZoom,
+  restoreScrollPosition,
+  showResumePrompt,
   totalPages,
   initialHighlights,
   initialNotes,
+  initialBookmarks,
 }: PdfReaderProps) {
   const pageWrapRefs = useRef<Map<number, HTMLDivElement>>(new Map());
   const canvasRefs = useRef<Map<number, HTMLCanvasElement>>(new Map());
@@ -630,6 +645,7 @@ export function PdfReader({
   const fitScaleTimerRef = useRef<number | null>(null);
   const scrollSyncTimerRef = useRef<number | null>(null);
   const scrollProgressTimerRef = useRef<number | null>(null);
+  const idleProgressTimerRef = useRef<number | null>(null);
   const programmaticScrollTimerRef = useRef<number | null>(null);
   const saveProgressRef = useRef<(currentPage: number) => Promise<void>>(async () => {});
   const pendingZoomRestoreRef = useRef<{
@@ -637,7 +653,7 @@ export function PdfReader({
     scrollLeft: number;
     pageNumber: number;
   } | null>(null);
-  const zoomMultiplierRef = useRef(0.5);
+  const zoomMultiplierRef = useRef(initialZoom ?? 0.5);
   const lastRenderedZoomRef = useRef<Map<number, number>>(new Map());
   const panRef = useRef<{
     pointerId: number;
@@ -656,13 +672,19 @@ export function PdfReader({
   );
   const [fitScale, setFitScale] = useState(1);
   const [fitScaleReady, setFitScaleReady] = useState(false);
-  const [zoomMultiplier, setZoomMultiplier] = useState(0.5);
+  const [zoomMultiplier, setZoomMultiplier] = useState(initialZoom ?? 0.5);
   const [pdfNumPages, setPdfNumPages] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tool, setTool] = useState<ReaderTool>("read");
   const [highlights, setHighlights] = useState(initialHighlights);
   const [notes, setNotes] = useState(initialNotes);
+  const [bookmarks, setBookmarks] = useState(initialBookmarks);
+  const [bookmarkColor, setBookmarkColor] = useState("gold");
+  const [bookmarkLabel, setBookmarkLabel] = useState("");
+  const [bookmarkNote, setBookmarkNote] = useState("");
+  const [resumeReady, setResumeReady] = useState(!showResumePrompt);
+  const [showResumeOverlay, setShowResumeOverlay] = useState(showResumePrompt);
   const [message, setMessage] = useState<string | null>(null);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [noteMenuId, setNoteMenuId] = useState<string | null>(null);
@@ -739,6 +761,13 @@ export function PdfReader({
     scrollProgressTimerRef.current = window.setTimeout(() => {
       void saveProgressRef.current(pageRef.current);
     }, SCROLL_PROGRESS_DEBOUNCE_MS);
+
+    if (idleProgressTimerRef.current) {
+      window.clearTimeout(idleProgressTimerRef.current);
+    }
+    idleProgressTimerRef.current = window.setTimeout(() => {
+      void saveProgressRef.current(pageRef.current);
+    }, READING_IDLE_SAVE_MS);
   }, []);
 
   const scrollToPage = useCallback((target: number, behavior: ScrollBehavior = "smooth") => {
@@ -988,12 +1017,79 @@ export function PdfReader({
 
   const saveProgress = useCallback(
     async (currentPage: number) => {
-      await saveReadingProgress(bookId, currentPage, totalPages);
+      const viewer = viewerRef.current;
+      await saveReadingProgress(bookId, currentPage, totalPages ?? pdfNumPages, {
+        scrollY: viewer?.scrollTop ?? 0,
+        zoom: zoomMultiplierRef.current,
+      });
     },
-    [bookId, totalPages],
+    [bookId, totalPages, pdfNumPages],
   );
 
   saveProgressRef.current = saveProgress;
+
+  const restoreSavedPosition = useCallback(
+    (behavior: ScrollBehavior = "auto") => {
+      const viewer = viewerRef.current;
+      if (!viewer) return;
+
+      programmaticScrollTargetRef.current = initialPage;
+
+      if (restoreScrollPosition && initialScrollY != null && initialScrollY > 0) {
+        viewer.scrollTop = initialScrollY;
+      } else {
+        const pageWrap = pageWrapRefs.current.get(initialPage);
+        if (pageWrap) {
+          scrollViewerToPage(viewer, pageWrap, behavior);
+        }
+      }
+
+      window.setTimeout(() => {
+        programmaticScrollTargetRef.current = null;
+        syncPageFromScroll({ force: true });
+      }, behavior === "smooth" ? PROGRAMMATIC_SCROLL_TIMEOUT_MS : 150);
+    },
+    [initialPage, initialScrollY, restoreScrollPosition, syncPageFromScroll],
+  );
+
+  const jumpToBookmark = useCallback(
+    (bookmark: Bookmark) => {
+      const viewer = viewerRef.current;
+      if (bookmark.scroll_y > 0 && viewer) {
+        programmaticScrollTargetRef.current = bookmark.page_number;
+        viewer.scrollTop = bookmark.scroll_y;
+        window.setTimeout(() => {
+          programmaticScrollTargetRef.current = null;
+          syncPageFromScroll({ force: true });
+        }, 150);
+        return;
+      }
+      scrollToPage(bookmark.page_number);
+    },
+    [scrollToPage, syncPageFromScroll],
+  );
+
+  const handleAddBookmark = useCallback(async () => {
+    const viewer = viewerRef.current;
+    const scrollY = viewer?.scrollTop ?? 0;
+    const currentPage = pageRef.current;
+    const label = bookmarkLabel.trim() || `Page ${currentPage}`;
+    const created = await insertBookmark({
+      bookId,
+      userId,
+      pageNumber: currentPage,
+      scrollY,
+      label,
+      noteText: bookmarkNote.trim(),
+      color: bookmarkColor,
+    });
+    setBookmarks((prev) =>
+      [...prev, created].sort((a, b) => a.page_number - b.page_number),
+    );
+    setBookmarkLabel("");
+    setBookmarkNote("");
+    setMessage(`Bookmark added on page ${currentPage}.`);
+  }, [bookId, userId, bookmarkColor, bookmarkLabel, bookmarkNote]);
 
   const renderPage = useCallback(async (pageNumber: number, zoom: number) => {
     const pdf = pdfRef.current;
@@ -1310,20 +1406,9 @@ export function PdfReader({
   }
 
   useEffect(() => {
-    if (loading) return;
-    programmaticScrollTargetRef.current = initialPage;
-    requestAnimationFrame(() => {
-      const viewer = viewerRef.current;
-      const pageWrap = pageWrapRefs.current.get(initialPage);
-      if (viewer && pageWrap) {
-        scrollViewerToPage(viewer, pageWrap, "auto");
-      }
-      window.setTimeout(() => {
-        programmaticScrollTargetRef.current = null;
-        syncPageFromScroll({ force: true });
-      }, 150);
-    });
-  }, [loading, initialPage, syncPageFromScroll]);
+    if (loading || !fitScaleReady || !resumeReady) return;
+    requestAnimationFrame(() => restoreSavedPosition("auto"));
+  }, [loading, fitScaleReady, resumeReady, restoreSavedPosition]);
 
   useEffect(() => {
     if (loading || maxPage <= 0) return;
@@ -1345,6 +1430,9 @@ export function PdfReader({
       }
       if (scrollProgressTimerRef.current) {
         window.clearTimeout(scrollProgressTimerRef.current);
+      }
+      if (idleProgressTimerRef.current) {
+        window.clearTimeout(idleProgressTimerRef.current);
       }
     };
   }, [loading, maxPage, scheduleScrollSync, scheduleProgressSaveFromScroll, syncPageFromScroll]);
@@ -1369,9 +1457,17 @@ export function PdfReader({
   }, []);
 
   useEffect(() => {
-    const timer = setTimeout(() => saveProgress(page), 500);
+    const timer = setTimeout(() => {
+      void saveProgress(page);
+      if (idleProgressTimerRef.current) {
+        window.clearTimeout(idleProgressTimerRef.current);
+      }
+      idleProgressTimerRef.current = window.setTimeout(() => {
+        void saveProgressRef.current(pageRef.current);
+      }, READING_IDLE_SAVE_MS);
+    }, 500);
     return () => clearTimeout(timer);
-  }, [page, saveProgress]);
+  }, [page, zoomMultiplier, saveProgress]);
 
   useEffect(() => {
     const supabase = createClient();
@@ -2103,7 +2199,31 @@ export function PdfReader({
           onHighlightStrokeWidthChange={setHighlightStrokeWidthAndSave}
           onPenStrokeWidthChange={setPenStrokeWidthAndSave}
           onEraserStrokeWidthChange={setEraserStrokeWidthAndSave}
+          bookmarkColor={bookmarkColor}
+          bookmarkLabel={bookmarkLabel}
+          bookmarkNote={bookmarkNote}
+          currentPage={page}
+          onBookmarkColorChange={setBookmarkColor}
+          onBookmarkLabelChange={setBookmarkLabel}
+          onBookmarkNoteChange={setBookmarkNote}
+          onAddBookmark={() => void handleAddBookmark()}
         />
+
+        {showResumeOverlay && !resumeReady && (
+          <ContinueReadingPrompt
+            page={initialPage}
+            zoomPercent={Math.round((initialZoom ?? zoomMultiplier) * 100)}
+            onContinue={() => {
+              setShowResumeOverlay(false);
+              setResumeReady(true);
+            }}
+            onStartOver={() => {
+              setShowResumeOverlay(false);
+              setResumeReady(true);
+              scrollToPage(1, "auto");
+            }}
+          />
+        )}
 
         <div
           ref={viewerRef}
@@ -2140,6 +2260,9 @@ export function PdfReader({
               const pageNumber = index + 1;
               const slotWidth = pageSlotSize?.width ?? 420;
               const slotHeight = pageSlotSize?.height ?? 594;
+              const pageBookmarks = bookmarks.filter(
+                (bookmark) => bookmark.page_number === pageNumber,
+              );
 
               return (
                 <div
@@ -2154,6 +2277,15 @@ export function PdfReader({
                   )}
                   onPointerDown={(e) => handleContainerPointerDown(e, pageNumber)}
                 >
+                  {pageBookmarks.map((bookmark, bookmarkIndex) => (
+                    <PageBookmarkRibbon
+                      key={bookmark.id}
+                      colorId={bookmark.color}
+                      label={bookmark.label || `Page ${pageNumber}`}
+                      offsetIndex={bookmarkIndex}
+                      onClick={() => jumpToBookmark(bookmark)}
+                    />
+                  ))}
                   {renderedPages.has(pageNumber) ? (
                     <>
                       <canvas

@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/client";
 import type {
+  Bookmark,
   Highlight,
   HighlightPosition,
   HighlightStroke,
@@ -17,6 +18,13 @@ import {
   putLocalNote,
   seedBookAnnotations,
 } from "@/lib/offline/annotations-store";
+import {
+  deleteLocalBookmark,
+  getLocalBookmarkById,
+  loadBookBookmarks,
+  putLocalBookmark,
+  seedBookBookmarks,
+} from "@/lib/offline/bookmarks-store";
 import { updateCachedBookProgress } from "@/lib/offline/books-store";
 import { idbDelete, idbGetAll } from "@/lib/offline/db";
 import { isOnline } from "@/lib/offline/online";
@@ -74,6 +82,8 @@ export {
   loadPdfBuffer,
   seedBookAnnotations,
   loadBookAnnotations,
+  seedBookBookmarks,
+  loadBookBookmarks,
   flushSyncQueue,
   mergeAnnotationsById,
 };
@@ -82,12 +92,15 @@ export async function saveReadingProgress(
   bookId: string,
   currentPage: number,
   totalPages: number | null,
+  position?: { scrollY: number; zoom: number },
 ) {
   const progressPercent = computeProgress(currentPage, totalPages);
   const payload = {
     last_page: currentPage,
     progress_percent: progressPercent,
     last_opened_at: new Date().toISOString(),
+    reading_scroll_y: position?.scrollY ?? null,
+    reading_zoom: position?.zoom ?? null,
   };
 
   await updateCachedBookProgress(bookId, payload);
@@ -506,6 +519,155 @@ export async function upsertHighlight(highlight: Highlight) {
     createdAt: new Date().toISOString(),
   });
   return highlight;
+}
+
+export async function insertBookmark(input: {
+  bookId: string;
+  userId: string;
+  pageNumber: number;
+  scrollY: number;
+  label: string;
+  noteText: string;
+  color: string;
+}) {
+  const now = new Date().toISOString();
+  const row: Bookmark = {
+    id: newId(),
+    book_id: input.bookId,
+    user_id: input.userId,
+    page_number: input.pageNumber,
+    scroll_y: input.scrollY,
+    label: input.label,
+    note_text: input.noteText,
+    color: input.color,
+    created_at: now,
+    updated_at: now,
+  };
+
+  await putLocalBookmark(row);
+
+  if (isOnline()) {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("bookmarks")
+      .insert({
+        id: row.id,
+        book_id: row.book_id,
+        user_id: row.user_id,
+        page_number: row.page_number,
+        scroll_y: row.scroll_y,
+        label: row.label,
+        note_text: row.note_text,
+        color: row.color,
+      })
+      .select("*")
+      .single();
+
+    if (error) {
+      await enqueueSync({
+        id: newId(),
+        entity: "bookmark",
+        op: "insert",
+        recordId: row.id,
+        payload: { ...row },
+        createdAt: now,
+      });
+      return row;
+    }
+
+    await putLocalBookmark(data as Bookmark);
+    return data as Bookmark;
+  }
+
+  await enqueueSync({
+    id: newId(),
+    entity: "bookmark",
+    op: "insert",
+    recordId: row.id,
+    payload: { ...row },
+    createdAt: now,
+  });
+  return row;
+}
+
+export async function updateBookmark(
+  id: string,
+  patch: Partial<Pick<Bookmark, "label" | "note_text" | "color">>,
+) {
+  const existing = await getLocalBookmarkById(id);
+  if (!existing) throw new Error("Bookmark not found");
+
+  const updated: Bookmark = {
+    ...existing,
+    ...patch,
+    updated_at: new Date().toISOString(),
+  };
+  await putLocalBookmark(updated);
+
+  const payload = {
+    label: updated.label,
+    note_text: updated.note_text,
+    color: updated.color,
+    updated_at: updated.updated_at,
+  };
+
+  if (isOnline()) {
+    const supabase = createClient();
+    const { error } = await supabase.from("bookmarks").update(payload).eq("id", id);
+    if (error) {
+      await enqueueSync({
+        id: newId(),
+        entity: "bookmark",
+        op: "update",
+        recordId: id,
+        payload,
+        createdAt: new Date().toISOString(),
+      });
+    }
+    await syncIfOnline();
+    return updated;
+  }
+
+  await enqueueSync({
+    id: newId(),
+    entity: "bookmark",
+    op: "update",
+    recordId: id,
+    payload,
+    createdAt: new Date().toISOString(),
+  });
+  return updated;
+}
+
+export async function deleteBookmark(id: string) {
+  await removeSyncItemsForRecord(id);
+  await deleteLocalBookmark(id);
+
+  if (isOnline()) {
+    const supabase = createClient();
+    const { error } = await supabase.from("bookmarks").delete().eq("id", id);
+    if (error) {
+      await enqueueSync({
+        id: newId(),
+        entity: "bookmark",
+        op: "delete",
+        recordId: id,
+        payload: {},
+        createdAt: new Date().toISOString(),
+      });
+    }
+    await syncIfOnline();
+    return;
+  }
+
+  await enqueueSync({
+    id: newId(),
+    entity: "bookmark",
+    op: "delete",
+    recordId: id,
+    payload: {},
+    createdAt: new Date().toISOString(),
+  });
 }
 
 export async function saveHighlightStroke(input: {

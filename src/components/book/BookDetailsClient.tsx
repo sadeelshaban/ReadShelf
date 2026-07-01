@@ -4,10 +4,11 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import type { Book, Highlight, Note } from "@/types";
+import type { Book, Bookmark, Highlight, Note } from "@/types";
 import { mergeAnnotationsById } from "@/lib/annotations/merge";
 import { getReadButtonLabel } from "@/lib/pdf";
-import { flushSyncQueue, loadBookAnnotations } from "@/lib/offline/reader-api";
+import { bookmarkColorHex } from "@/lib/reader/bookmarks";
+import { flushSyncQueue, loadBookAnnotations, loadBookBookmarks } from "@/lib/offline/reader-api";
 import { cacheBook } from "@/lib/offline/books-store";
 import { purgeBookFromLocalCache } from "@/lib/offline/purge-book-cache";
 import { noteTextCss } from "@/lib/reader/constants";
@@ -21,10 +22,11 @@ type BookDetailsClientProps = {
   book: Book;
   highlights: Highlight[];
   notes: Note[];
+  bookmarks: Bookmark[];
   coverUrl: string | null;
 };
 
-type Tab = "highlights" | "notes";
+type Tab = "highlights" | "notes" | "bookmarks";
 
 type PageHighlightGroup = {
   pageNumber: number;
@@ -140,12 +142,14 @@ export function BookDetailsClient({
   book: initialBook,
   highlights: serverHighlights,
   notes: serverNotes,
+  bookmarks: serverBookmarks,
   coverUrl,
 }: BookDetailsClientProps) {
   const router = useRouter();
   const [book, setBook] = useState(initialBook);
   const [displayHighlights, setDisplayHighlights] = useState(serverHighlights);
   const [displayNotes, setDisplayNotes] = useState(serverNotes);
+  const [displayBookmarks, setDisplayBookmarks] = useState(serverBookmarks);
   const [tab, setTab] = useState<Tab>("highlights");
   const [message, setMessage] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -159,8 +163,10 @@ export function BookDetailsClient({
   const refreshAnnotations = useCallback(async () => {
     await flushSyncQueue();
     const local = await loadBookAnnotations(book.id);
+    const bookmarks = await loadBookBookmarks(book.id);
     setDisplayHighlights(mergeAnnotationsById(serverHighlights, local.highlights));
     setDisplayNotes(mergeAnnotationsById(serverNotes, local.notes));
+    setDisplayBookmarks(bookmarks);
   }, [book.id, serverHighlights, serverNotes]);
 
   useEffect(() => {
@@ -181,6 +187,9 @@ export function BookDetailsClient({
   const noteGroups = groupNotesByPage(displayNotes);
   const readLabel = getReadButtonLabel(book);
   const isUnread = !book.last_opened_at;
+  const savedZoomPercent = book.reading_zoom
+    ? Math.round(book.reading_zoom * 100)
+    : 50;
 
   function startEditing() {
     setEditTitle(book.title);
@@ -390,12 +399,20 @@ export function BookDetailsClient({
             </MetaPill>
           </div>
 
+          {!isUnread && (
+            <div className="mt-5 rounded-2xl border border-[#eadbc8]/80 bg-[#fbf7f0] px-4 py-3 text-sm text-[#5b4028]">
+              <p className="font-medium text-[#3c2a21]">Auto-saved position</p>
+              <p className="mt-1 text-[#8a7968]">
+                Page {book.last_page}
+                {book.total_pages ? ` of ${book.total_pages}` : ""} · {savedZoomPercent}% zoom
+              </p>
+            </div>
+          )}
+
           <div className="mt-6 flex flex-wrap gap-3">
             <Link href={`/book/${book.id}/read`}>
               <Button className="gap-2 px-5 py-2.5">
-                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                </svg>
+                <span aria-hidden>▶</span>
                 {readLabel}
               </Button>
             </Link>
@@ -448,6 +465,7 @@ export function BookDetailsClient({
             [
               { id: "highlights" as const, label: "Highlights", count: highlightGroups.length },
               { id: "notes" as const, label: "Notes", count: noteGroups.length },
+              { id: "bookmarks" as const, label: "Bookmarks", count: displayBookmarks.length },
             ] as const
           ).map((item) => (
             <button
@@ -465,9 +483,13 @@ export function BookDetailsClient({
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 20h4l10.5-10.5a2.12 2.12 0 1 0-3-3L5 17v3Z" />
                 </svg>
-              ) : (
+              ) : item.id === "notes" ? (
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6Z" />
+                </svg>
+              ) : (
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 4.5h8a1 1 0 0 1 1 1v12.8l-3.2-2.2-2.8 2.2-2.8-2.2L7 18.3V5.5a1 1 0 0 1 1-1z" />
                 </svg>
               )}
               {item.label}
@@ -532,6 +554,43 @@ export function BookDetailsClient({
                             title="Note color"
                           />
                         ))}
+                      </div>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ))}
+
+          {tab === "bookmarks" &&
+            (displayBookmarks.length === 0 ? (
+              <BookTabEmptyState variant="bookmarks" bookId={book.id} />
+            ) : (
+              <ul className="space-y-2 p-4 sm:p-6">
+                {displayBookmarks.map((bookmark) => (
+                  <li key={bookmark.id}>
+                    <Link
+                      href={`/book/${book.id}/read?page=${bookmark.page_number}&scroll=${bookmark.scroll_y}`}
+                      className="block rounded-xl border border-[#eadbc8]/70 bg-[#fbf7f0] px-4 py-3 transition hover:border-primary/30 hover:bg-[#f7f1e5]"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-[#3c2a21]">
+                            {bookmark.label || `Page ${bookmark.page_number}`}
+                          </p>
+                          <p className="mt-0.5 text-xs text-[#8a7968]">
+                            Page {bookmark.page_number}
+                          </p>
+                          {bookmark.note_text && (
+                            <p className="mt-2 text-sm leading-relaxed text-[#5b4028]">
+                              {bookmark.note_text}
+                            </p>
+                          )}
+                        </div>
+                        <span
+                          className="mt-0.5 h-5 w-5 shrink-0 rounded-full border border-[#eadbc8]"
+                          style={{ backgroundColor: bookmarkColorHex(bookmark.color) }}
+                          title="Bookmark color"
+                        />
                       </div>
                     </Link>
                   </li>

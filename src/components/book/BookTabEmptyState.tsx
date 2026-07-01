@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 
 type BookTabEmptyStateProps = {
-  variant: "highlights" | "notes";
+  variant: "highlights" | "notes" | "bookmarks";
   bookId: string;
 };
 
@@ -75,6 +75,10 @@ const COPY = {
     title: "No notes yet",
     description: "Start reading this book and add notes on any page to see them here.",
   },
+  bookmarks: {
+    title: "No bookmarks yet",
+    description: "Use the bookmark tool in the reader to save labeled places you want to return to.",
+  },
 } as const;
 
 export function BookTabEmptyState({ variant, bookId }: BookTabEmptyStateProps) {
@@ -83,7 +87,13 @@ export function BookTabEmptyState({ variant, bookId }: BookTabEmptyStateProps) {
   return (
     <div className="flex min-h-[20rem] flex-col items-center justify-center px-6 py-14 text-center">
       <span className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#f3ece2]">
-        {variant === "highlights" ? <HighlighterIcon /> : <NotesIcon />}
+        {variant === "highlights" ? (
+          <HighlighterIcon />
+        ) : variant === "notes" ? (
+          <NotesIcon />
+        ) : (
+          <NotesIcon />
+        )}
       </span>
       <h3 className="font-serif text-2xl font-semibold text-[#3c2a21]">{title}</h3>
       <p className="mt-3 max-w-md text-sm leading-relaxed text-[#8a7968]">{description}</p>

@@ -96,3 +96,14 @@ export async function fetchBookAnnotationsClient(bookId: string) {
     notes: notes ?? [],
   };
 }
+
+export async function fetchBookBookmarksClient(bookId: string) {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("bookmarks")
+    .select("*")
+    .eq("book_id", bookId)
+    .order("page_number", { ascending: true });
+
+  return data ?? [];
+}

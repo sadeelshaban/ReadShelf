@@ -7,7 +7,7 @@ import {
 } from "@/lib/offline/db";
 import { isOnline } from "@/lib/offline/online";
 
-type SyncEntity = "highlight" | "note" | "book";
+type SyncEntity = "highlight" | "note" | "book" | "bookmark";
 type SyncOp = "insert" | "update" | "delete";
 
 type SyncQueueItem = {
@@ -106,6 +106,23 @@ export async function flushSyncQueue() {
           const { error } = await supabase
             .from("books")
             .update(item.payload)
+            .eq("id", item.recordId);
+          if (error) throw error;
+        }
+      } else if (item.entity === "bookmark") {
+        if (item.op === "insert") {
+          const { error } = await supabase.from("bookmarks").insert(item.payload);
+          if (error) throw error;
+        } else if (item.op === "update") {
+          const { error } = await supabase
+            .from("bookmarks")
+            .update(item.payload)
+            .eq("id", item.recordId);
+          if (error) throw error;
+        } else if (item.op === "delete") {
+          const { error } = await supabase
+            .from("bookmarks")
+            .delete()
             .eq("id", item.recordId);
           if (error) throw error;
         }

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { ReaderWrapper } from "@/components/reader/ReaderWrapper";
 import {
   fetchBookAnnotationsClient,
+  fetchBookBookmarksClient,
   fetchBookByIdClient,
 } from "@/lib/books/client-queries";
 import { cacheBook, getCachedBook } from "@/lib/offline/books-store";
@@ -11,10 +12,12 @@ import { isOnline } from "@/lib/offline/online";
 import {
   flushSyncQueue,
   loadBookAnnotations,
+  loadBookBookmarks,
   seedBookAnnotations,
+  seedBookBookmarks,
 } from "@/lib/offline/reader-api";
 import { createClient } from "@/lib/supabase/client";
-import type { Book, Highlight, Note } from "@/types";
+import type { Book, Bookmark, Highlight, Note } from "@/types";
 
 type ReadPageClientProps = {
   bookId: string;
@@ -25,6 +28,7 @@ type LoadedState = {
   userId: string;
   highlights: Highlight[];
   notes: Note[];
+  bookmarks: Bookmark[];
 };
 
 export function ReadPageClient({ bookId }: ReadPageClientProps) {
@@ -61,11 +65,13 @@ export function ReadPageClient({ bookId }: ReadPageClientProps) {
           if (book) {
             await cacheBook(book);
             const remote = await fetchBookAnnotationsClient(bookId);
+            const remoteBookmarks = await fetchBookBookmarksClient(bookId);
             const local = await seedBookAnnotations(
               bookId,
               remote.highlights,
               remote.notes,
             );
+            const bookmarks = await seedBookBookmarks(bookId, remoteBookmarks);
             void flushSyncQueue();
 
             setLoaded({
@@ -73,6 +79,7 @@ export function ReadPageClient({ bookId }: ReadPageClientProps) {
               userId,
               highlights: local.highlights,
               notes: local.notes,
+              bookmarks,
             });
             setLoading(false);
             return;
@@ -96,6 +103,7 @@ export function ReadPageClient({ bookId }: ReadPageClientProps) {
       }
 
       const local = await loadBookAnnotations(bookId);
+      const bookmarks = await loadBookBookmarks(bookId);
       if (cancelled) return;
 
       setLoaded({
@@ -103,6 +111,7 @@ export function ReadPageClient({ bookId }: ReadPageClientProps) {
         userId,
         highlights: local.highlights,
         notes: local.notes,
+        bookmarks,
       });
       setLoading(false);
     }
@@ -138,9 +147,13 @@ export function ReadPageClient({ bookId }: ReadPageClientProps) {
       bookTitle={loaded.book.title}
       userId={loaded.userId}
       initialPage={loaded.book.last_page || 1}
+      initialScrollY={loaded.book.reading_scroll_y}
+      initialZoom={loaded.book.reading_zoom}
+      canResume={Boolean(loaded.book.last_opened_at)}
       totalPages={loaded.book.total_pages}
       initialHighlights={loaded.highlights}
       initialNotes={loaded.notes}
+      initialBookmarks={loaded.bookmarks}
     />
   );
 }
