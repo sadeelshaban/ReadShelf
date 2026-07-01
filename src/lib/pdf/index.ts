@@ -71,7 +71,9 @@ export async function extractPdfMetadata(file: File) {
 
 export function getReadButtonLabel(book: {
   last_opened_at: string | null;
+  progress_percent: number;
 }) {
+  if (book.progress_percent >= 100) return "Read Again";
   return book.last_opened_at ? "Continue Reading" : "Start Reading";
 }
 

@@ -62,6 +62,7 @@ import {
   loadPdfBuffer,
   moveNote as moveNoteApi,
   persistHighlight,
+  resetBookForReread,
   saveReadingProgress,
   seedBookAnnotations,
   updateHighlight,
@@ -80,6 +81,7 @@ import {
   BookmarkDeleteConfirm,
 } from "@/components/reader/BookmarkAddPanel";
 import { ContinueReadingPrompt } from "@/components/reader/ContinueReadingPrompt";
+import { ReadAgainPrompt } from "@/components/reader/ReadAgainPrompt";
 import type { BookmarkColorId } from "@/lib/reader/bookmarks";
 import { normalizeBookmarkLabel } from "@/lib/reader/bookmarks";
 import { cn } from "@/lib/utils";
@@ -93,6 +95,8 @@ type PdfReaderProps = {
   initialZoom: number | null;
   restoreScrollPosition: boolean;
   showResumePrompt: boolean;
+  showReadAgainPrompt: boolean;
+  readCount: number;
   totalPages: number | null;
   initialHighlights: Highlight[];
   initialNotes: Note[];
@@ -609,6 +613,8 @@ export function PdfReader({
   initialZoom,
   restoreScrollPosition,
   showResumePrompt,
+  showReadAgainPrompt,
+  readCount,
   totalPages,
   initialHighlights,
   initialNotes,
@@ -690,8 +696,9 @@ export function PdfReader({
   const [bookmarkColor, setBookmarkColor] = useState<BookmarkColorId>("yellow");
   const [bookmarkLabel, setBookmarkLabel] = useState("");
   const [bookmarkToDelete, setBookmarkToDelete] = useState<Bookmark | null>(null);
-  const [resumeReady, setResumeReady] = useState(!showResumePrompt);
+  const [resumeReady, setResumeReady] = useState(!showResumePrompt && !showReadAgainPrompt);
   const [showResumeOverlay, setShowResumeOverlay] = useState(showResumePrompt);
+  const [showReadAgainOverlay, setShowReadAgainOverlay] = useState(showReadAgainPrompt);
   const [message, setMessage] = useState<string | null>(null);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [noteMenuId, setNoteMenuId] = useState<string | null>(null);
@@ -2236,6 +2243,25 @@ export function PdfReader({
               setShowResumeOverlay(false);
               setResumeReady(true);
               scrollToPage(1, "auto");
+            }}
+          />
+        )}
+
+        {showReadAgainOverlay && !resumeReady && (
+          <ReadAgainPrompt
+            readCount={readCount}
+            onReadAgain={() => {
+              void resetBookForReread(bookId).then(() => {
+                setShowReadAgainOverlay(false);
+                setResumeReady(true);
+                setPage(1);
+                scrollToPage(1, "auto");
+              });
+            }}
+            onOpenLastPage={() => {
+              setShowReadAgainOverlay(false);
+              setResumeReady(true);
+              scrollToPage(initialPage, "auto");
             }}
           />
         )}

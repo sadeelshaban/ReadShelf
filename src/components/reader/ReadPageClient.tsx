@@ -150,6 +150,8 @@ export function ReadPageClient({ bookId }: ReadPageClientProps) {
       initialScrollY={loaded.book.reading_scroll_y}
       initialZoom={loaded.book.reading_zoom}
       canResume={Boolean(loaded.book.last_opened_at)}
+      progressPercent={loaded.book.progress_percent}
+      readCount={loaded.book.read_count ?? 0}
       totalPages={loaded.book.total_pages}
       initialHighlights={loaded.highlights}
       initialNotes={loaded.notes}

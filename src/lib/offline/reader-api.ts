@@ -35,6 +35,7 @@ import {
   removeSyncItemsForRecord,
 } from "@/lib/offline/sync-queue";
 import { computeProgress } from "@/lib/pdf";
+import { getCachedBook } from "@/lib/offline/books-store";
 
 function newId() {
   return crypto.randomUUID();
@@ -95,12 +96,42 @@ export async function saveReadingProgress(
   position?: { scrollY: number; zoom: number },
 ) {
   const progressPercent = computeProgress(currentPage, totalPages);
+  const existing = await getCachedBook(bookId);
+  const previousProgress = existing?.progress_percent ?? 0;
+  const readCount = existing?.read_count ?? 0;
   const payload = {
     last_page: currentPage,
     progress_percent: progressPercent,
     last_opened_at: new Date().toISOString(),
+    read_count:
+      progressPercent >= 100 && previousProgress < 100 ? readCount + 1 : readCount,
     reading_scroll_y: position?.scrollY ?? null,
     reading_zoom: position?.zoom ?? null,
+  };
+
+  await updateCachedBookProgress(bookId, payload);
+
+  if (isOnline()) {
+    const supabase = createClient();
+    const { error } = await supabase.from("books").update(payload).eq("id", bookId);
+    if (error) {
+      await enqueueBookProgress(bookId, payload);
+    }
+    return;
+  }
+
+  await enqueueBookProgress(bookId, payload);
+}
+
+export async function resetBookForReread(bookId: string) {
+  const existing = await getCachedBook(bookId);
+  const payload = {
+    last_page: 1,
+    progress_percent: 0,
+    last_opened_at: new Date().toISOString(),
+    read_count: existing?.read_count ?? 0,
+    reading_scroll_y: 0,
+    reading_zoom: null,
   };
 
   await updateCachedBookProgress(bookId, payload);

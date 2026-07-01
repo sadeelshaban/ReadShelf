@@ -39,6 +39,7 @@ export type Book = {
   last_page: number;
   total_pages: number | null;
   last_opened_at: string | null;
+  read_count: number;
   reading_scroll_y: number | null;
   reading_zoom: number | null;
   created_at: string;

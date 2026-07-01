@@ -184,6 +184,7 @@ export default function AddBookPage() {
         total_pages: totalPages,
         last_page: 1,
         progress_percent: 0,
+        read_count: 0,
         last_opened_at: null,
       });
 

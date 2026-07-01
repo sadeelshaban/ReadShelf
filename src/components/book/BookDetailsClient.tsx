@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { Book, Bookmark, Highlight, Note } from "@/types";
 import { mergeAnnotationsById } from "@/lib/annotations/merge";
 import { getReadButtonLabel } from "@/lib/pdf";
+import { formatLastOpened, formatReadCount } from "@/lib/books/reading-stats";
 import { bookmarkColorHex } from "@/lib/reader/bookmarks";
 import { flushSyncQueue, loadBookAnnotations, loadBookBookmarks } from "@/lib/offline/reader-api";
 import { cacheBook } from "@/lib/offline/books-store";
@@ -187,6 +188,8 @@ export function BookDetailsClient({
   const noteGroups = groupNotesByPage(displayNotes);
   const readLabel = getReadButtonLabel(book);
   const isUnread = !book.last_opened_at;
+  const lastOpenedLabel = book.last_opened_at ? formatLastOpened(book.last_opened_at) : null;
+  const readCountLabel = formatReadCount(book.read_count ?? 0);
 
   function startEditing() {
     setEditTitle(book.title);
@@ -394,6 +397,30 @@ export function BookDetailsClient({
             >
               {formatAddedDate(book.created_at)} Added
             </MetaPill>
+            {lastOpenedLabel && (
+              <MetaPill
+                icon={
+                  <svg className="h-4 w-4 text-[#8a7968]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+                    <circle cx="12" cy="12" r="9" />
+                    <path strokeLinecap="round" d="M12 7v5l3 2" />
+                  </svg>
+                }
+              >
+                Last opened: {lastOpenedLabel}
+              </MetaPill>
+            )}
+            {readCountLabel && (
+              <MetaPill
+                icon={
+                  <svg className="h-4 w-4 text-[#8a7968]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z" />
+                  </svg>
+                }
+              >
+                {readCountLabel}
+              </MetaPill>
+            )}
           </div>
 
           <div className="mt-6 flex flex-wrap gap-3">

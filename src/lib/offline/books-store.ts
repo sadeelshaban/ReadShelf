@@ -66,7 +66,12 @@ export async function updateCachedBookProgress(
   bookId: string,
   patch: Pick<
     Book,
-    "last_page" | "progress_percent" | "last_opened_at" | "reading_scroll_y" | "reading_zoom"
+    | "last_page"
+    | "progress_percent"
+    | "last_opened_at"
+    | "read_count"
+    | "reading_scroll_y"
+    | "reading_zoom"
   >,
 ) {
   const existing = await getCachedBook(bookId);

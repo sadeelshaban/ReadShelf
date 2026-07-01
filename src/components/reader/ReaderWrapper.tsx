@@ -3,6 +3,7 @@
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import type { Bookmark, Highlight, Note } from "@/types";
+import { isBookFinished } from "@/lib/books/reading-stats";
 import { PdfReader } from "@/components/reader/PdfReader";
 
 type ReaderWrapperProps = {
@@ -13,6 +14,8 @@ type ReaderWrapperProps = {
   initialScrollY: number | null;
   initialZoom: number | null;
   canResume: boolean;
+  progressPercent: number;
+  readCount: number;
   totalPages: number | null;
   initialHighlights: Highlight[];
   initialNotes: Note[];
@@ -27,11 +30,13 @@ function ReaderWithPageParam(props: ReaderWrapperProps) {
   const parsedScroll = scrollParam ? Number.parseFloat(scrollParam) : NaN;
   const hasPageParam = Number.isFinite(parsedPage) && parsedPage > 0;
   const hasScrollParam = Number.isFinite(parsedScroll) && parsedScroll >= 0;
+  const isFinished = isBookFinished(props.progressPercent);
 
   const startPage = hasPageParam ? parsedPage : props.initialPage;
   const restoreScroll =
     props.canResume &&
     !hasPageParam &&
+    !isFinished &&
     props.initialScrollY != null &&
     props.initialScrollY > 0;
   const startScrollY = hasScrollParam
@@ -48,6 +53,7 @@ function ReaderWithPageParam(props: ReaderWrapperProps) {
       initialZoom={props.initialZoom}
       restoreScrollPosition={restoreScroll || hasScrollParam}
       showResumePrompt={props.canResume && restoreScroll && !hasPageParam}
+      showReadAgainPrompt={props.canResume && !hasPageParam && isFinished}
     />
   );
 }
