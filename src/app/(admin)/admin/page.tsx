@@ -66,9 +66,8 @@ export default async function AdminDashboardPage() {
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <AdminStatCard
-          featured
           value={stats.users}
           label="Users"
           hint="Total accounts"
@@ -83,7 +82,7 @@ export default async function AdminDashboardPage() {
         <AdminStatCard
           value={formatStorageBytes(totalStorageBytes)}
           label="Storage used"
-          hint="PDFs and covers in Supabase Storage"
+          hint="PDFs and covers"
         />
         <AdminStatCard
           value={stats.notes}
