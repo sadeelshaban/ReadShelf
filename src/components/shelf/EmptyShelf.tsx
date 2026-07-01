@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/Button";
 
 export function EmptyShelf() {
   return (
-    <div className="glass-panel rounded-3xl px-6 py-16 text-center">
+    <div className="px-6 py-16 text-center">
       <h2 className="font-serif text-2xl font-semibold text-text">
         Your shelf is empty
       </h2>
