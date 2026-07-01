@@ -172,8 +172,8 @@ export function AdminUsersPanel() {
         </p>
       )}
 
-      <div className="glass-panel overflow-hidden rounded-2xl">
-        <div className="overflow-x-auto">
+      <div className="glass-panel rounded-2xl">
+        <div className="admin-table-wrap max-sm:overflow-x-auto">
           <table className="min-w-full text-left text-sm">
             <thead className="border-b border-white/60 bg-background-elevated/80 text-text-muted">
               <tr>

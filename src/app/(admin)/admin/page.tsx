@@ -72,33 +72,28 @@ export default async function AdminDashboardPage() {
           value={stats.users}
           label="Users"
           hint="Total accounts"
-          icon={<span aria-hidden>👤</span>}
           trend={formatTrend(trends.newUsers30d, "this month")}
         />
         <AdminStatCard
           value={stats.books}
           label="Books uploaded"
           hint="PDFs on shelves"
-          icon={<span aria-hidden>📚</span>}
           trend={formatTrend(trends.newBooks7d, "this week")}
         />
         <AdminStatCard
           value={formatStorageBytes(totalStorageBytes)}
           label="Storage used"
           hint="PDFs and covers in Supabase Storage"
-          icon={<span aria-hidden>💾</span>}
         />
         <AdminStatCard
           value={stats.notes}
           label="Notes"
           hint="All notes"
-          icon={<span aria-hidden>📝</span>}
         />
         <AdminStatCard
           value={stats.highlights}
           label="Highlights"
           hint="All highlights"
-          icon={<span aria-hidden>✨</span>}
         />
       </div>
 

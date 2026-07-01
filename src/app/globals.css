@@ -52,6 +52,14 @@ body {
     linear-gradient(180deg, #f7f2ea 0%, #f2ece2 100%);
 }
 
+.admin-table-wrap {
+  scrollbar-width: none;
+}
+
+.admin-table-wrap::-webkit-scrollbar {
+  display: none;
+}
+
 .readshelf-scroll {
   scrollbar-width: thin;
   scrollbar-color: rgba(111, 69, 40, 0.35) transparent;
