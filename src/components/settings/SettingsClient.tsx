@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
@@ -56,6 +55,8 @@ export function SettingsClient({
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordLoading, setPasswordLoading] = useState(false);
 
   async function handleSaveUsername(e: FormEvent) {
     e.preventDefault();
@@ -94,6 +95,36 @@ export function SettingsClient({
     await supabase.auth.signOut();
     router.push("/");
     router.refresh();
+  }
+
+  async function handleChangePassword() {
+    setPasswordError(null);
+    setPasswordLoading(true);
+
+    try {
+      const response = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+
+      const body = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        setPasswordError(body.error ?? "Could not send reset code. Please try again.");
+        setPasswordLoading(false);
+        return;
+      }
+
+      router.push(
+        `/forgot-password/verify?email=${encodeURIComponent(email)}&from=settings`,
+      );
+    } catch (err) {
+      setPasswordError(
+        err instanceof Error ? err.message : "Could not send reset code.",
+      );
+      setPasswordLoading(false);
+    }
   }
 
   const statItems = [
@@ -150,28 +181,22 @@ export function SettingsClient({
       </SettingsSection>
 
       <SettingsSection title="Security">
-        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-          <Link href="/forgot-password">
-            <Button variant="secondary" size="md" className="w-full sm:w-auto">
-              Change password
-            </Button>
-          </Link>
-          <p className="text-xs text-text-muted">
-            We&apos;ll email you a secure reset link.
-          </p>
-        </div>
-      </SettingsSection>
-
-      <SettingsSection title="Preferences">
-        <div className="mt-4 flex items-center justify-between gap-4 rounded-xl border border-[#eadbc8]/70 bg-background-elevated/40 px-4 py-3">
-          <div>
-            <p className="text-sm font-medium text-text">Theme</p>
-            <p className="text-xs text-text-muted">Warm shelf theme (default)</p>
-          </div>
-          <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary">
-            Active
-          </span>
-        </div>
+        <p className="mt-4 text-sm text-text/75">
+          We&apos;ll email a reset code to <span className="font-medium text-text">{email}</span>.
+          Enter the code on the next screen, then choose a new password.
+        </p>
+        {passwordError && (
+          <p className="mt-3 text-sm text-red-600">{passwordError}</p>
+        )}
+        <Button
+          variant="secondary"
+          size="md"
+          className="mt-4 transition-transform hover:-translate-y-0.5"
+          disabled={passwordLoading}
+          onClick={() => void handleChangePassword()}
+        >
+          {passwordLoading ? "Sending code..." : "Send reset code"}
+        </Button>
       </SettingsSection>
 
       <SettingsSection title="Data">
@@ -187,7 +212,7 @@ export function SettingsClient({
         >
           Export my data
         </Button>
-        <p className="mt-2 text-xs text-text-muted">Full export — coming soon.</p>
+        <p className="mt-2 text-xs text-text-muted">Full export coming soon.</p>
       </SettingsSection>
 
       <SettingsSection title="Account">

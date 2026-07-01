@@ -18,29 +18,29 @@ export default function CopyrightPage() {
       </section>
 
       <section>
-        <h2 className="font-serif text-xl font-semibold text-primary">Your uploaded content</h2>
+        <h2 className="font-serif text-xl font-semibold text-primary">Your Uploaded Content</h2>
         <p>
-          You retain all rights to PDFs and materials you upload. ReadShelf does not claim
-          ownership of your books, highlights, notes, or bookmarks. You are solely
+          You retain all rights to the PDFs and materials you upload. ReadShelf does not
+          claim ownership of your books, highlights, notes, or bookmarks. You are solely
           responsible for ensuring you have the right to upload and annotate any document.
         </p>
       </section>
 
       <section>
-        <h2 className="font-serif text-xl font-semibold text-primary">Third-party content</h2>
+        <h2 className="font-serif text-xl font-semibold text-primary">Third-Party Content</h2>
         <p>
           PDF documents may contain copyrighted text and images owned by their respective
           publishers or authors. ReadShelf provides tools for personal reading and
-          annotation; it does not grant any license to reproduce or distribute
+          annotation only — it does not grant any license to reproduce or distribute
           third-party works beyond what you already hold.
         </p>
       </section>
 
       <section>
-        <h2 className="font-serif text-xl font-semibold text-primary">Open-source components</h2>
+        <h2 className="font-serif text-xl font-semibold text-primary">Open-Source Components</h2>
         <p>
-          The Service incorporates open-source software (including Next.js, React,
-          Supabase client libraries, pdf.js, and pdf-lib) under their respective licenses.
+          The Service incorporates open-source software — including Next.js, React,
+          Supabase client libraries, pdf.js, and pdf-lib — under their respective licenses.
           Those components remain subject to their original license terms.
         </p>
       </section>
@@ -49,13 +49,13 @@ export default function CopyrightPage() {
         <h2 className="font-serif text-xl font-semibold text-primary">Trademarks</h2>
         <p>
           &quot;ReadShelf&quot; and the ReadShelf logo are trademarks of the platform
-          operator. Do not use them in a way that suggests endorsement without written
+          operator. Do not use them in any way that suggests endorsement without written
           permission.
         </p>
       </section>
 
       <section>
-        <h2 className="font-serif text-xl font-semibold text-primary">DMCA / infringement</h2>
+        <h2 className="font-serif text-xl font-semibold text-primary">DMCA / Infringement</h2>
         <p>
           If you believe content on the Service infringes your copyright, contact us with
           identification of the work, the infringing material, and your contact information.
@@ -70,11 +70,13 @@ export default function CopyrightPage() {
       </section>
 
       <section>
-        <h2 className="font-serif text-xl font-semibold text-primary">Acquisition &amp; licensing</h2>
+        <h2 className="font-serif text-xl font-semibold text-primary">
+          Acquisition &amp; Licensing
+        </h2>
         <p>
-          Commercial licensing, white-label deployment, or full product acquisition terms are
-          negotiated separately in writing. Unauthorized copying or resale of the platform
-          source code is prohibited unless expressly agreed.
+          Commercial licensing, white-label deployment, or full product acquisition terms
+          are negotiated separately in writing. Unauthorized copying or resale of the
+          platform source code is prohibited unless expressly agreed.
         </p>
       </section>
     </LegalPageLayout>

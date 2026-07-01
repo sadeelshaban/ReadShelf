@@ -11,13 +11,13 @@ export default function PrivacyPage() {
         <h2 className="font-serif text-xl font-semibold text-primary">1. Overview</h2>
         <p>
           ReadShelf (&quot;we&quot;, &quot;us&quot;) respects your privacy. This policy
-          explains what data we collect, how we use it, and your choices when you use our
-          PDF reading platform.
+          explains what data we collect, how we use it, and the choices available to you
+          when using our PDF reading platform.
         </p>
       </section>
 
       <section>
-        <h2 className="font-serif text-xl font-semibold text-primary">2. Data we collect</h2>
+        <h2 className="font-serif text-xl font-semibold text-primary">2. Data We Collect</h2>
         <ul className="list-disc space-y-2 pl-5">
           <li>
             <strong>Account data:</strong> email address and authentication credentials
@@ -28,7 +28,7 @@ export default function PrivacyPage() {
             progress, highlights, notes, and bookmarks
           </li>
           <li>
-            <strong>Usage data:</strong> last opened timestamps, presence heartbeat, and
+            <strong>Usage data:</strong> last-opened timestamps, presence heartbeat, and
             optional analytics if enabled by the operator
           </li>
           <li>
@@ -39,7 +39,7 @@ export default function PrivacyPage() {
       </section>
 
       <section>
-        <h2 className="font-serif text-xl font-semibold text-primary">3. How we use data</h2>
+        <h2 className="font-serif text-xl font-semibold text-primary">3. How We Use Data</h2>
         <p>We use your data to:</p>
         <ul className="list-disc space-y-2 pl-5">
           <li>Provide and secure the Service</li>
@@ -52,7 +52,9 @@ export default function PrivacyPage() {
       </section>
 
       <section>
-        <h2 className="font-serif text-xl font-semibold text-primary">4. Storage &amp; processors</h2>
+        <h2 className="font-serif text-xl font-semibold text-primary">
+          4. Storage &amp; Processors
+        </h2>
         <p>
           Data is stored on Supabase (PostgreSQL and object storage) and served through
           Vercel. Email delivery uses your configured SMTP provider. These processors act
@@ -61,53 +63,68 @@ export default function PrivacyPage() {
       </section>
 
       <section>
-        <h2 className="font-serif text-xl font-semibold text-primary">5. Local device storage</h2>
+        <h2 className="font-serif text-xl font-semibold text-primary">
+          5. International Data Transfers
+        </h2>
         <p>
-          The Service caches PDFs and annotations in your browser (IndexedDB) for offline
-          access. This data remains on your device and is tied to your account when synced.
+          Our hosting providers (Supabase, Vercel) may process and store data in countries
+          other than your own. By using the Service, you acknowledge that your data may be
+          transferred to and processed in these locations, which may have different data
+          protection laws than your country of residence.
         </p>
       </section>
 
       <section>
-        <h2 className="font-serif text-xl font-semibold text-primary">6. Retention</h2>
+        <h2 className="font-serif text-xl font-semibold text-primary">
+          6. Local Device Storage
+        </h2>
         <p>
-          We retain account and library data while your account is active. When you delete a
-          book or account, associated files and records are removed from our systems subject
-          to backup retention windows.
+          The Service caches PDFs and annotations in your browser (IndexedDB) to enable
+          offline access. This data remains on your device and is synced back to your
+          account when connectivity is available.
         </p>
       </section>
 
       <section>
-        <h2 className="font-serif text-xl font-semibold text-primary">7. Your rights</h2>
+        <h2 className="font-serif text-xl font-semibold text-primary">7. Retention</h2>
+        <p>
+          We retain account and library data for as long as your account is active. When
+          you delete a book or your account, associated files and records are removed from
+          our systems, subject to standard backup retention windows.
+        </p>
+      </section>
+
+      <section>
+        <h2 className="font-serif text-xl font-semibold text-primary">8. Your Rights</h2>
         <p>
           Depending on your location, you may have rights to access, correct, export, or
-          delete your data. Contact us to exercise these rights. You may delete books from
-          your shelf and request account deletion through support.
+          delete your data. Contact us to exercise these rights. You may also delete books
+          from your shelf or request account deletion through support.
         </p>
       </section>
 
       <section>
-        <h2 className="font-serif text-xl font-semibold text-primary">8. Security</h2>
+        <h2 className="font-serif text-xl font-semibold text-primary">9. Security</h2>
         <p>
           We use row-level security, signed URLs for files, HTTPS, and industry-standard
-          authentication. No method of transmission or storage is 100% secure; use a strong
-          unique password.
+          authentication. No method of transmission or storage is 100% secure — please use
+          a strong, unique password.
         </p>
       </section>
 
       <section>
-        <h2 className="font-serif text-xl font-semibold text-primary">9. Children</h2>
+        <h2 className="font-serif text-xl font-semibold text-primary">10. Children</h2>
         <p>
-          The Service is not directed at children under 13. We do not knowingly collect
-          data from children.
+          The Service is not directed at children under 13. We do not knowingly collect data
+          from children.
         </p>
       </section>
 
       <section>
-        <h2 className="font-serif text-xl font-semibold text-primary">10. Changes &amp; contact</h2>
+        <h2 className="font-serif text-xl font-semibold text-primary">11. Changes &amp; Contact</h2>
         <p>
-          We may update this policy; the &quot;Last updated&quot; date will change.
-          Questions:{" "}
+          We may update this policy periodically; the &quot;Last updated&quot; date will
+          change accordingly. Questions:{" "}
           <a href="mailto:sadeelshabanmedia@gmail.com" className="text-primary hover:underline">
             sadeelshabanmedia@gmail.com
           </a>

@@ -13,23 +13,21 @@ export const metadata: Metadata = {
 const liveDemoUrl =
   process.env.NEXT_PUBLIC_SITE_URL ?? "https://readshelf-rust.vercel.app";
 
-const demoEmail = process.env.NEXT_PUBLIC_DEMO_EMAIL?.trim() || null;
-
 const buyers = [
   {
-    title: "EdTech & course platforms",
+    title: "EdTech & Course Platforms",
     body: "Give learners a private shelf for course PDFs, textbooks, and handouts with progress tracking.",
   },
   {
     title: "Publishers",
-    body: "Offer a branded reading experience with highlights, notes, and annotated PDF export, including Arabic text.",
+    body: "Offer a branded reading experience with highlights, notes, and annotated PDF export — including Arabic text support.",
   },
   {
-    title: "Corporate training & knowledge teams",
+    title: "Corporate Training & Knowledge Teams",
     body: "Centralize manuals, SOPs, and training PDFs in one secure library per organization.",
   },
   {
-    title: "Development agencies",
+    title: "Development Agencies",
     body: "Acquire a white-label base and ship a reading product for clients in weeks instead of months.",
   },
 ];
@@ -82,7 +80,7 @@ export default function PlatformPage() {
       <main className="mx-auto max-w-5xl px-4 py-10 sm:px-6 sm:py-14">
         <section className="glass-panel rounded-3xl p-8 sm:p-10">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-text-muted">
-            Acquisition overview
+            Acquisition Overview
           </p>
           <h1 className="mt-3 font-serif text-4xl font-semibold tracking-tight text-primary sm:text-5xl">
             A production-ready PDF reading platform
@@ -90,7 +88,7 @@ export default function PlatformPage() {
           <p className="mt-4 max-w-3xl text-base leading-7 text-text-muted">
             ReadShelf is a white-label reading infrastructure product: personal libraries,
             in-browser PDF reading, annotations, progress sync, offline support, and
-            annotated export. Built for teams that need a complete solution, not a prototype.
+            annotated export. Built for teams that need a complete solution — not a prototype.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <a href="mailto:sadeelshabanmedia@gmail.com?subject=ReadShelf%20acquisition%20inquiry">
@@ -109,8 +107,8 @@ export default function PlatformPage() {
             <h2 className="font-serif text-2xl font-semibold text-primary">Problem</h2>
             <p className="mt-3 text-sm leading-6 text-text-muted">
               Teams and learners struggle with fragmented PDF workflows. Files sit in
-              folders and generic viewers. Progress, highlights, and notes do not stay
-              attached to the book or follow the user across devices.
+              folders and generic viewers. Progress, highlights, and notes don&apos;t stay
+              attached to the book, and they don&apos;t follow the user across devices.
             </p>
           </article>
           <article className="glass-panel rounded-2xl p-6">
@@ -124,7 +122,7 @@ export default function PlatformPage() {
         </section>
 
         <section className="mt-10">
-          <h2 className="font-serif text-3xl font-semibold text-primary">Who it is for</h2>
+          <h2 className="font-serif text-3xl font-semibold text-primary">Who It&apos;s For</h2>
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
             {buyers.map((item) => (
               <article key={item.title} className="glass-panel rounded-2xl p-5">
@@ -136,7 +134,7 @@ export default function PlatformPage() {
         </section>
 
         <section className="mt-10 glass-panel rounded-2xl p-6 sm:p-8">
-          <h2 className="font-serif text-3xl font-semibold text-primary">Core capabilities</h2>
+          <h2 className="font-serif text-3xl font-semibold text-primary">Core Capabilities</h2>
           <ul className="mt-5 grid gap-2 text-sm leading-6 text-text-muted sm:grid-cols-2">
             <li>Personal PDF library with covers and search</li>
             <li>Reading progress synced per book and device</li>
@@ -162,7 +160,7 @@ export default function PlatformPage() {
 
         <section className="mt-10 grid gap-6 lg:grid-cols-2">
           <article className="glass-panel rounded-2xl p-6">
-            <h2 className="font-serif text-2xl font-semibold text-primary">Tech stack</h2>
+            <h2 className="font-serif text-2xl font-semibold text-primary">Tech Stack</h2>
             <ul className="mt-4 space-y-2 text-sm text-text-muted">
               {tech.map((item) => (
                 <li key={item}>{item}</li>
@@ -171,7 +169,7 @@ export default function PlatformPage() {
           </article>
           <article className="glass-panel rounded-2xl p-6">
             <h2 className="font-serif text-2xl font-semibold text-primary">
-              Included in acquisition
+              Included in Acquisition
             </h2>
             <ul className="mt-4 space-y-2 text-sm text-text-muted">
               {included.map((item) => (
@@ -182,7 +180,7 @@ export default function PlatformPage() {
         </section>
 
         <section className="mt-10 glass-panel rounded-2xl p-6 sm:p-8">
-          <h2 className="font-serif text-3xl font-semibold text-primary">Live demo</h2>
+          <h2 className="font-serif text-3xl font-semibold text-primary">Live Demo</h2>
           <p className="mt-3 text-sm leading-6 text-text-muted">
             Production deployment:{" "}
             <Link
@@ -194,21 +192,14 @@ export default function PlatformPage() {
               {liveDemoUrl.replace(/^https?:\/\//, "")}
             </Link>
           </p>
-          {demoEmail ? (
-            <p className="mt-3 text-sm leading-6 text-text-muted">
-              Demo account: <span className="font-medium text-text">{demoEmail}</span>.
-              Contact for demo password and a guided walkthrough.
-            </p>
-          ) : (
-            <p className="mt-3 text-sm leading-6 text-text-muted">
-              Demo login credentials are available on request for qualified buyers.
-            </p>
-          )}
+          <p className="mt-3 text-sm leading-6 text-text-muted">
+            Contact us for demo credentials and a guided walkthrough.
+          </p>
         </section>
 
         <section className="mt-10 rounded-2xl border border-accent/30 bg-card/80 p-6 text-center sm:p-8">
           <h2 className="font-serif text-2xl font-semibold text-primary">
-            Available for full product acquisition
+            Available for Full Product Acquisition
           </h2>
           <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-text-muted">
             Source code, infrastructure handover, and optional transition support. Ideal

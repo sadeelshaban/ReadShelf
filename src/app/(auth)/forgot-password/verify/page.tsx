@@ -12,6 +12,7 @@ function VerifyCodeForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const email = searchParams.get("email")?.trim() ?? "";
+  const fromSettings = searchParams.get("from") === "settings";
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -86,9 +87,15 @@ function VerifyCodeForm() {
       </form>
 
       <p className="mt-7 text-center text-sm text-white/72">
-        <Link href="/forgot-password" className="text-white hover:text-white/85 hover:underline">
-          Send a new code
-        </Link>
+        {fromSettings ? (
+          <Link href="/settings" className="text-white hover:text-white/85 hover:underline">
+            Back to settings
+          </Link>
+        ) : (
+          <Link href="/forgot-password" className="text-white hover:text-white/85 hover:underline">
+            Send a new code
+          </Link>
+        )}
       </p>
     </AuthShell>
   );
