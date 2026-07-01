@@ -21,7 +21,11 @@ import { purgeBookFromLocalCache } from "@/lib/offline/purge-book-cache";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { BookTabEmptyState } from "@/components/book/BookTabEmptyState";
-import { BookmarkIcon, HighlighterIcon, NoteIcon } from "@/components/reader/ReaderIcons";
+import {
+  TabBookmarkIcon,
+  TabHighlighterIcon,
+  TabNoteIcon,
+} from "@/components/book/BookDetailTabIcons";
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
 
@@ -589,11 +593,11 @@ export function BookDetailsClient({
               )}
             >
               {item.id === "highlights" ? (
-                <HighlighterIcon className="h-4 w-4" />
+                <TabHighlighterIcon />
               ) : item.id === "notes" ? (
-                <NoteIcon className="h-4 w-4" />
+                <TabNoteIcon />
               ) : (
-                <BookmarkIcon className="h-4 w-4" />
+                <TabBookmarkIcon />
               )}
               {item.label}
               <span className="rounded-full bg-[#fff8f1] px-2 py-0.5 text-xs font-semibold text-[#5b4028] ring-1 ring-[#eadbc8]/80">

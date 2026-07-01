@@ -173,8 +173,7 @@ export function AdminUsersPanel() {
       )}
 
       <div className="glass-panel rounded-2xl">
-        <div className="admin-table-wrap max-sm:overflow-x-auto">
-          <table className="min-w-full text-left text-sm">
+          <table className="w-full text-left text-sm">
             <thead className="border-b border-white/60 bg-background-elevated/80 text-text-muted">
               <tr>
                 <th className="px-4 py-3 font-medium">Name</th>
@@ -245,7 +244,6 @@ export function AdminUsersPanel() {
               )}
             </tbody>
           </table>
-        </div>
       </div>
     </section>
   );
