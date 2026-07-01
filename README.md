@@ -1,62 +1,113 @@
 # ReadShelf
 
-**Your personal digital reading shelf — PDFs, progress, highlights, and notes in one place.**
+**Production-ready PDF reading platform — private libraries, annotations, progress sync, and offline support.**
 
-[Live app](https://readshelf-rust.vercel.app) · [Platform overview](https://readshelf-rust.vercel.app/platform) (for acquisition)
+| | |
+|---|---|
+| **Live demo** | [readshelf-rust.vercel.app](https://readshelf-rust.vercel.app) |
+| **Acquisition one-pager** | [/platform](https://readshelf-rust.vercel.app/platform) |
+| **Contact** | [sadeelshabanmedia@gmail.com](mailto:sadeelshabanmedia@gmail.com) |
 
-ReadShelf is a web app for people who read PDFs for study, work, or personal learning. Upload books to your private shelf, read in the browser, annotate page by page, and pick up exactly where you left off from any device. Everything stays tied to your account: covers, progress, highlights, and notes.
+ReadShelf is a full-stack web product for reading PDF books in the browser. Users upload books to a personal shelf, annotate page by page, resume exactly where they left off, and export annotated PDFs. Built on Next.js, Supabase, and a custom offline layer — deployable on Vercel in under an hour.
 
----
-
-## The idea
-
-Most PDF workflows feel scattered. Files live in folders, WhatsApp threads, or cloud drives with no real library. Progress does not follow you between devices. Highlights and notes get lost when you reopen the file somewhere else.
-
-ReadShelf is built around one simple concept: **a calm, personal shelf** where each book keeps its place, its cover, and everything you wrote on it.
-
-Organize → Read → Annotate. That is the whole flow.
+**Available as a complete product acquisition** for EdTech companies, publishers, corporate training teams, and agencies that need a white-label reading solution without building from scratch.
 
 ---
 
-## Features
+## Executive summary
 
-### Account & auth
-- Sign up with email and password (Supabase Auth)
-- Email confirmation via custom SMTP (confirmation link in your inbox)
-- Log in with clear field-level errors (wrong email, wrong password, unconfirmed account)
-- Forgot password with a one-time code sent by email, then reset on a secure page
-- After signup: reminder to check inbox (and spam if the email is missing)
+| | |
+|---|---|
+| **Product type** | B2B / B2C PDF reading & annotation SaaS (white-label ready) |
+| **Status** | Production-deployed, actively maintained codebase |
+| **Stack** | Next.js 16 · React 19 · TypeScript · Supabase · Vercel |
+| **Differentiators** | Offline-first sync, Arabic PDF export, reading resume (scroll + zoom), bookmarks, engagement analytics |
+| **Delivery** | Full source, 7 SQL migrations, deployment docs, demo seeding, handover support |
 
-### Library & shelf
-- Upload PDF books (up to 50 MB) with an auto-generated cover from page 1
-- Personal shelf with search and sort (**recent**, **date added**, **progress**)
-- Per-book stats: reading progress and last page
-- Edit title and author from the book page
+---
 
-### Reader
-- Vertical scroll through all pages
-- Draggable annotation toolbar: select, pan, comment, highlighter, pen, eraser
-- Page navigation: previous/next, editable page number, zoom (default 50%)
-- Freehand highlights, pen strokes, and positioned page notes
+## Who this is for
+
+| Buyer | Use case |
+|-------|----------|
+| **EdTech & course platforms** | Private student shelves for textbooks, handouts, and course PDFs with progress tracking |
+| **Publishers** | Branded reading experience with highlights, notes, bookmarks, and annotated export |
+| **Corporate L&D / knowledge teams** | Centralized manuals, SOPs, and training PDFs per employee |
+| **Development agencies** | White-label base to ship a reading product for clients in weeks, not months |
+
+---
+
+## Feature overview
+
+### Authentication & onboarding
+- Email/password signup with Supabase Auth
+- Custom SMTP confirmation emails (Nodemailer + HTML templates)
+- Login with field-level error messages
+- Forgot password via one-time email code
+- Post-signup inbox/spam reminder
+- Role-based routing: admins → dashboard, users → shelf
+
+### Personal library (shelf)
+- Upload PDFs up to **50 MB** with auto-generated cover from page 1
+- Search by title or author; sort by **recent**, **date added**, or **progress**
+- Book cards with aligned page counts and hover progress preview
+- Edit title and author from book details
+- Delete book (removes PDF, cover, annotations, bookmarks, and local cache)
+
+### PDF reader
+- Vertical continuous scroll through all pages
+- Draggable toolbars: select, pan, highlight, pen, eraser, note, bookmark
+- Page navigation: prev/next, editable page field, zoom (25%–400%)
+- Freehand highlights and pen strokes with adjustable stroke width
+- Positioned page notes with color and font size controls
+- Undo/redo for annotations
 - Keyboard navigation (↑ / ↓ between pages)
-- Progress saved automatically as you read
+- Touch-friendly controls
 
-### Annotations & export
-- Highlights and notes stored per user, per book, per page
-- Book details view with Highlights and Notes tabs grouped by page
-- Download annotated PDF with highlights and notes embedded on the original pages
-- Arabic note text supported in export via embedded Noto Sans Arabic
+### Reading session & progress
+- **Auto-save** page, scroll position, and zoom while reading
+- **Continue Reading** modal on return — restores exact spot (not just page number)
+- **Read Again** flow when a book reaches **100%** progress
+- **Read count** tracked per book (increments on each completion)
+- Progress bar and last-page tracking on shelf and details
+
+### Bookmarks
+- Manual bookmarks separate from auto-saved position
+- Color-coded ribbons (yellow, blue, red) on the page edge
+- Optional one-word label per bookmark
+- Add panel from toolbar; double-click ribbon to delete (Yes/No confirm)
+- Bookmarks tab on book details with jump-to-page links
+- Offline sync for bookmarks
+
+### Book details page
+- Cover, title, author, page count, date added
+- **Last opened:** human-readable timestamp (e.g. *Yesterday 9:43 PM*)
+- **Read count:** *Read once* / *Read 3 times* after completions
+- Tabs: **Highlights**, **Notes**, **Bookmarks** — grouped by page, linked to reader
+- Download original or **annotated PDF** export
+
+### Annotated PDF export
+- Server-side export embeds highlights and notes on original pages
+- **Arabic text** supported via embedded Noto Sans Arabic
+- Preserves layout and page structure
 
 ### Offline & sync
-- IndexedDB cache for PDFs and annotations
-- Offline reading after a book has been opened once online
-- Background sync when connectivity returns
+- IndexedDB cache for PDFs, books metadata, highlights, notes, and bookmarks
+- Read offline after opening a book once online
+- Custom sync queue replays pending changes when connectivity returns
+- Conflict-safe merge for annotations
 
-### Admin (optional)
-- Dashboard at `/admin` for emails listed in `ADMIN_EMAILS`
+### Admin dashboard (`/admin`)
 - Platform stats: users, books, notes, highlights
+- **Engagement analytics:** average progress, completion rate, active readers (30d), books opened (7d), annotations per book
 - User management: sign out or delete accounts
-- Admins land on the dashboard after login; regular users go to their shelf
+- Gated by `ADMIN_EMAILS` environment variable
+
+### Acquisition & demo tooling
+- Public **[/platform](https://readshelf-rust.vercel.app/platform)** one-pager for buyers
+- `npm run create:demo` — confirmed demo user for walkthroughs
+- `npm run seed:demo` — sample shelf with books for live demos
+- `npm run create:admin` — admin account setup
 
 ---
 
@@ -67,9 +118,9 @@ Organize → Read → Annotate. That is the whole flow.
 | Framework | Next.js 16 (App Router), React 19, TypeScript |
 | Styling | Tailwind CSS 4 |
 | Auth & database | Supabase (Auth, PostgreSQL, Row Level Security) |
-| File storage | Supabase Storage |
-| Auth emails | Nodemailer + your SMTP (e.g. Gmail app password) |
-| PDF rendering | pdfjs-dist 6 (worker + cmaps + wasm + standard fonts) |
+| File storage | Supabase Storage (signed URLs) |
+| Auth emails | Nodemailer + SMTP (Gmail app password works) |
+| PDF rendering | pdfjs-dist 6 (worker, cmaps, wasm, standard fonts) |
 | PDF export | pdf-lib + @pdf-lib/fontkit |
 | Offline | IndexedDB + custom sync queue |
 | Deploy | Vercel |
@@ -80,31 +131,80 @@ Organize → Read → Annotate. That is the whole flow.
 
 ```
 Browser (Next.js)
-  ├── Auth UI ───────────────► Supabase Auth + custom SMTP emails
-  ├── Shelf UI ──────────────► Supabase (books, highlights, notes)
-  ├── PDF Reader ────────────► pdfjs-dist + canvas overlay
-  ├── Offline layer ─────────► IndexedDB (PDF cache, annotations, sync queue)
-  └── Export ────────────────► Server route → pdf-lib annotated PDF
+  ├── Auth UI ──────────────► Supabase Auth + custom SMTP emails
+  ├── Shelf UI ─────────────► Supabase (books, highlights, notes, bookmarks)
+  ├── PDF Reader ───────────► pdfjs-dist + canvas annotation layers
+  ├── Offline layer ────────► IndexedDB (PDF cache, annotations, sync queue)
+  ├── Export API ───────────► pdf-lib annotated PDF generation
+  └── Admin ────────────────► Service role stats + user management
 
 Storage
-  └── Supabase Storage (PDFs & covers, signed access)
+  └── Supabase Storage (PDFs & covers, signed access only)
 ```
 
-Each user's data is isolated with Supabase RLS. PDF files are not served from public URLs without signed access.
-
-On `npm install`, **postinstall** copies pdf.js runtime assets (`pdf.worker`, `cmaps`, `wasm`, `iccs`, `standard_fonts`) into `public/` so scanned and Arabic PDFs render correctly.
+- **Row Level Security** on every user table — data isolated per account
+- PDFs never exposed via public URLs; signed access only
+- Secrets in Vercel env vars / `.env.local` — never committed to git
+- `postinstall` copies pdf.js runtime assets into `public/` for correct Arabic and scanned PDF rendering
 
 ---
 
-## Getting started
+## Database schema
+
+| Table | Purpose |
+|-------|---------|
+| `books` | Library entries: PDF path, cover, progress, scroll/zoom position, read count |
+| `highlights` | Freehand and text highlights with JSON position data |
+| `notes` | Page notes with position, color, font size |
+| `bookmarks` | Manual page bookmarks with label and color |
+| `profiles` | User profile metadata |
+| `user_presence` | Online presence tracking |
+
+**Migrations** (apply in order): `supabase/migrations/001` → `007`
+
+Key `books` fields beyond basics:
+- `reading_scroll_y`, `reading_zoom` — precise resume position
+- `read_count` — number of times the book was completed (100%)
+
+---
+
+## What's included in an acquisition
+
+- Full Next.js source code (TypeScript, ~40 routes and API endpoints)
+- 7 Supabase SQL migrations with RLS policies
+- HTML email templates (confirmation, password recovery)
+- Production Vercel deployment configuration
+- Admin dashboard with engagement analytics
+- Offline sync layer (IndexedDB + queue)
+- Demo user and shelf seeding scripts
+- Platform acquisition page (`/platform`)
+- Handover support and deployment walkthrough
+
+**Not included:** Supabase/Vercel hosting costs, SMTP account, custom branding beyond white-labeling, or ongoing maintenance (negotiable separately).
+
+---
+
+## Evaluate before you buy
+
+1. Open the **[live demo](https://readshelf-rust.vercel.app)** and create an account, or request demo credentials.
+2. Upload a PDF, read a few pages, add highlights, a note, and a bookmark.
+3. Close the tab and reopen — confirm **Continue Reading** restores your position.
+4. Visit **book details** — check Last opened, progress, and annotation tabs.
+5. Export an annotated PDF and verify highlights appear.
+6. Review **[/platform](https://readshelf-rust.vercel.app/platform)** and the admin analytics (demo admin available on request).
+7. Email **[sadeelshabanmedia@gmail.com](mailto:sadeelshabanmedia@gmail.com)** for source access, pricing, and handover terms.
+
+---
+
+## Getting started (developer setup)
 
 ### Prerequisites
 
 - Node.js 20+
-- A [Supabase](https://supabase.com) project (free tier works)
-- SMTP credentials for auth emails (Gmail with an [app password](https://support.google.com/accounts/answer/185833) works well)
+- [Supabase](https://supabase.com) project (free tier works)
+- SMTP credentials for auth emails
 
-### 1. Clone and install
+### Install
 
 ```bash
 git clone https://github.com/sadeelshaban/ReadShelf.git
@@ -112,38 +212,33 @@ cd ReadShelf
 npm install
 ```
 
-If PDF pages render blank after deploy, run `node scripts/copy-pdf-worker.mjs` or redeploy after a fresh install.
+### Environment variables
 
-### 2. Environment variables
-
-Create `.env.local` in the project root (never commit this file) and add:
+Create `.env.local` in the project root (**never commit this file**):
 
 | Variable | Purpose |
 |----------|---------|
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key |
-| `NEXT_PUBLIC_SITE_URL` | App URL (e.g. `http://localhost:3000` locally) |
-| `SUPABASE_SERVICE_ROLE_KEY` | Server-only; required for signup emails and admin stats |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` | Send confirmation and password-reset emails |
+| `NEXT_PUBLIC_SITE_URL` | App URL (`http://localhost:3000` locally) |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server-only; admin stats and signup emails |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` | Auth email delivery |
 | `EMAIL_FROM` | From address (e.g. `ReadShelf <you@gmail.com>`) |
 | `ADMIN_EMAILS` | Comma-separated admin emails (optional) |
 
-### 3. Supabase setup
+### Supabase
 
 ```bash
 npm run setup:supabase
 ```
 
-Apply migrations from `supabase/migrations/` in the Supabase SQL editor. Email templates live in `supabase/templates/` and are loaded by the app when sending mail.
+Apply all files in `supabase/migrations/` via Supabase SQL editor or `npx supabase db push`.
 
-In Supabase **Authentication → URL Configuration**, add your site URL and redirect URLs:
-
+In **Authentication → URL Configuration**, add:
 - `https://your-domain.com/auth/callback`
-- `http://localhost:3000/auth/callback` (local dev)
+- `http://localhost:3000/auth/callback`
 
-Enable email confirmations in Supabase Auth settings.
-
-### 4. Run locally
+### Run locally
 
 ```bash
 npm run dev
@@ -151,20 +246,14 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
----
+### Deploy to Vercel
 
-## Deploy to Vercel
-
-1. Push this repository to GitHub.
-2. Import the project in [Vercel](https://vercel.com).
-3. Add all environment variables listed in **Getting started → Environment variables** (including SMTP and `SUPABASE_SERVICE_ROLE_KEY`).
-4. Set `NEXT_PUBLIC_SITE_URL` to your production URL (e.g. `https://readshelf-rust.vercel.app`).
-5. Deploy. Vercel runs `npm install`, which triggers the pdf.js postinstall copy.
-
-After deploy:
-
-- Add your production URL to Supabase **Redirect URLs**.
-- Send a test signup to confirm confirmation emails arrive (check spam if needed).
+1. Import the GitHub repo in [Vercel](https://vercel.com).
+2. Add all environment variables from the table above.
+3. Set `NEXT_PUBLIC_SITE_URL` to your production URL.
+4. Deploy — `postinstall` copies pdf.js assets automatically.
+5. Add production URL to Supabase redirect URLs.
+6. Send a test signup to verify email delivery.
 
 ---
 
@@ -172,26 +261,25 @@ After deploy:
 
 ```
 src/
-  app/                    # Routes: landing, auth, shelf, reader, admin, API
+  app/                    # Routes: landing, auth, shelf, reader, admin, platform, API
   components/             # UI, shelf, reader, book, auth, admin, layout
   lib/
     supabase/             # Client, server, middleware, service role
     storage/              # Supabase Storage uploads and signed URLs
-    email/                # SMTP send, templates, signup/recovery links
+    email/                # SMTP send and HTML templates
     pdf/                  # PDF loading, cover extraction, annotated export
-    offline/              # IndexedDB, cache, sync queue
-    reader/               # Coordinates, constants, hit-testing
+    offline/              # IndexedDB, cache, sync queue, bookmarks store
+    reader/               # Coordinates, bookmarks, stroke/erase logic
+    books/                # Queries and reading-stats formatting
+    admin/                # Platform and engagement stats
     annotations/          # Merge local + server annotations
-    books/                # Database queries
-    admin/                # Stats and user management
   types/                  # Shared TypeScript types
-assets/
-  fonts/                  # Noto Sans Arabic (PDF export)
+assets/fonts/             # Noto Sans Arabic (PDF export)
 supabase/
-  migrations/             # SQL schema + RLS policies
-  templates/              # HTML email templates (confirmation, recovery OTP)
-scripts/                  # Supabase setup, pdf.js asset copy, admin helpers
-public/                   # Icons, favicon, pdf.js worker + cmaps + wasm (generated)
+  migrations/             # 001–007: schema + RLS
+  templates/              # Email HTML templates
+scripts/                  # Setup, demo seed, pdf.js copy, admin helpers
+public/                   # Icons, pdf.js worker + cmaps + wasm (generated)
 ```
 
 ---
@@ -200,54 +288,57 @@ public/                   # Icons, favicon, pdf.js worker + cmaps + wasm (genera
 
 | Command | Description |
 |---------|-------------|
-| `npm run dev` | Start development server |
+| `npm run dev` | Development server |
 | `npm run build` | Production build |
-| `npm run start` | Start production server |
-| `npm run lint` | Run ESLint |
+| `npm run start` | Production server |
+| `npm run lint` | ESLint |
 | `npm run setup:supabase` | Guided Supabase setup (Windows) |
 | `npm run apply:supabase-auth` | Apply Supabase auth configuration |
 | `npm run create:admin` | Create an admin user |
-| `npm run create:demo` | Create a confirmed demo user for acquisition walkthroughs |
+| `npm run create:demo` | Create a confirmed demo user |
+| `npm run seed:demo` | Seed demo shelf with sample books |
 | `npm run reset:data` | Wipe app data on linked Supabase project |
+| `npm run deploy:vercel` | Deploy helper (Windows) |
 
-`postinstall` (automatic): `node scripts/copy-pdf-worker.mjs`
+`postinstall` runs automatically: `node scripts/copy-pdf-worker.mjs`
+
+---
+
+## Security
+
+- `.env.local` is **gitignored** — real keys never belong in the repository
+- Production secrets live in **Vercel Environment Variables**
+- Supabase **RLS** enforces per-user data isolation on all tables
+- PDF access via **signed URLs** only
+- Service role key used server-side only (admin, email routes)
+- No hardcoded credentials in source or scripts
 
 ---
 
 ## Known limitations
 
-- **PDF size limit:** 50 MB per upload
-- **Very large books:** Distant pages load on demand; first visit may take a moment
-- **Storage:** Supabase free tier storage is ~1 GB
-- **Auth emails:** Require working SMTP; without it, signup cannot send confirmation mail
-
-## Secrets and environment files
-
-- **`.env.local`** holds real keys (Supabase, SMTP, etc.). It is **gitignored** and must never be committed.
-- Production secrets live in **Vercel Environment Variables**, not in the repository.
-- See **Getting started → Environment variables** for the full list of required keys.
+| Limit | Detail |
+|-------|--------|
+| PDF upload size | 50 MB per file |
+| Large books | Pages render on demand; first open may take a moment |
+| Storage | Bounded by Supabase plan (~1 GB on free tier) |
+| Auth emails | Require working SMTP; no email = no signup confirmation |
+| Mobile | Reader works on mobile; annotation UX optimized for tablet/desktop |
 
 ---
 
-ReadShelf is available as a **full product acquisition** for EdTech, publishers, agencies, and internal knowledge teams.
+## Licensing & acquisition
 
-- **One-pager:** [/platform](https://readshelf-rust.vercel.app/platform)
-- **Live demo:** production deployment with shelf, reader, annotations, and admin analytics
-- **Demo user:** `npm run create:demo` (confirmed account for buyer walkthroughs)
-- **Contact:** [sadeelshabanmedia@gmail.com](mailto:sadeelshabanmedia@gmail.com)
+ReadShelf is offered as a **full product sale** — source code, database schema, deployment, and handover.
 
-What's included: source code, Supabase schema, deployment, admin dashboard with engagement analytics, and handover support.
-
----
-
-## License
-
-Private project — all rights reserved unless otherwise specified by the repository owner.
+- **Inquiry:** [sadeelshabanmedia@gmail.com](mailto:sadeelshabanmedia@gmail.com?subject=ReadShelf%20acquisition%20inquiry)
+- **Overview:** [readshelf-rust.vercel.app/platform](https://readshelf-rust.vercel.app/platform)
+- **License:** Private — all rights reserved unless otherwise agreed in writing
 
 ---
 
 ## Author
 
-Built by **Sadeel Shaban** — a personal reading tool turned into a product.
+Built by **Sadeel Shaban**.
 
-Questions or collaboration: [sadeelshabanmedia@gmail.com](mailto:sadeelshabanmedia@gmail.com)
+Questions, demos, or acquisition terms: [sadeelshabanmedia@gmail.com](mailto:sadeelshabanmedia@gmail.com)
