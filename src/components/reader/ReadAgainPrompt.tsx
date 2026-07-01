@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/Button";
+import { ReadBookIcon } from "@/components/icons/ReadBookIcon";
 
 type ReadAgainPromptProps = {
   readCount: number;
@@ -31,7 +32,8 @@ export function ReadAgainPrompt({
         </p>
         <div className="mt-6 flex flex-col gap-3">
           <Button size="lg" className="w-full gap-2" onClick={onReadAgain}>
-            <span aria-hidden>▶</span> Read Again
+            <ReadBookIcon />
+            Read Again
           </Button>
           <button
             type="button"

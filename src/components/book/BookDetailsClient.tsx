@@ -27,6 +27,7 @@ import {
   TabHighlighterIcon,
   TabNoteIcon,
 } from "@/components/book/BookDetailTabIcons";
+import { ReadBookIcon } from "@/components/icons/ReadBookIcon";
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
 
@@ -529,9 +530,7 @@ export function BookDetailsClient({
           <div className="mt-6 flex flex-wrap gap-3">
             <Link href={`/book/${book.id}/read`}>
               <Button className="h-11 gap-2 px-6 transition duration-200 hover:-translate-y-0.5">
-                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 5v14l11-7L5 5Z" />
-                </svg>
+                <ReadBookIcon />
                 {readLabel}
               </Button>
             </Link>

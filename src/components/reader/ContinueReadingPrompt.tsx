@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/Button";
+import { ReadBookIcon } from "@/components/icons/ReadBookIcon";
 
 type ContinueReadingPromptProps = {
   page: number;
@@ -30,7 +31,8 @@ export function ContinueReadingPrompt({
         </p>
         <div className="mt-6 flex flex-col gap-3">
           <Button size="lg" className="w-full gap-2" onClick={onContinue}>
-            <span aria-hidden>▶</span> Continue Reading
+            <ReadBookIcon />
+            Continue Reading
           </Button>
           <button
             type="button"
