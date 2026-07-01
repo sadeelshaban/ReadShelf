@@ -24,19 +24,17 @@ export async function AppHeader() {
     : null;
 
   return (
-    <header className="sticky top-0 z-40 border-b border-white/60 bg-card/85 backdrop-blur-xl">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
-        <Link href="/shelf" className="flex min-w-0 items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-white/80 shadow-sm ring-1 ring-black/5">
-            <Image
-              src="/logo.png"
-              alt="ReadShelf"
-              width={28}
-              height={28}
-              className="h-7 w-7 object-cover"
-              unoptimized
-            />
-          </div>
+    <header className="sticky top-0 z-40 border-b border-[#eadbc8]/70 bg-background/80 backdrop-blur-xl">
+      <div className="flex w-full items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
+        <Link href="/shelf" className="flex min-w-0 items-center gap-2.5">
+          <Image
+            src="/logo.png"
+            alt="ReadShelf"
+            width={36}
+            height={36}
+            className="h-9 w-9 shrink-0 rounded-lg object-cover"
+            unoptimized
+          />
           <div className="min-w-0 leading-tight">
             <span className="font-serif text-lg font-semibold text-primary">
               ReadShelf

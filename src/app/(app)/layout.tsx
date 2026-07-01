@@ -9,8 +9,8 @@ export default function AppLayout({
   return (
     <div className="ambient-bg min-h-screen">
       <AppHeader />
-      <main className="mx-auto max-w-6xl px-4 py-7 sm:px-6 sm:py-8">{children}</main>
-      <div className="mx-auto max-w-6xl px-4 pb-8 sm:px-6">
+      <main className="w-full px-4 py-7 sm:px-6 sm:py-8 lg:px-8">{children}</main>
+      <div className="w-full px-4 pb-8 sm:px-6 lg:px-8">
         <SiteFooter />
       </div>
     </div>
