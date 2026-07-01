@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Live demo** | [readshelf-rust.vercel.app](https://readshelf-rust.vercel.app) |
-| **Acquisition one-pager** | [/platform](https://readshelf-rust.vercel.app/platform) |
+| **Acquisition one-pager** | Direct URL only — `/platform` (not linked from the public site; share with buyers) |
 | **Data Room (docs)** | [docs/README.md](./docs/README.md) |
 | **Contact** | [sadeelshabanmedia@gmail.com](mailto:sadeelshabanmedia@gmail.com) |
 
@@ -105,7 +105,7 @@ ReadShelf is a full-stack web product for reading PDF books in the browser. User
 - Gated by `ADMIN_EMAILS` environment variable
 
 ### Acquisition
-- Public **[/platform](https://readshelf-rust.vercel.app/platform)** one-pager for buyers
+- Acquisition one-pager at `/platform` — **direct link only** (not in site footer; share with buyers)
 - `npm run create:admin` — admin account setup
 
 ---
@@ -201,7 +201,7 @@ See [docs/branding.md](./docs/branding.md) for palette, fonts, and white-label s
 3. Close the tab and reopen — confirm **Continue Reading** restores your position.
 4. Visit **book details** — check Last opened, progress, and annotation tabs.
 5. Export an annotated PDF and verify highlights appear.
-6. Review **[/platform](https://readshelf-rust.vercel.app/platform)** and the admin analytics (admin access available on request).
+6. Review the admin analytics (admin access available on request).
 7. Email **[sadeelshabanmedia@gmail.com](mailto:sadeelshabanmedia@gmail.com)** for source access, pricing, and handover terms.
 
 ---
@@ -341,7 +341,7 @@ public/                   # Icons, pdf.js worker + cmaps + wasm (generated)
 ReadShelf is offered as a **full product sale** — source code, database schema, deployment, and handover.
 
 - **Inquiry:** [sadeelshabanmedia@gmail.com](mailto:sadeelshabanmedia@gmail.com?subject=ReadShelf%20acquisition%20inquiry)
-- **Overview:** [readshelf-rust.vercel.app/platform](https://readshelf-rust.vercel.app/platform)
+- **Buyer deck (direct link):** `https://readshelf-rust.vercel.app/platform` — not linked from the public site
 - **License:** Private — all rights reserved unless otherwise agreed in writing
 
 ---

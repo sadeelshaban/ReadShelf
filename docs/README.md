@@ -19,5 +19,5 @@ Due-diligence documentation for buyers evaluating ReadShelf as a digital asset o
 | [Legal](./legal.md) | Terms, Privacy, Copyright pages |
 
 **Live demo:** [readshelf-rust.vercel.app](https://readshelf-rust.vercel.app)  
-**Acquisition page:** [/platform](https://readshelf-rust.vercel.app/platform)  
+**Acquisition page:** direct URL `/platform` (unlisted — share with buyers only)  
 **Contact:** [sadeelshabanmedia@gmail.com](mailto:sadeelshabanmedia@gmail.com)

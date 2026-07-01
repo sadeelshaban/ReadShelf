@@ -51,16 +51,7 @@ export function SiteFooter({
               {link.label}
             </Link>
           ))}
-          <Link
-            href="/platform"
-            className={cn(
-              "transition-colors duration-200 hover:underline",
-              isDark ? "hover:text-white/80" : "hover:text-text/80",
-            )}
-          >
-            Platform
-          </Link>
-          {showAcquisitionLinks && (
+        </nav>
             <>
               <a
                 href="https://github.com/sadeelshaban/ReadShelf"

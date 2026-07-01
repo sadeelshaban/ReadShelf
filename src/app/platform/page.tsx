@@ -9,6 +9,10 @@ export const metadata: Metadata = {
   title: "Platform overview",
   description:
     "White-label PDF reading infrastructure with annotations, offline sync, and secure storage.",
+  robots: {
+    index: false,
+    follow: false,
+  },
 };
 
 const liveDemoUrl =
