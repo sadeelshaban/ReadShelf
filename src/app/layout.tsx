@@ -23,8 +23,8 @@ export const metadata: Metadata = {
   description:
     "A personal digital shelf that saves books, reading progress, highlights, and notes.",
   icons: {
-    icon: [{ url: "/favicon.png", type: "image/png" }],
-    shortcut: "/favicon.png",
+    icon: [{ url: "/logo.png", type: "image/png" }],
+    shortcut: "/logo.png",
     apple: "/logo.png",
   },
   openGraph: {

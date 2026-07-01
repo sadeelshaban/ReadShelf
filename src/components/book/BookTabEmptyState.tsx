@@ -6,42 +6,28 @@ type BookTabEmptyStateProps = {
   bookId: string;
 };
 
-function HighlighterIcon() {
+function BookOpenIllustration() {
   return (
     <svg
-      className="h-6 w-6 text-[#5b4028]"
-      viewBox="0 0 24 24"
+      className="h-16 w-16 text-[#8B6F52]"
+      viewBox="0 0 64 64"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.75"
+      strokeWidth="1.5"
       aria-hidden
     >
       <path
         strokeLinecap="round"
         strokeLinejoin="round"
-        d="M4 20h4l10.5-10.5a2.12 2.12 0 1 0-3-3L5 17v3Z"
+        d="M12 14c0-2.2 1.8-4 4-4h14v44H16c-2.2 0-4-1.8-4-4V14Z"
       />
-      <path strokeLinecap="round" strokeLinejoin="round" d="m13.5 6.5 3 3" />
-    </svg>
-  );
-}
-
-function NotesIcon() {
-  return (
-    <svg
-      className="h-6 w-6 text-[#5b4028]"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.75"
-      aria-hidden
-    >
       <path
         strokeLinecap="round"
         strokeLinejoin="round"
-        d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6Z"
+        d="M36 10h14c2.2 0 4 1.8 4 4v36c0 2.2-1.8 4-4 4H36V10Z"
       />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M14 2v6h6M16 13H8M16 17H8M10 9H8" />
+      <path strokeLinecap="round" d="M32 10v44" />
+      <path strokeLinecap="round" d="M18 22h8M18 28h8M42 22h8M42 28h8" />
     </svg>
   );
 }
@@ -85,20 +71,14 @@ export function BookTabEmptyState({ variant, bookId }: BookTabEmptyStateProps) {
   const { title, description } = COPY[variant];
 
   return (
-    <div className="flex min-h-[20rem] flex-col items-center justify-center px-6 py-14 text-center">
-      <span className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#f3ece2]">
-        {variant === "highlights" ? (
-          <HighlighterIcon />
-        ) : variant === "notes" ? (
-          <NotesIcon />
-        ) : (
-          <NotesIcon />
-        )}
+    <div className="book-tab-panel flex min-h-[18rem] flex-col items-center justify-center px-6 py-12 text-center">
+      <span className="mb-6 flex h-24 w-24 items-center justify-center rounded-3xl border border-[#eadbc8]/80 bg-[#fff8f1] shadow-[0_12px_28px_rgba(0,0,0,0.08)]">
+        <BookOpenIllustration />
       </span>
       <h3 className="font-serif text-2xl font-semibold text-[#3c2a21]">{title}</h3>
       <p className="mt-3 max-w-md text-sm leading-relaxed text-[#8a7968]">{description}</p>
       <Link href={`/book/${bookId}/read`} className="mt-8">
-        <Button className="gap-2 px-6">
+        <Button className="h-11 gap-2 px-6">
           <BookOpenIcon />
           Start Reading
         </Button>

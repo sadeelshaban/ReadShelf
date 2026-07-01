@@ -40,9 +40,46 @@ body {
 
 .ambient-bg {
   background:
-    radial-gradient(ellipse 70% 45% at 10% -5%, rgba(201, 149, 42, 0.1), transparent),
-    radial-gradient(ellipse 50% 35% at 95% 0%, rgba(111, 69, 40, 0.07), transparent),
+    radial-gradient(ellipse 70% 45% at 10% -5%, rgba(201, 149, 42, 0.08), transparent),
+    radial-gradient(ellipse 50% 35% at 95% 0%, rgba(111, 69, 40, 0.056), transparent),
     var(--background);
+}
+
+.readshelf-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(111, 69, 40, 0.35) transparent;
+}
+
+.readshelf-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.readshelf-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.readshelf-scroll::-webkit-scrollbar-thumb {
+  background: rgba(139, 111, 82, 0.45);
+  border-radius: 9999px;
+}
+
+.readshelf-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(111, 69, 40, 0.65);
+}
+
+@keyframes book-tab-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.book-tab-panel {
+  animation: book-tab-fade-in 0.25s ease;
 }
 
 .glass-panel {

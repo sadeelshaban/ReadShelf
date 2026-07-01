@@ -9,10 +9,15 @@ import { mergeAnnotationsById } from "@/lib/annotations/merge";
 import { getReadButtonLabel } from "@/lib/pdf";
 import { formatLastOpened, formatReadCount } from "@/lib/books/reading-stats";
 import { bookmarkColorHex } from "@/lib/reader/bookmarks";
+import {
+  HIGHLIGHT_PRESETS,
+  NOTE_TEXT_COLORS,
+  normalizeHex,
+  noteTextCss,
+} from "@/lib/reader/constants";
 import { flushSyncQueue, loadBookAnnotations, loadBookBookmarks } from "@/lib/offline/reader-api";
 import { cacheBook } from "@/lib/offline/books-store";
 import { purgeBookFromLocalCache } from "@/lib/offline/purge-book-cache";
-import { noteTextCss } from "@/lib/reader/constants";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { BookTabEmptyState } from "@/components/book/BookTabEmptyState";
@@ -93,15 +98,36 @@ function formatAddedDate(date: string) {
   }).format(new Date(date));
 }
 
-function MetaPill({
-  icon,
-  children,
-}: {
-  icon: ReactNode;
-  children: ReactNode;
-}) {
+function highlightColorLabel(color: string) {
+  const normalized = normalizeHex(color).toLowerCase();
+  const preset = HIGHLIGHT_PRESETS.find((p) => p.value.toLowerCase() === normalized);
+  return preset ? `${preset.name} highlight` : "Highlight";
+}
+
+function noteColorLabel(cssColor: string) {
+  const match = NOTE_TEXT_COLORS.find((c) => c.css.toLowerCase() === cssColor.toLowerCase());
+  return match ? `${match.name} note` : "Note";
+}
+
+function PageIcon({ className }: { className?: string }) {
   return (
-    <span className="inline-flex items-center gap-2 rounded-xl border border-[#eadbc8]/80 bg-[#fbf7f0] px-3.5 py-2 text-sm text-[#5b4028]">
+    <svg
+      className={cn("h-4 w-4 shrink-0 text-[#8B6F52]", className)}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      aria-hidden
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6Z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M14 2v6h6" />
+    </svg>
+  );
+}
+
+function MetaPill({ icon, children }: { icon: ReactNode; children: ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-2 rounded-full border border-[#eadbc8]/90 bg-[#fff8f1] px-4 py-2 text-sm text-[#5b4028] transition duration-200 hover:border-primary/25 hover:shadow-sm">
       {icon}
       {children}
     </span>
@@ -112,13 +138,13 @@ function ActionButton({
   children,
   onClick,
   disabled,
-  danger,
+  variant = "secondary",
   className,
 }: {
   children: ReactNode;
   onClick?: () => void;
   disabled?: boolean;
-  danger?: boolean;
+  variant?: "secondary" | "outline" | "danger";
   className?: string;
 }) {
   return (
@@ -127,15 +153,59 @@ function ActionButton({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50",
-        danger
-          ? "border-red-200 bg-white text-red-600 hover:bg-red-50"
-          : "border-[#eadbc8] bg-white text-[#3c2a21] hover:bg-[#fbf7f0]",
+        "inline-flex h-11 min-w-[5.5rem] items-center justify-center gap-2 rounded-xl px-4 text-sm font-medium transition duration-200 disabled:cursor-not-allowed disabled:opacity-50",
+        variant === "danger" &&
+          "border border-red-200 bg-white text-red-600 hover:-translate-y-0.5 hover:bg-red-50 hover:shadow-sm",
+        variant === "outline" &&
+          "border border-[#eadbc8] bg-transparent text-[#3c2a21] hover:-translate-y-0.5 hover:bg-[#fff8f1] hover:shadow-sm",
+        variant === "secondary" &&
+          "border border-[#eadbc8] bg-white text-[#3c2a21] hover:-translate-y-0.5 hover:bg-[#fbf7f0] hover:shadow-sm",
         className,
       )}
     >
       {children}
     </button>
+  );
+}
+
+function AnnotationCard({
+  href,
+  pageNumber,
+  subtitle,
+  colors,
+  colorLabel,
+}: {
+  href: string;
+  pageNumber: number;
+  subtitle?: string;
+  colors: string[];
+  colorLabel: (color: string) => string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="flex items-center justify-between gap-4 rounded-xl border border-[#eadbc8]/70 bg-[#fff8f1] px-4 py-3.5 transition duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:bg-[#fffdf9] hover:shadow-[0_8px_20px_rgba(31,22,16,0.08)]"
+    >
+      <div className="min-w-0">
+        <span className="flex items-center gap-2 text-sm font-semibold text-[#3c2a21]">
+          <PageIcon />
+          Page {pageNumber}
+        </span>
+        {subtitle && (
+          <p className="mt-1 pl-6 text-xs font-medium text-[#8a7968]">{subtitle}</p>
+        )}
+      </div>
+      <div className="flex shrink-0 items-center gap-2">
+        {colors.map((color) => (
+          <span
+            key={`${pageNumber}-${color}`}
+            className="h-3.5 w-3.5 rounded-full border border-[#eadbc8]/90 shadow-sm"
+            style={{ backgroundColor: color }}
+            title={colorLabel(color)}
+          />
+        ))}
+      </div>
+    </Link>
   );
 }
 
@@ -188,8 +258,10 @@ export function BookDetailsClient({
   const noteGroups = groupNotesByPage(displayNotes);
   const readLabel = getReadButtonLabel(book);
   const isUnread = !book.last_opened_at;
+  const isCompleted = book.progress_percent >= 100;
   const lastOpenedLabel = book.last_opened_at ? formatLastOpened(book.last_opened_at) : null;
   const readCountLabel = formatReadCount(book.read_count ?? 0);
+  const progressPercent = Math.min(100, Math.max(0, book.progress_percent ?? 0));
 
   function startEditing() {
     setEditTitle(book.title);
@@ -322,10 +394,10 @@ export function BookDetailsClient({
   }
 
   return (
-    <div className="space-y-8">
+    <div className="mx-auto w-full max-w-[1500px] space-y-6 pb-4">
       <Link
         href="/shelf"
-        className="inline-flex items-center gap-1.5 text-sm font-medium text-[#8a7968] transition hover:text-primary"
+        className="inline-flex items-center gap-1.5 text-sm font-medium text-[#8a7968] transition duration-200 hover:text-primary"
       >
         <span aria-hidden>←</span> Back to shelf
       </Link>
@@ -341,15 +413,15 @@ export function BookDetailsClient({
         </div>
       )}
 
-      <div className="flex flex-row items-start gap-5 sm:gap-8">
-        <div className="w-[128px] shrink-0 sm:w-[168px] lg:w-[200px]">
-          <div className="relative aspect-[3/4] overflow-hidden rounded-2xl bg-[#f3ece2] shadow-lg ring-1 ring-black/5">
+      <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-[minmax(140px,200px)_1fr] lg:gap-10">
+        <div className="mx-auto w-[140px] shrink-0 sm:w-[168px] lg:mx-0 lg:w-full">
+          <div className="group relative aspect-[3/4] overflow-hidden rounded-2xl bg-[#f3ece2] shadow-[0_12px_28px_rgba(0,0,0,0.12)] ring-1 ring-black/5 transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_16px_32px_rgba(0,0,0,0.14)]">
             {coverUrl ? (
               <Image
                 src={coverUrl}
                 alt={`Cover of ${book.title}`}
                 fill
-                className="object-cover"
+                className="object-cover transition duration-200 group-hover:scale-[1.02]"
                 unoptimized
                 priority
               />
@@ -359,28 +431,48 @@ export function BookDetailsClient({
               </div>
             )}
             {isUnread && (
-              <span className="absolute left-2 top-2 rounded-lg bg-[#f3ece2]/95 px-2 py-0.5 text-[10px] font-semibold text-[#5b4028] shadow-sm ring-1 ring-[#eadbc8] sm:left-3 sm:top-3 sm:px-2.5 sm:py-1 sm:text-xs">
+              <span className="absolute left-2 top-2 rounded-lg bg-[#fff8f1]/95 px-2 py-0.5 text-[10px] font-semibold text-[#5b4028] shadow-sm ring-1 ring-[#eadbc8] sm:left-3 sm:top-3 sm:px-2.5 sm:py-1 sm:text-xs">
                 To Read
+              </span>
+            )}
+            {isCompleted && (
+              <span className="absolute right-2 top-2 rounded-lg bg-primary/90 px-2 py-0.5 text-[10px] font-semibold text-white shadow-sm sm:right-3 sm:top-3 sm:px-2.5 sm:py-1 sm:text-xs">
+                Completed
               </span>
             )}
           </div>
         </div>
 
-        <div className="min-w-0 flex-1 text-left">
+        <div className="min-w-0 text-left">
           <h1
-            className="text-left font-serif text-2xl font-semibold leading-tight text-[#3c2a21] sm:text-3xl lg:text-4xl"
+            className="text-left font-serif text-[2.5rem] font-bold leading-[1.2] text-[#3c2a21]"
             dir="auto"
           >
             {book.title}
           </h1>
-          <p className="mt-2 text-left text-base text-[#8a7968] sm:text-lg" dir="auto">
+          <p className="mt-2 text-left text-lg text-[#8B6F52]" dir="auto">
             {book.author || "Unknown author"}
           </p>
 
-          <div className="mt-5 flex flex-wrap gap-3">
+          {progressPercent > 0 && (
+            <div className="mt-5 max-w-md">
+              <div className="flex items-center justify-between text-xs font-medium text-[#8a7968]">
+                <span>Reading progress</span>
+                <span className="tabular-nums text-[#5b4028]">{progressPercent}%</span>
+              </div>
+              <div className="mt-2 h-2 overflow-hidden rounded-full bg-[#eadbc8]/70">
+                <div
+                  className="h-full rounded-full bg-primary transition-all duration-300"
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="mt-5 flex flex-wrap gap-2 sm:gap-3">
             <MetaPill
               icon={
-                <svg className="h-4 w-4 text-[#8a7968]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+                <svg className="h-4 w-4 text-[#8B6F52]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z" />
                 </svg>
@@ -390,29 +482,29 @@ export function BookDetailsClient({
             </MetaPill>
             <MetaPill
               icon={
-                <svg className="h-4 w-4 text-[#8a7968]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+                <svg className="h-4 w-4 text-[#8B6F52]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z" />
                 </svg>
               }
             >
-              {formatAddedDate(book.created_at)} Added
+              {formatAddedDate(book.created_at)}
             </MetaPill>
             {lastOpenedLabel && (
               <MetaPill
                 icon={
-                  <svg className="h-4 w-4 text-[#8a7968]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+                  <svg className="h-4 w-4 text-[#8B6F52]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
                     <circle cx="12" cy="12" r="9" />
                     <path strokeLinecap="round" d="M12 7v5l3 2" />
                   </svg>
                 }
               >
-                Last opened: {lastOpenedLabel}
+                Last opened {lastOpenedLabel}
               </MetaPill>
             )}
             {readCountLabel && (
               <MetaPill
                 icon={
-                  <svg className="h-4 w-4 text-[#8a7968]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+                  <svg className="h-4 w-4 text-[#8B6F52]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
                     <path strokeLinecap="round" strokeLinejoin="round" d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z" />
                   </svg>
@@ -425,8 +517,10 @@ export function BookDetailsClient({
 
           <div className="mt-6 flex flex-wrap gap-3">
             <Link href={`/book/${book.id}/read`}>
-              <Button className="gap-2 px-5 py-2.5">
-                <span aria-hidden>▶</span>
+              <Button className="h-11 gap-2 px-6 transition duration-200 hover:-translate-y-0.5">
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 5v14l11-7L5 5Z" />
+                </svg>
                 {readLabel}
               </Button>
             </Link>
@@ -436,13 +530,13 @@ export function BookDetailsClient({
               </svg>
               Edit
             </ActionButton>
-            <ActionButton onClick={downloadPdf} disabled={downloading}>
+            <ActionButton variant="outline" onClick={downloadPdf} disabled={downloading}>
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v12m0 0 4-4m-4 4-4-4M4 21h16" />
               </svg>
               {downloading ? "..." : "PDF"}
             </ActionButton>
-            <ActionButton onClick={deleteBook} disabled={deleting} danger>
+            <ActionButton variant="danger" onClick={deleteBook} disabled={deleting}>
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V6h12Z" />
               </svg>
@@ -461,10 +555,10 @@ export function BookDetailsClient({
               <Input label="Title" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} required />
               <Input label="Author" value={editAuthor} onChange={(e) => setEditAuthor(e.target.value)} />
               <div className="flex gap-3">
-                <Button type="submit" size="sm" disabled={saving}>
+                <Button type="submit" size="sm" disabled={saving} className="h-11">
                   {saving ? "Saving..." : "Save"}
                 </Button>
-                <Button type="button" variant="secondary" size="sm" disabled={saving} onClick={cancelEditing}>
+                <Button type="button" variant="secondary" size="sm" disabled={saving} className="h-11" onClick={cancelEditing}>
                   Cancel
                 </Button>
               </div>
@@ -473,8 +567,8 @@ export function BookDetailsClient({
         </div>
       </div>
 
-      <section className="overflow-hidden rounded-3xl border border-[#eadbc8]/70 bg-white shadow-sm">
-        <div className="flex gap-1 border-b border-[#eadbc8]/70 px-4 pt-2 sm:px-6">
+      <section className="overflow-hidden rounded-3xl border border-[#eadbc8]/70 bg-white shadow-[0_8px_24px_rgba(31,22,16,0.06)]">
+        <div className="flex gap-1 border-b border-[#eadbc8]/70 px-4 pt-1 sm:px-6">
           {(
             [
               { id: "highlights" as const, label: "Highlights", count: highlightGroups.length },
@@ -487,10 +581,10 @@ export function BookDetailsClient({
               type="button"
               onClick={() => setTab(item.id)}
               className={cn(
-                "flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition",
+                "flex items-center gap-2 border-b-[3px] px-4 py-3 text-sm font-medium transition duration-[250ms]",
                 tab === item.id
                   ? "border-primary text-primary"
-                  : "border-transparent text-[#8a7968] hover:text-[#5b4028]",
+                  : "border-transparent text-[#8a7968] hover:border-[#eadbc8] hover:text-[#5b4028]",
               )}
             >
               {item.id === "highlights" ? (
@@ -507,39 +601,32 @@ export function BookDetailsClient({
                 </svg>
               )}
               {item.label}
-              <span className="rounded-full bg-[#f3ece2] px-2 py-0.5 text-xs font-semibold text-[#5b4028]">
+              <span className="rounded-full bg-[#fff8f1] px-2 py-0.5 text-xs font-semibold text-[#5b4028] ring-1 ring-[#eadbc8]/80">
                 {item.count}
               </span>
             </button>
           ))}
         </div>
 
-        <div className="max-h-[28rem] overflow-y-auto overscroll-contain">
+        <div key={tab} className="book-tab-panel max-h-[28rem] overflow-y-auto overscroll-contain readshelf-scroll">
           {tab === "highlights" &&
             (highlightGroups.length === 0 ? (
               <BookTabEmptyState variant="highlights" bookId={book.id} />
             ) : (
-              <ul className="space-y-2 p-4 sm:p-6">
+              <ul className="space-y-3 p-4 sm:p-6">
                 {highlightGroups.map((group) => (
                   <li key={group.pageNumber}>
-                    <Link
+                    <AnnotationCard
                       href={`/book/${book.id}/read?page=${group.pageNumber}`}
-                      className="flex items-center justify-between gap-3 rounded-xl border border-[#eadbc8]/70 bg-[#fbf7f0] px-4 py-3 transition hover:border-primary/30 hover:bg-[#f7f1e5]"
-                    >
-                      <span className="text-sm font-medium text-[#3c2a21]">
-                        Page {group.pageNumber}
-                      </span>
-                      <div className="flex shrink-0 items-center gap-1.5">
-                        {group.colors.map((color) => (
-                          <span
-                            key={`${group.pageNumber}-${color}`}
-                            className="h-5 w-5 rounded-full border border-[#eadbc8]"
-                            style={{ backgroundColor: color }}
-                            title="Highlight color"
-                          />
-                        ))}
-                      </div>
-                    </Link>
+                      pageNumber={group.pageNumber}
+                      subtitle={
+                        group.highlightIds.length > 1
+                          ? `${group.highlightIds.length} highlights`
+                          : undefined
+                      }
+                      colors={group.colors}
+                      colorLabel={highlightColorLabel}
+                    />
                   </li>
                 ))}
               </ul>
@@ -549,27 +636,20 @@ export function BookDetailsClient({
             (noteGroups.length === 0 ? (
               <BookTabEmptyState variant="notes" bookId={book.id} />
             ) : (
-              <ul className="space-y-2 p-4 sm:p-6">
+              <ul className="space-y-3 p-4 sm:p-6">
                 {noteGroups.map((group) => (
                   <li key={group.pageNumber}>
-                    <Link
+                    <AnnotationCard
                       href={`/book/${book.id}/read?page=${group.pageNumber}`}
-                      className="flex items-center justify-between gap-3 rounded-xl border border-[#eadbc8]/70 bg-[#fbf7f0] px-4 py-3 transition hover:border-primary/30 hover:bg-[#f7f1e5]"
-                    >
-                      <span className="text-sm font-medium text-[#3c2a21]">
-                        Page {group.pageNumber}
-                      </span>
-                      <div className="flex shrink-0 items-center gap-1.5">
-                        {group.colors.map((color) => (
-                          <span
-                            key={`${group.pageNumber}-${color}`}
-                            className="h-5 w-5 rounded-full border border-[#eadbc8]"
-                            style={{ backgroundColor: color }}
-                            title="Note color"
-                          />
-                        ))}
-                      </div>
-                    </Link>
+                      pageNumber={group.pageNumber}
+                      subtitle={
+                        group.noteIds.length > 1
+                          ? `${group.noteIds.length} notes`
+                          : undefined
+                      }
+                      colors={group.colors}
+                      colorLabel={noteColorLabel}
+                    />
                   </li>
                 ))}
               </ul>
@@ -579,28 +659,27 @@ export function BookDetailsClient({
             (displayBookmarks.length === 0 ? (
               <BookTabEmptyState variant="bookmarks" bookId={book.id} />
             ) : (
-              <ul className="space-y-2 p-4 sm:p-6">
+              <ul className="space-y-3 p-4 sm:p-6">
                 {displayBookmarks.map((bookmark) => (
                   <li key={bookmark.id}>
                     <Link
                       href={`/book/${book.id}/read?page=${bookmark.page_number}`}
-                      className="block rounded-xl border border-[#eadbc8]/70 bg-[#fbf7f0] px-4 py-3 transition hover:border-primary/30 hover:bg-[#f7f1e5]"
+                      className="flex items-start justify-between gap-4 rounded-xl border border-[#eadbc8]/70 bg-[#fff8f1] px-4 py-3.5 transition duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:bg-[#fffdf9] hover:shadow-[0_8px_20px_rgba(31,22,16,0.08)]"
                     >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-[#3c2a21]">
-                            {bookmark.label || `Page ${bookmark.page_number}`}
-                          </p>
-                          <p className="mt-0.5 text-xs text-[#8a7968]">
-                            Page {bookmark.page_number}
-                          </p>
-                        </div>
-                        <span
-                          className="mt-0.5 h-5 w-5 shrink-0 rounded-full border border-[#eadbc8]"
-                          style={{ backgroundColor: bookmarkColorHex(bookmark.color) }}
-                          title="Bookmark color"
-                        />
+                      <div className="min-w-0">
+                        <p className="flex items-center gap-2 text-sm font-semibold text-[#3c2a21]">
+                          <PageIcon />
+                          {bookmark.label || `Page ${bookmark.page_number}`}
+                        </p>
+                        <p className="mt-1 pl-6 text-xs text-[#8a7968]">
+                          Page {bookmark.page_number}
+                        </p>
                       </div>
+                      <span
+                        className="mt-0.5 h-3.5 w-3.5 shrink-0 rounded-full border border-[#eadbc8]/90 shadow-sm"
+                        style={{ backgroundColor: bookmarkColorHex(bookmark.color) }}
+                        title={`${bookmark.color} bookmark`}
+                      />
                     </Link>
                   </li>
                 ))}

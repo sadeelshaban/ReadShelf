@@ -51,7 +51,7 @@ export function SiteFooter({
               {link.label}
             </Link>
           ))}
-        </nav>
+          {showAcquisitionLinks && (
             <>
               <a
                 href="https://github.com/sadeelshaban/ReadShelf"
