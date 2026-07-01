@@ -1,35 +1,57 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { SiteFooter } from "@/components/layout/SiteFooter";
+import { PlatformHeroPreview } from "@/components/platform/PlatformHeroPreview";
+import { PlatformNav } from "@/components/platform/PlatformNav";
 
 export const metadata: Metadata = {
   title: "Platform overview",
   description:
-    "Production-ready white-label PDF reading platform with offline sync, annotations, and secure storage.",
+    "White-label PDF reading infrastructure with annotations, offline sync, and secure storage.",
 };
 
 const liveDemoUrl =
   process.env.NEXT_PUBLIC_SITE_URL ?? "https://readshelf-rust.vercel.app";
 
+const acquisitionMailto =
+  "mailto:sadeelshabanmedia@gmail.com?subject=ReadShelf%20acquisition%20package";
+
+const docsUrl =
+  "https://github.com/sadeelshaban/ReadShelf/blob/main/docs/README.md";
+
 const buyers = [
   {
+    icon: "🎓",
     title: "EdTech & Course Platforms",
-    body: "Give learners a private shelf for course PDFs, textbooks, and handouts with progress tracking.",
+    body: "Private shelves for course PDFs, textbooks, and handouts with progress tracking.",
   },
   {
+    icon: "📚",
     title: "Publishers",
-    body: "Offer a branded reading experience with highlights, notes, and annotated PDF export — including Arabic text support.",
+    body: "Branded reading with highlights, notes, and annotated export — including Arabic text.",
   },
   {
+    icon: "🏢",
     title: "Corporate Training & Knowledge Teams",
     body: "Centralize manuals, SOPs, and training PDFs in one secure library per organization.",
   },
   {
+    icon: "💻",
     title: "Development Agencies",
-    body: "Acquire a white-label base and ship a reading product for clients in weeks instead of months.",
+    body: "White-label base to ship a reading product for clients in weeks, not months.",
   },
+];
+
+const capabilities = [
+  { icon: "📚", text: "Personal PDF library with covers and search" },
+  { icon: "📈", text: "Reading progress synced per book and device" },
+  { icon: "✏️", text: "Highlights, notes, pen, and eraser in the reader" },
+  { icon: "📄", text: "Annotated PDF export with Arabic text support" },
+  { icon: "☁️", text: "Offline reading after first open online" },
+  { icon: "🔖", text: "Bookmarks with color-coded page ribbons" },
+  { icon: "↩️", text: "Continue Reading and Read Again flows" },
+  { icon: "📊", text: "Admin dashboard with engagement analytics" },
 ];
 
 const included = [
@@ -44,62 +66,53 @@ const included = [
   "Production deployment on Vercel + handover support",
 ];
 
-const tech = [
-  "Next.js 16 (App Router)",
-  "React 19 + TypeScript",
-  "Supabase (Auth, PostgreSQL)",
-  "Supabase Storage (PDF & cover object storage)",
-  "pdfjs-dist + pdf-lib",
-  "IndexedDB offline layer",
-  "Vercel deployment",
+const techBadges = [
+  "Next.js 16",
+  "React 19",
+  "TypeScript",
+  "Supabase",
+  "PostgreSQL",
+  "pdf.js",
+  "pdf-lib",
+  "IndexedDB",
+  "Vercel",
 ];
 
 export default function PlatformPage() {
   return (
     <div className="ambient-bg min-h-screen">
-      <header className="border-b border-white/50 bg-card/60 backdrop-blur-md">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4 sm:px-6">
-          <Link href="/" className="flex items-center gap-3">
-            <Image
-              src="/logo.png"
-              alt="ReadShelf"
-              width={40}
-              height={40}
-              className="h-9 w-9 rounded-lg object-cover"
-              unoptimized
-            />
-            <span className="font-serif text-xl font-semibold text-primary">ReadShelf</span>
-          </Link>
-          <Link href={liveDemoUrl} target="_blank" rel="noopener noreferrer">
-            <Button variant="secondary" size="sm">
-              Live demo
-            </Button>
-          </Link>
-        </div>
-      </header>
+      <PlatformNav liveDemoUrl={liveDemoUrl} />
 
-      <main className="mx-auto max-w-5xl px-4 py-10 sm:px-6 sm:py-14">
-        <section className="glass-panel rounded-3xl p-8 sm:p-10">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-text-muted">
-            Acquisition Overview
-          </p>
-          <h1 className="mt-3 font-serif text-4xl font-semibold tracking-tight text-primary sm:text-5xl">
-            A production-ready PDF reading platform
-          </h1>
-          <p className="mt-4 max-w-3xl text-base leading-7 text-text-muted">
-            ReadShelf is a white-label reading infrastructure product: personal libraries,
-            in-browser PDF reading, annotations, progress sync, offline support, and
-            annotated export. Built for teams that need a complete solution — not a prototype.
-          </p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <a href="mailto:sadeelshabanmedia@gmail.com?subject=ReadShelf%20acquisition%20inquiry">
-              <Button size="lg">Request acquisition details</Button>
-            </a>
-            <Link href={liveDemoUrl} target="_blank" rel="noopener noreferrer">
-              <Button variant="secondary" size="lg">
-                Open live demo
-              </Button>
-            </Link>
+      <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
+        <section
+          id="overview"
+          className="glass-panel scroll-mt-24 rounded-3xl p-8 sm:p-10 lg:grid lg:grid-cols-2 lg:items-center lg:gap-10"
+        >
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-text-muted">
+              Acquisition Overview
+            </p>
+            <h1 className="mt-3 font-serif text-4xl font-semibold tracking-tight text-primary sm:text-[2.75rem] sm:leading-tight">
+              Build your PDF reading platform in weeks, not months
+            </h1>
+            <p className="mt-4 text-base leading-7 text-text-muted">
+              White-label PDF reading infrastructure with annotations, bookmarks,
+              offline support, reading progress, and Arabic PDF export — ready for
+              EdTech, publishers, and agencies.
+            </p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Link href={liveDemoUrl} target="_blank" rel="noopener noreferrer">
+                <Button size="lg">Open live demo</Button>
+              </Link>
+              <a href={acquisitionMailto}>
+                <Button variant="secondary" size="lg">
+                  Request acquisition package
+                </Button>
+              </a>
+            </div>
+          </div>
+          <div className="mt-10 lg:mt-0">
+            <PlatformHeroPreview />
           </div>
         </section>
 
@@ -107,17 +120,15 @@ export default function PlatformPage() {
           <article className="glass-panel rounded-2xl p-6">
             <h2 className="font-serif text-2xl font-semibold text-primary">Problem</h2>
             <p className="mt-3 text-sm leading-6 text-text-muted">
-              Teams and learners struggle with fragmented PDF workflows. Files sit in
-              folders and generic viewers. Progress, highlights, and notes don&apos;t stay
-              attached to the book, and they don&apos;t follow the user across devices.
+              Teams struggle with fragmented PDF workflows. Progress, highlights, and
+              notes don&apos;t stay attached to the book or follow users across devices.
             </p>
           </article>
           <article className="glass-panel rounded-2xl p-6">
             <h2 className="font-serif text-2xl font-semibold text-primary">Solution</h2>
             <p className="mt-3 text-sm leading-6 text-text-muted">
               ReadShelf centralizes reading, notes, highlights, and progress in one calm
-              shelf. Each user gets a private library with a full annotation toolkit and
-              optional admin analytics for platform operators.
+              shelf — with a full annotation toolkit and optional admin analytics.
             </p>
           </article>
         </section>
@@ -127,47 +138,68 @@ export default function PlatformPage() {
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
             {buyers.map((item) => (
               <article key={item.title} className="glass-panel rounded-2xl p-5">
-                <h3 className="font-semibold text-text">{item.title}</h3>
+                <span className="text-2xl" aria-hidden>
+                  {item.icon}
+                </span>
+                <h3 className="mt-2 font-semibold text-text">{item.title}</h3>
                 <p className="mt-2 text-sm leading-6 text-text-muted">{item.body}</p>
               </article>
             ))}
           </div>
         </section>
 
-        <section className="mt-10 glass-panel rounded-2xl p-6 sm:p-8">
+        <section
+          id="capabilities"
+          className="mt-10 glass-panel scroll-mt-24 rounded-2xl p-6 sm:p-8"
+        >
           <h2 className="font-serif text-3xl font-semibold text-primary">Core Capabilities</h2>
-          <ul className="mt-5 grid gap-2 text-sm leading-6 text-text-muted sm:grid-cols-2">
-            <li>Personal PDF library with covers and search</li>
-            <li>Reading progress synced per book and device</li>
-            <li>Highlights, notes, pen, and eraser in the reader</li>
-            <li>Annotated PDF export with Arabic text support</li>
-            <li>Offline reading after first open online</li>
-            <li>Bookmarks with color-coded page ribbons</li>
-            <li>Continue Reading and Read Again (100% complete) flows</li>
-            <li>Admin dashboard with engagement analytics</li>
+          <ul className="mt-5 grid gap-3 text-sm leading-6 text-text-muted sm:grid-cols-2">
+            {capabilities.map((item) => (
+              <li key={item.text} className="flex items-start gap-2.5">
+                <span className="mt-0.5 shrink-0 text-base" aria-hidden>
+                  {item.icon}
+                </span>
+                <span>{item.text}</span>
+              </li>
+            ))}
           </ul>
         </section>
 
         <section className="mt-10 glass-panel rounded-2xl p-6 sm:p-8">
-          <h2 className="font-serif text-3xl font-semibold text-primary">Data Room</h2>
-          <p className="mt-3 text-sm leading-6 text-text-muted">
-            Due-diligence documentation ships with the repository: architecture diagram,
-            ERD, database schema, API reference, deployment guide, cost model, backup
-            strategy, security overview, product roadmap, analytics export, branding
-            assets, and handover checklist. See{" "}
-            <code className="rounded bg-background px-1.5 py-0.5 text-text">docs/</code>{" "}
-            in the source repo.
-          </p>
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h2 className="font-serif text-3xl font-semibold text-primary">Data Room</h2>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-text-muted">
+                Due-diligence documentation ships with the repository: architecture,
+                ERD, database schema, API reference, deployment guide, security, backup,
+                roadmap, and handover checklist.
+              </p>
+            </div>
+            <a
+              href={docsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 rounded-xl border border-white/70 bg-white/60 px-4 py-2.5 text-sm font-medium text-primary shadow-sm transition hover:bg-white/85"
+            >
+              View documentation
+              <span aria-hidden>→</span>
+            </a>
+          </div>
         </section>
 
         <section className="mt-10 grid gap-6 lg:grid-cols-2">
           <article className="glass-panel rounded-2xl p-6">
             <h2 className="font-serif text-2xl font-semibold text-primary">Tech Stack</h2>
-            <ul className="mt-4 space-y-2 text-sm text-text-muted">
-              {tech.map((item) => (
-                <li key={item}>{item}</li>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {techBadges.map((item) => (
+                <span
+                  key={item}
+                  className="rounded-full border border-[#eadbc8]/80 bg-background-elevated/60 px-3 py-1.5 text-xs font-medium text-text"
+                >
+                  {item}
+                </span>
               ))}
-            </ul>
+            </div>
           </article>
           <article className="glass-panel rounded-2xl p-6">
             <h2 className="font-serif text-2xl font-semibold text-primary">
@@ -175,48 +207,71 @@ export default function PlatformPage() {
             </h2>
             <ul className="mt-4 space-y-2 text-sm text-text-muted">
               {included.map((item) => (
-                <li key={item}>{item}</li>
+                <li key={item} className="flex gap-2">
+                  <span className="text-primary" aria-hidden>
+                    ✓
+                  </span>
+                  <span>{item}</span>
+                </li>
               ))}
             </ul>
           </article>
         </section>
 
-        <section className="mt-10 glass-panel rounded-2xl p-6 sm:p-8">
-          <h2 className="font-serif text-3xl font-semibold text-primary">Live Demo</h2>
-          <p className="mt-3 text-sm leading-6 text-text-muted">
-            Production deployment:{" "}
+        <section
+          id="demo"
+          className="mt-10 glass-panel scroll-mt-24 rounded-2xl p-6 sm:p-8 lg:grid lg:grid-cols-2 lg:items-center lg:gap-8"
+        >
+          <div>
+            <h2 className="font-serif text-3xl font-semibold text-primary">Live Demo</h2>
+            <p className="mt-3 text-sm leading-6 text-text-muted">
+              Production deployment:{" "}
+              <Link
+                href={liveDemoUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-primary hover:underline"
+              >
+                {liveDemoUrl.replace(/^https?:\/\//, "")}
+              </Link>
+            </p>
+            <p className="mt-3 text-sm leading-6 text-text-muted">
+              Explore the shelf, reader, annotations, and admin dashboard on the live site.
+            </p>
             <Link
               href={liveDemoUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="font-medium text-primary hover:underline"
+              className="mt-6 inline-block"
             >
-              {liveDemoUrl.replace(/^https?:\/\//, "")}
+              <Button size="lg">Launch demo</Button>
             </Link>
-          </p>
-          <p className="mt-3 text-sm leading-6 text-text-muted">
-            Contact us for a guided walkthrough.
-          </p>
+          </div>
+          <div className="mt-8 lg:mt-0">
+            <PlatformHeroPreview />
+          </div>
         </section>
 
-        <section className="mt-10 rounded-2xl border border-accent/30 bg-card/80 p-6 text-center sm:p-8">
-          <h2 className="font-serif text-2xl font-semibold text-primary">
-            Available for Full Product Acquisition
+        <section
+          id="contact"
+          className="mt-10 scroll-mt-24 rounded-2xl border border-accent/30 bg-card/80 p-6 text-center sm:p-10"
+        >
+          <h2 className="font-serif text-2xl font-semibold text-primary sm:text-3xl">
+            Interested in acquiring ReadShelf?
           </h2>
           <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-text-muted">
-            Source code, infrastructure handover, and optional transition support. Ideal
-            for EdTech, publishing, agencies, and internal knowledge platforms.
+            Receive the acquisition package, technical documentation, pricing, and
+            deployment details. Contact the creator,{" "}
+            <span className="font-medium text-text">Sadeel Shaban</span>, to discuss
+            acquisition and transition.
           </p>
-          <a
-            href="mailto:sadeelshabanmedia@gmail.com?subject=ReadShelf%20acquisition%20inquiry"
-            className="mt-6 inline-block"
-          >
-            <Button size="lg">Contact Sadeel Shaban</Button>
+          <a href={acquisitionMailto} className="mt-6 inline-block">
+            <Button size="lg">Request acquisition package</Button>
           </a>
         </section>
 
-        <div className="mt-10">
-          <SiteFooter />
+        <div className="mt-8">
+          <SiteFooter showAcquisitionLinks />
         </div>
       </main>
     </div>

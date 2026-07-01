@@ -6,9 +6,15 @@ type SiteFooterProps = {
   variant?: "dark" | "light";
   className?: string;
   compact?: boolean;
+  showAcquisitionLinks?: boolean;
 };
 
-export function SiteFooter({ variant = "light", className, compact }: SiteFooterProps) {
+export function SiteFooter({
+  variant = "light",
+  className,
+  compact,
+  showAcquisitionLinks,
+}: SiteFooterProps) {
   const isDark = variant === "dark";
 
   return (
@@ -54,6 +60,30 @@ export function SiteFooter({ variant = "light", className, compact }: SiteFooter
           >
             Platform
           </Link>
+          {showAcquisitionLinks && (
+            <>
+              <a
+                href="https://github.com/sadeelshaban/ReadShelf"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={cn(
+                  "transition-colors duration-200 hover:underline",
+                  isDark ? "hover:text-white/80" : "hover:text-text/80",
+                )}
+              >
+                GitHub
+              </a>
+              <a
+                href="mailto:sadeelshabanmedia@gmail.com"
+                className={cn(
+                  "transition-colors duration-200 hover:underline",
+                  isDark ? "hover:text-white/80" : "hover:text-text/80",
+                )}
+              >
+                Email
+              </a>
+            </>
+          )}
         </nav>
       </div>
     </footer>
