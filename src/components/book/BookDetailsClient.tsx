@@ -228,7 +228,7 @@ export function BookDetailsClient({
   const [displayHighlights, setDisplayHighlights] = useState(serverHighlights);
   const [displayNotes, setDisplayNotes] = useState(serverNotes);
   const [displayBookmarks, setDisplayBookmarks] = useState(serverBookmarks);
-  const [tab, setTab] = useState<Tab>("highlights");
+  const [tab, setTab] = useState<Tab>("bookmarks");
   const [message, setMessage] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -581,9 +581,9 @@ export function BookDetailsClient({
         <div className="flex gap-1 border-b border-[#eadbc8]/70 px-4 pt-1 sm:px-6">
           {(
             [
+              { id: "bookmarks" as const, label: "Bookmarks", count: displayBookmarks.length },
               { id: "highlights" as const, label: "Highlights", count: highlightGroups.length },
               { id: "notes" as const, label: "Notes", count: noteGroups.length },
-              { id: "bookmarks" as const, label: "Bookmarks", count: displayBookmarks.length },
             ] as const
           ).map((item) => (
             <button
@@ -597,12 +597,12 @@ export function BookDetailsClient({
                   : "border-transparent text-[#8a7968] hover:border-[#eadbc8] hover:text-[#5b4028]",
               )}
             >
-              {item.id === "highlights" ? (
-                <TabHighlighterIcon />
-              ) : item.id === "notes" ? (
-                <TabNoteIcon />
-              ) : (
+              {item.id === "bookmarks" ? (
                 <TabBookmarkIcon />
+              ) : item.id === "highlights" ? (
+                <TabHighlighterIcon />
+              ) : (
+                <TabNoteIcon />
               )}
               {item.label}
               <span className="rounded-full bg-[#fff8f1] px-2 py-0.5 text-xs font-semibold text-[#5b4028] ring-1 ring-[#eadbc8]/80">
