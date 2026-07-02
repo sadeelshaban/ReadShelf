@@ -5,6 +5,7 @@ import {
   getEngagementStats,
   getPlatformStats,
   getPlatformTrends,
+  getReaderPreferenceStats,
 } from "@/lib/admin/stats";
 import { formatStorageBytes, getPlatformStorageBytes } from "@/lib/admin/storage-usage";
 import { isAdminUser } from "@/lib/admin";
@@ -31,12 +32,14 @@ export default async function AdminDashboardPage() {
 
   let stats;
   let engagement;
+  let readerPreferences;
   let trends;
   let totalStorageBytes = 0;
   try {
     stats = await getPlatformStats();
-    [engagement, trends, totalStorageBytes] = await Promise.all([
+    [engagement, readerPreferences, trends, totalStorageBytes] = await Promise.all([
       getEngagementStats(stats),
+      getReaderPreferenceStats(stats.users),
       getPlatformTrends(),
       getPlatformStorageBytes(),
     ]);
@@ -130,6 +133,34 @@ export default async function AdminDashboardPage() {
             value={engagement.avgAnnotationsPerBook}
             label="Annotations per book"
             hint="Average highlights + notes per uploaded book"
+          />
+        </div>
+      </section>
+
+      <section id="reader-experience" className="mt-12 scroll-mt-24">
+        <h2 className="font-serif text-[2.125rem] font-semibold tracking-tight text-text">
+          Reader experience
+        </h2>
+        <p className="mt-1 text-sm text-text-muted">
+          Dark mode adoption syncs when users open the reader or toggle the theme.
+        </p>
+        <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <AdminStatCard
+            value={readerPreferences.darkModeUsers}
+            label="Dark mode users"
+            hint="Accounts with reader dark mode currently enabled"
+          />
+          <AdminStatCard
+            value={`${readerPreferences.darkModeAdoptionPercent}%`}
+            label="Dark mode adoption"
+            hint={`${readerPreferences.darkModeUsers} of ${stats.users} total users`}
+            percent={readerPreferences.darkModeAdoptionPercent}
+          />
+          <AdminStatCard
+            value={`${readerPreferences.darkModeAmongTrackedPercent}%`}
+            label="Dark mode (tracked readers)"
+            hint={`Among ${readerPreferences.trackedReaders} users who opened the reader since tracking`}
+            percent={readerPreferences.darkModeAmongTrackedPercent}
           />
         </div>
       </section>

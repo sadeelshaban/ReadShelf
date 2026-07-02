@@ -75,6 +75,14 @@ export function rememberCoverUrl(path: string | null | undefined, url: string | 
   persistToSessionStorage();
 }
 
+export function forgetCoverUrl(path: string | null | undefined) {
+  loadFromSessionStorage();
+  if (!path) return;
+
+  MEMORY.delete(path);
+  persistToSessionStorage();
+}
+
 export function buildCoverUrlMap(books: Array<{ id: string; cover_path: string | null }>) {
   loadFromSessionStorage();
 

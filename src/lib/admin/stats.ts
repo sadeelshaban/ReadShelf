@@ -21,6 +21,13 @@ export type EngagementStats = {
   avgAnnotationsPerBook: number;
 };
 
+export type ReaderPreferenceStats = {
+  darkModeUsers: number;
+  darkModeAdoptionPercent: number;
+  trackedReaders: number;
+  darkModeAmongTrackedPercent: number;
+};
+
 type BookRow = {
   progress_percent: number;
   last_opened_at: string | null;
@@ -137,5 +144,44 @@ export async function getEngagementStats(
     activeReaders30d,
     booksOpened7d,
     avgAnnotationsPerBook,
+  };
+}
+
+export async function getReaderPreferenceStats(
+  totalUsers: number,
+): Promise<ReaderPreferenceStats> {
+  const supabase = createServiceClient();
+
+  const [darkModeResult, trackedResult] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("*", { count: "exact", head: true })
+      .eq("reader_dark_mode", true),
+    supabase
+      .from("profiles")
+      .select("*", { count: "exact", head: true })
+      .not("reader_preferences_updated_at", "is", null),
+  ]);
+
+  if (darkModeResult.error) {
+    throw new Error(`Could not count dark mode users: ${darkModeResult.error.message}`);
+  }
+
+  if (trackedResult.error) {
+    throw new Error(`Could not count tracked reader preferences: ${trackedResult.error.message}`);
+  }
+
+  const darkModeUsers = darkModeResult.count ?? 0;
+  const trackedReaders = trackedResult.count ?? 0;
+  const darkModeAdoptionPercent =
+    totalUsers > 0 ? Math.round((darkModeUsers / totalUsers) * 100) : 0;
+  const darkModeAmongTrackedPercent =
+    trackedReaders > 0 ? Math.round((darkModeUsers / trackedReaders) * 100) : 0;
+
+  return {
+    darkModeUsers,
+    darkModeAdoptionPercent,
+    trackedReaders,
+    darkModeAmongTrackedPercent,
   };
 }

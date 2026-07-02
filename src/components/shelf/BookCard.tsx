@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { useEffect, useRef } from "react";
 import type { BookWithCounts } from "@/types";
 import { getReadButtonLabel } from "@/lib/pdf";
 import { cn } from "@/lib/utils";
@@ -9,18 +10,24 @@ import { cn } from "@/lib/utils";
 type BookCardProps = {
   book: BookWithCounts;
   coverUrl: string | null;
+  onCoverError?: (bookId: string) => void;
 };
 
 const overlayBtn =
   "interactive-lift flex w-full items-center justify-center rounded-xl px-3 py-2 text-center text-[11px] font-semibold leading-tight transition-colors sm:text-xs";
 
-export function BookCard({ book, coverUrl }: BookCardProps) {
+export function BookCard({ book, coverUrl, onCoverError }: BookCardProps) {
+  const retriedCoverRef = useRef(false);
   const readLabel = getReadButtonLabel(book);
   const progressLabel = book.total_pages
     ? `${book.progress_percent}% · ${book.last_page}/${book.total_pages}`
     : `${book.progress_percent}% · p. ${book.last_page}`;
   const pagesLabel = book.total_pages ? `${book.total_pages} Pages` : "— Pages";
   const author = book.author.trim() || "Unknown";
+
+  useEffect(() => {
+    retriedCoverRef.current = false;
+  }, [coverUrl]);
 
   return (
     <article className="group relative flex w-[140px] shrink-0 flex-col sm:w-[152px]">
@@ -34,6 +41,11 @@ export function BookCard({ book, coverUrl }: BookCardProps) {
               sizes="176px"
               className="object-cover object-center"
               unoptimized
+              onError={() => {
+                if (retriedCoverRef.current) return;
+                retriedCoverRef.current = true;
+                onCoverError?.(book.id);
+              }}
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/10 to-accent/20 px-2 text-center font-serif text-[10px] text-primary">

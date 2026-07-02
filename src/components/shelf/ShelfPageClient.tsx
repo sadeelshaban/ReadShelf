@@ -14,6 +14,8 @@ import {
   getCachedCoverUrlMap,
   persistCachedCoverUrls,
 } from "@/lib/offline/books-store";
+import { forgetCoverUrl, rememberCoverUrl } from "@/lib/books/cover-url-cache";
+import { getClientCoverReadUrl } from "@/lib/storage/client-covers";
 import { isOnline } from "@/lib/offline/online";
 import { flushSyncQueue } from "@/lib/offline/reader-api";
 import type { BookWithCounts } from "@/types";
@@ -56,7 +58,7 @@ export function ShelfPageClient() {
 
       void cacheBooks(fetched).catch(() => undefined);
 
-      const urls = await fetchCoverUrlsClient(fetched);
+      const urls = await fetchCoverUrlsClient(fetched, { force: true });
       if (cancelled()) return;
       setCoverUrls(urls);
       void persistCachedCoverUrls(fetched, urls).catch(() => undefined);
@@ -90,6 +92,22 @@ export function ShelfPageClient() {
     return () => window.removeEventListener("focus", refreshShelf);
   }, [loadShelf]);
 
+  const refreshCover = useCallback(
+    async (bookId: string) => {
+      const book = books.find((entry) => entry.id === bookId);
+      if (!book?.cover_path) return;
+
+      forgetCoverUrl(book.cover_path);
+      const url = await getClientCoverReadUrl(book.cover_path);
+      setCoverUrls((current) => ({ ...current, [bookId]: url }));
+      if (url) {
+        rememberCoverUrl(book.cover_path, url);
+      }
+      void persistCachedCoverUrls([book], { [bookId]: url }).catch(() => undefined);
+    },
+    [books],
+  );
+
   return (
     <div className="space-y-5">
       <header className="space-y-4">
@@ -111,7 +129,12 @@ export function ShelfPageClient() {
         </p>
       )}
 
-      <ShelfGrid books={books} coverUrls={coverUrls} loading={loading} />
+      <ShelfGrid
+        books={books}
+        coverUrls={coverUrls}
+        loading={loading}
+        onCoverError={refreshCover}
+      />
     </div>
   );
 }

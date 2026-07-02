@@ -10,9 +10,10 @@ type ShelfGridProps = {
   books: BookWithCounts[];
   coverUrls: Record<string, string | null>;
   loading?: boolean;
+  onCoverError?: (bookId: string) => void;
 };
 
-export function ShelfGrid({ books, coverUrls, loading = false }: ShelfGridProps) {
+export function ShelfGrid({ books, coverUrls, loading = false, onCoverError }: ShelfGridProps) {
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortOption>("recent");
 
@@ -65,6 +66,7 @@ export function ShelfGrid({ books, coverUrls, loading = false }: ShelfGridProps)
                 key={book.id}
                 book={book}
                 coverUrl={coverUrls[book.id] ?? null}
+                onCoverError={onCoverError}
               />
             ))}
           </div>

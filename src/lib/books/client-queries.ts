@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/client";
 import {
   buildCoverUrlMap,
+  forgetCoverUrl,
   rememberCoverUrl,
 } from "@/lib/books/cover-url-cache";
 import { getClientCoverReadUrl } from "@/lib/storage/client-covers";
@@ -53,17 +54,29 @@ export async function fetchBooksWithCountsClient(): Promise<BookWithCounts[]> {
 
 export async function fetchCoverUrlsClient(
   books: BookWithCounts[],
+  options?: { force?: boolean },
 ): Promise<Record<string, string | null>> {
-  const coverUrls = buildCoverUrlMap(books);
-  const missing = books.filter((book) => !coverUrls[book.id] && book.cover_path);
+  const force = options?.force ?? false;
+  const coverUrls = force ? {} as Record<string, string | null> : buildCoverUrlMap(books);
+  const toFetch = books.filter((book) => book.cover_path && (force || !coverUrls[book.id]));
 
   await Promise.all(
-    missing.map(async (book) => {
+    toFetch.map(async (book) => {
       const url = await getClientCoverReadUrl(book.cover_path);
       coverUrls[book.id] = url;
-      rememberCoverUrl(book.cover_path, url);
+      if (url) {
+        rememberCoverUrl(book.cover_path, url);
+      } else {
+        forgetCoverUrl(book.cover_path);
+      }
     }),
   );
+
+  for (const book of books) {
+    if (!book.cover_path) {
+      coverUrls[book.id] = null;
+    }
+  }
 
   return coverUrls;
 }

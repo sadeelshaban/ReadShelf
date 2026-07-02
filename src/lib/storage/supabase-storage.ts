@@ -22,6 +22,18 @@ export async function deleteSupabaseObjects(paths: {
 
 export async function createSupabaseCoverReadUrl(path: string, expiresIn = 3600) {
   const supabase = await createClient();
+  const slash = path.lastIndexOf("/");
+  const folder = slash >= 0 ? path.slice(0, slash) : "";
+  const filename = slash >= 0 ? path.slice(slash + 1) : path;
+
+  const { data: files, error: listError } = await supabase.storage
+    .from("book-covers")
+    .list(folder, { search: filename, limit: 1 });
+
+  if (listError || !files?.some((file) => file.name === filename)) {
+    return null;
+  }
+
   const { data } = await supabase.storage
     .from("book-covers")
     .createSignedUrl(path, expiresIn);

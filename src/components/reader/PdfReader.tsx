@@ -123,6 +123,10 @@ import {
   saveReaderDarkMode,
   saveReaderFocusMode,
 } from "@/lib/reader/reader-theme";
+import {
+  fetchReaderDarkModePreference,
+  syncReaderDarkModePreference,
+} from "@/lib/reader/reader-preferences-api";
 import { cn } from "@/lib/utils";
 
 type PdfReaderProps = {
@@ -288,8 +292,16 @@ export function PdfReader({
   }, []);
 
   useEffect(() => {
-    setDarkMode(loadReaderDarkMode());
+    const localDark = loadReaderDarkMode();
+    setDarkMode(localDark);
     setFocusMode(loadReaderFocusMode());
+    void syncReaderDarkModePreference(localDark);
+
+    void fetchReaderDarkModePreference().then((serverDark) => {
+      if (serverDark === null || serverDark === localDark) return;
+      setDarkMode(serverDark);
+      saveReaderDarkMode(serverDark);
+    });
   }, []);
 
   const syncPageFromScroll = useCallback(
@@ -1873,6 +1885,7 @@ export function PdfReader({
           setDarkMode((current) => {
             const next = !current;
             saveReaderDarkMode(next);
+            void syncReaderDarkModePreference(next);
             return next;
           });
         }}
