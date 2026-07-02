@@ -48,8 +48,9 @@ export default async function AdminDashboardPage() {
     setupError = err instanceof Error ? err.message : "Unknown admin setup error";
   }
 
-  if (setupError) {
-    const missingServiceKey = setupError.includes("SUPABASE_SERVICE_ROLE_KEY");
+  if (setupError || !stats || !engagement || !readerPreferences || !trends) {
+    const message = setupError ?? "Admin dashboard data could not be loaded.";
+    const missingServiceKey = message.includes("SUPABASE_SERVICE_ROLE_KEY");
     return (
       <div className="rounded-2xl border border-accent/40 bg-card p-8 text-center">
         <h1 className="font-serif text-2xl font-semibold text-primary">
@@ -62,7 +63,7 @@ export default async function AdminDashboardPage() {
             server.
           </p>
         ) : (
-          <p className="mt-3 text-text-muted">{setupError}</p>
+          <p className="mt-3 text-text-muted">{message}</p>
         )}
       </div>
     );
