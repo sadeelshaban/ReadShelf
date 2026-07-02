@@ -26,20 +26,24 @@ import {
   loadEraserStrokeWidth,
   loadHighlightStrokeWidth,
   loadLastHighlightColor,
+  loadLastPenColor,
   loadPenStrokeWidth,
   loadRecentHighlightColors,
+  loadRecentPenColors,
   loadShapeFilled,
   loadShapeKind,
   saveEraserStrokeWidth,
   saveHighlightStrokeWidth,
   savePenStrokeWidth,
   saveRecentHighlightColor,
+  saveRecentPenColor,
   saveShapeFilled,
   saveShapeKind,
 } from "@/lib/reader/constants";
 import { shapeHighlightType } from "@/lib/reader/shapes";
 import { redrawHighlightLayer } from "@/lib/reader/pdf-reader-canvas";
 import {
+  DEFAULT_ZOOM,
   MAX_ZOOM,
   MIN_ZOOM,
   PROGRAMMATIC_SCROLL_TIMEOUT_MS,
@@ -195,7 +199,7 @@ export function PdfReader({
     scrollLeft: number;
     pageNumber: number;
   } | null>(null);
-  const zoomMultiplierRef = useRef(initialZoom ?? 0.5);
+  const zoomMultiplierRef = useRef(initialZoom ?? DEFAULT_ZOOM);
   const lastRenderedZoomRef = useRef<Map<number, number>>(new Map());
   const panRef = useRef<{
     pointerId: number;
@@ -214,7 +218,7 @@ export function PdfReader({
   );
   const [fitScale, setFitScale] = useState(1);
   const [fitScaleReady, setFitScaleReady] = useState(false);
-  const [zoomMultiplier, setZoomMultiplier] = useState(initialZoom ?? 0.5);
+  const [zoomMultiplier, setZoomMultiplier] = useState(initialZoom ?? DEFAULT_ZOOM);
   const [pdfNumPages, setPdfNumPages] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -234,7 +238,9 @@ export function PdfReader({
   const [noteTextColor, setNoteTextColor] = useState("black");
   const [noteFontSize, setNoteFontSize] = useState(DEFAULT_NOTE_FONT_SIZE);
   const [highlightColor, setHighlightColor] = useState(loadLastHighlightColor);
-  const [recentColors, setRecentColors] = useState(loadRecentHighlightColors);
+  const [penColor, setPenColor] = useState(loadLastPenColor);
+  const [recentHighlightColors, setRecentHighlightColors] = useState(loadRecentHighlightColors);
+  const [recentPenColors, setRecentPenColors] = useState(loadRecentPenColors);
   const [highlightStrokeWidth, setHighlightStrokeWidth] = useState(loadHighlightStrokeWidth);
   const [penStrokeWidth, setPenStrokeWidth] = useState(loadPenStrokeWidth);
   const [eraserStrokeWidth, setEraserStrokeWidth] = useState(loadEraserStrokeWidth);
@@ -497,7 +503,7 @@ export function PdfReader({
 
     const pdfPage = await pdf.getPage(pageNumber);
     const base = pdfPage.getViewport({ scale: 1 });
-    const padding = 24;
+    const padding = 14;
     const width = viewer.clientWidth - padding;
     if (width <= 0) return 1;
 
@@ -1088,11 +1094,21 @@ export function PdfReader({
   function commitHighlightColor(color: string) {
     const saved = saveRecentHighlightColor(color);
     setHighlightColor(saved);
-    setRecentColors(loadRecentHighlightColors());
+    setRecentHighlightColors(loadRecentHighlightColors());
   }
 
   function pickHighlightColor(color: string) {
     commitHighlightColor(color);
+  }
+
+  function commitPenColor(color: string) {
+    const saved = saveRecentPenColor(color);
+    setPenColor(saved);
+    setRecentPenColors(loadRecentPenColors());
+  }
+
+  function pickPenColor(color: string) {
+    commitPenColor(color);
   }
 
   function selectTool(next: ReaderTool, options?: { force?: boolean }) {
@@ -1390,13 +1406,14 @@ export function PdfReader({
     highlightType: "freeform" | "pen",
   ) {
     const viewport = getViewportSize(pageNumber);
+    const color = highlightType === "pen" ? penColor : highlightColor;
     const highlight: Highlight = {
       id: crypto.randomUUID(),
       book_id: bookId,
       user_id: userId,
       page_number: pageNumber,
       selected_text: "",
-      color: highlightColor,
+      color,
       highlight_type: highlightType,
       position: {
         strokes: [stroke],
@@ -1408,7 +1425,11 @@ export function PdfReader({
 
     addHighlightOptimistic(highlight);
     pushHistory({ type: "add_highlight", highlight });
-    pickHighlightColor(highlightColor);
+    if (highlightType === "pen") {
+      pickPenColor(color);
+    } else {
+      pickHighlightColor(color);
+    }
 
     void persistHighlight(highlight)
       .then(() => scheduleAnnotationSync())
@@ -1425,7 +1446,7 @@ export function PdfReader({
       user_id: userId,
       page_number: pageNumber,
       selected_text: "",
-      color: highlightColor,
+      color: penColor,
       highlight_type: shapeHighlightType(kind),
       position: {
         shape,
@@ -1437,7 +1458,7 @@ export function PdfReader({
 
     addHighlightOptimistic(highlight);
     pushHistory({ type: "add_highlight", highlight });
-    pickHighlightColor(highlightColor);
+    pickPenColor(penColor);
 
     void persistHighlight(highlight)
       .then(() => scheduleAnnotationSync())
@@ -1542,7 +1563,7 @@ export function PdfReader({
       redrawHighlightLayer(canvas, highlightsRef.current, pageNumber, {
         shape,
         shapeKind,
-        color: highlightColor,
+        color: penColor,
         type: "shape",
       });
       return;
@@ -1557,7 +1578,7 @@ export function PdfReader({
 
     redrawHighlightLayer(canvas, highlightsRef.current, pageNumber, {
       stroke,
-      color: highlightColor,
+      color: tool === "pen" ? penColor : highlightColor,
       type: tool === "pen" ? "pen" : "freeform",
     });
   }
@@ -1840,11 +1861,17 @@ export function PdfReader({
         <LeftToolbar
           tool={tool}
           onSelectTool={selectTool}
+          anchorPageWidth={pageSlotSize?.width ?? null}
           highlightColor={highlightColor}
-          recentColors={recentColors}
+          penColor={penColor}
+          recentHighlightColors={recentHighlightColors}
+          recentPenColors={recentPenColors}
           onPickHighlightColor={pickHighlightColor}
           onCommitHighlightColor={commitHighlightColor}
           onHighlightColorChange={setHighlightColor}
+          onPickPenColor={pickPenColor}
+          onCommitPenColor={commitPenColor}
+          onPenColorChange={setPenColor}
           noteTextColor={noteTextColor}
           noteFontSize={noteFontSize}
           editingNote={Boolean(editingNoteId)}
@@ -1957,7 +1984,7 @@ export function PdfReader({
             </p>
           )}
           <div
-            className="mx-auto flex w-full flex-col items-center gap-3 py-6"
+            className="mx-auto flex w-full max-w-full flex-col items-center gap-2.5 py-4"
             style={{ visibility: loading || error ? "hidden" : "visible" }}
           >
             {Array.from({ length: maxPage }, (_, index) => {

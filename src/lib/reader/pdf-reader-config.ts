@@ -1,6 +1,7 @@
 export const MIN_ZOOM = 0.25;
 export const MAX_ZOOM = 4;
 export const ZOOM_STEP = 0.25;
+export const DEFAULT_ZOOM = 0.55;
 export const PAGE_RENDER_BUFFER = 2;
 export const SCROLL_SYNC_DEBOUNCE_MS = 60;
 export const SCROLL_PROGRESS_DEBOUNCE_MS = 400;

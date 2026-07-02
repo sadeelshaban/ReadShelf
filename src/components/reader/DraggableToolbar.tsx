@@ -29,8 +29,8 @@ function loadPosition(): Position | null {
 
 function clampPosition(pos: Position): Position {
   const margin = 8;
-  const width = 44;
-  const height = 220;
+  const width = 48;
+  const height = 280;
   const maxX = Math.max(margin, window.innerWidth - width - margin);
   const maxY = Math.max(margin, window.innerHeight - height - margin);
   return {
@@ -39,13 +39,25 @@ function clampPosition(pos: Position): Position {
   };
 }
 
+function snapXNearPage(pageWidth: number) {
+  const margin = 8;
+  const toolbarWidth = 48;
+  return Math.max(margin, (window.innerWidth - pageWidth) / 2 - toolbarWidth - margin);
+}
+
 type DraggableToolbarProps = {
   id: string;
   children: ReactNode;
   className?: string;
+  anchorPageWidth?: number | null;
 };
 
-export function DraggableToolbar({ id, children, className }: DraggableToolbarProps) {
+export function DraggableToolbar({
+  id,
+  children,
+  className,
+  anchorPageWidth,
+}: DraggableToolbarProps) {
   const dragRef = useRef<{
     pointerId: number;
     startX: number;
@@ -53,15 +65,29 @@ export function DraggableToolbar({ id, children, className }: DraggableToolbarPr
     originX: number;
     originY: number;
   } | null>(null);
+  const userDraggedRef = useRef(false);
 
   const [position, setPosition] = useState<Position>({ x: 12, y: 120 });
 
   useEffect(() => {
     const saved = loadPosition();
-    setPosition(
-      saved ?? clampPosition({ x: 12, y: Math.max(12, Math.round(window.innerHeight / 2 - 110)) }),
+    if (saved) {
+      userDraggedRef.current = true;
+      setPosition(clampPosition(saved));
+      return;
+    }
+
+    const y = Math.max(12, Math.round(window.innerHeight / 2 - 140));
+    const x = anchorPageWidth ? snapXNearPage(anchorPageWidth) : 12;
+    setPosition(clampPosition({ x, y }));
+  }, [anchorPageWidth]);
+
+  useEffect(() => {
+    if (userDraggedRef.current || !anchorPageWidth) return;
+    setPosition((current) =>
+      clampPosition({ x: snapXNearPage(anchorPageWidth), y: current.y }),
     );
-  }, []);
+  }, [anchorPageWidth]);
 
   const persist = useCallback((pos: Position) => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(pos));
@@ -102,6 +128,7 @@ export function DraggableToolbar({ id, children, className }: DraggableToolbarPr
     const drag = dragRef.current;
     if (!drag || drag.pointerId !== e.pointerId) return;
     dragRef.current = null;
+    userDraggedRef.current = true;
     if (e.currentTarget.hasPointerCapture(e.pointerId)) {
       e.currentTarget.releasePointerCapture(e.pointerId);
     }
@@ -117,7 +144,7 @@ export function DraggableToolbar({ id, children, className }: DraggableToolbarPr
       id={id}
       style={{ left: position.x, top: position.y }}
       className={cn(
-        "acrobat-toolbar pointer-events-auto absolute z-20 flex w-11 flex-col items-center gap-0.5 rounded py-1",
+        "acrobat-toolbar pointer-events-auto absolute z-20 flex w-12 flex-col items-center gap-1 rounded py-1.5",
         className,
       )}
     >

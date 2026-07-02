@@ -14,6 +14,18 @@ export const LAST_HIGHLIGHT_COLOR_KEY = "readshelf-last-highlight-color";
 export const RECENT_HIGHLIGHT_COLORS_KEY = "readshelf-recent-highlight-colors";
 export const RECENT_HIGHLIGHT_SLOT_KEY = "readshelf-recent-highlight-slot";
 
+export const PEN_PRESETS = [
+  { name: "Black", value: "#1a120b" },
+  { name: "Red", value: "#dc2626" },
+  { name: "Blue", value: "#2563eb" },
+  { name: "Green", value: "#16a34a" },
+  { name: "Purple", value: "#7c3aed" },
+] as const;
+
+export const LAST_PEN_COLOR_KEY = "readshelf-last-pen-color";
+export const RECENT_PEN_COLORS_KEY = "readshelf-recent-pen-colors";
+export const RECENT_PEN_SLOT_KEY = "readshelf-recent-pen-slot";
+
 const MAX_RECENT_CUSTOM_COLORS = 4;
 
 export function normalizeHex(hex: string): string {
@@ -28,9 +40,115 @@ export function normalizeHex(hex: string): string {
   return `#${full.toLowerCase()}`;
 }
 
-function isPresetColor(color: string) {
+function isPresetColor(color: string, presets: readonly { value: string }[]) {
   const normalized = normalizeHex(color).toLowerCase();
-  return HIGHLIGHT_PRESETS.some((p) => p.value.toLowerCase() === normalized);
+  return presets.some((p) => p.value.toLowerCase() === normalized);
+}
+
+function isHighlightPresetColor(color: string) {
+  return isPresetColor(color, HIGHLIGHT_PRESETS);
+}
+
+function isPenPresetColor(color: string) {
+  return isPresetColor(color, PEN_PRESETS);
+}
+
+function loadRecentColors(storageKey: string, presetFilter: (color: string) => boolean) {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(storageKey);
+    const parsed = raw ? (JSON.parse(raw) as string[]) : [];
+    const seen = new Set<string>();
+    return parsed
+      .map(normalizeHex)
+      .filter((color) => !presetFilter(color))
+      .filter((color) => {
+        const key = color.toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .slice(0, MAX_RECENT_CUSTOM_COLORS);
+  } catch {
+    return [];
+  }
+}
+
+function saveRecentColor(
+  color: string,
+  lastKey: string,
+  recentKey: string,
+  slotKey: string,
+  presetFilter: (color: string) => boolean,
+): string {
+  const normalized = normalizeHex(color);
+  localStorage.setItem(lastKey, normalized);
+
+  if (presetFilter(normalized)) {
+    return normalized;
+  }
+
+  const recent = loadRecentColors(recentKey, presetFilter);
+  const alreadySaved = recent.some(
+    (entry) => entry.toLowerCase() === normalized.toLowerCase(),
+  );
+  if (alreadySaved) {
+    return normalized;
+  }
+
+  if (recent.length < MAX_RECENT_CUSTOM_COLORS) {
+    recent.push(normalized);
+  } else {
+    let slot = Number.parseInt(localStorage.getItem(slotKey) ?? "0", 10);
+    if (!Number.isFinite(slot) || slot < 0 || slot >= MAX_RECENT_CUSTOM_COLORS) {
+      slot = 0;
+    }
+    recent[slot] = normalized;
+    localStorage.setItem(slotKey, String((slot + 1) % MAX_RECENT_CUSTOM_COLORS));
+  }
+
+  localStorage.setItem(recentKey, JSON.stringify(recent));
+  return normalized;
+}
+
+export function loadRecentHighlightColors(): string[] {
+  return loadRecentColors(RECENT_HIGHLIGHT_COLORS_KEY, isHighlightPresetColor);
+}
+
+export function saveRecentHighlightColor(color: string): string {
+  return saveRecentColor(
+    color,
+    LAST_HIGHLIGHT_COLOR_KEY,
+    RECENT_HIGHLIGHT_COLORS_KEY,
+    RECENT_HIGHLIGHT_SLOT_KEY,
+    isHighlightPresetColor,
+  );
+}
+
+export function loadLastHighlightColor() {
+  if (typeof window === "undefined") return HIGHLIGHT_PRESETS[0].value;
+  return (
+    localStorage.getItem(LAST_HIGHLIGHT_COLOR_KEY) ?? HIGHLIGHT_PRESETS[0].value
+  );
+}
+
+export function loadRecentPenColors(): string[] {
+  return loadRecentColors(RECENT_PEN_COLORS_KEY, isPenPresetColor);
+}
+
+export function saveRecentPenColor(color: string): string {
+  return saveRecentColor(
+    color,
+    LAST_PEN_COLOR_KEY,
+    RECENT_PEN_COLORS_KEY,
+    RECENT_PEN_SLOT_KEY,
+    isPenPresetColor,
+  );
+}
+
+export function loadLastPenColor() {
+  if (typeof window === "undefined") return PEN_PRESETS[1].value;
+  return localStorage.getItem(LAST_PEN_COLOR_KEY) ?? PEN_PRESETS[1].value;
 }
 
 export function hexToRgba(hex: string, alpha = HIGHLIGHT_DRAW_ALPHA) {
@@ -46,71 +164,6 @@ export function hexToRgba(hex: string, alpha = HIGHLIGHT_DRAW_ALPHA) {
   const g = Number.parseInt(full.slice(2, 4), 16);
   const b = Number.parseInt(full.slice(4, 6), 16);
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
-
-export function loadRecentHighlightColors(): string[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = localStorage.getItem(RECENT_HIGHLIGHT_COLORS_KEY);
-    const parsed = raw ? (JSON.parse(raw) as string[]) : [];
-    const seen = new Set<string>();
-    return parsed
-      .map(normalizeHex)
-      .filter((color) => !isPresetColor(color))
-      .filter((color) => {
-        const key = color.toLowerCase();
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      })
-      .slice(0, MAX_RECENT_CUSTOM_COLORS);
-  } catch {
-    return [];
-  }
-}
-
-export function saveRecentHighlightColor(color: string): string {
-  const normalized = normalizeHex(color);
-  localStorage.setItem(LAST_HIGHLIGHT_COLOR_KEY, normalized);
-
-  if (isPresetColor(normalized)) {
-    return normalized;
-  }
-
-  const recent = loadRecentHighlightColors();
-  const alreadySaved = recent.some(
-    (entry) => entry.toLowerCase() === normalized.toLowerCase(),
-  );
-  if (alreadySaved) {
-    return normalized;
-  }
-
-  if (recent.length < MAX_RECENT_CUSTOM_COLORS) {
-    recent.push(normalized);
-  } else {
-    let slot = Number.parseInt(
-      localStorage.getItem(RECENT_HIGHLIGHT_SLOT_KEY) ?? "0",
-      10,
-    );
-    if (!Number.isFinite(slot) || slot < 0 || slot >= MAX_RECENT_CUSTOM_COLORS) {
-      slot = 0;
-    }
-    recent[slot] = normalized;
-    localStorage.setItem(
-      RECENT_HIGHLIGHT_SLOT_KEY,
-      String((slot + 1) % MAX_RECENT_CUSTOM_COLORS),
-    );
-  }
-
-  localStorage.setItem(RECENT_HIGHLIGHT_COLORS_KEY, JSON.stringify(recent));
-  return normalized;
-}
-
-export function loadLastHighlightColor() {
-  if (typeof window === "undefined") return HIGHLIGHT_PRESETS[0].value;
-  return (
-    localStorage.getItem(LAST_HIGHLIGHT_COLOR_KEY) ?? HIGHLIGHT_PRESETS[0].value
-  );
 }
 
 export const NOTE_TEXT_COLORS = [

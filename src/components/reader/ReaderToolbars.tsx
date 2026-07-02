@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { ReaderTool, ShapeKind } from "@/types";
 import {
   HIGHLIGHT_PRESETS,
+  PEN_PRESETS,
   MAX_STROKE_WIDTH,
   MAX_NOTE_FONT_SIZE,
   MIN_NOTE_FONT_SIZE,
@@ -44,10 +45,79 @@ function ToolButton({ active, label, onClick, children }: ToolButtonProps) {
       aria-pressed={active}
       data-active={active}
       onClick={onClick}
-      className="acrobat-tool-btn flex h-9 w-9 items-center justify-center rounded"
+      className={cn(
+        "acrobat-tool-btn flex h-10 w-10 items-center justify-center rounded transition-transform active:scale-95",
+        active && "[&_img]:brightness-0 [&_img]:invert",
+      )}
     >
       {children}
     </button>
+  );
+}
+
+type ColorPaletteProps = {
+  presets: readonly { name: string; value: string }[];
+  activeColor: string;
+  recentColors: string[];
+  onPickColor: (color: string) => void;
+  onColorChange: (color: string) => void;
+  onCommitColor: (color: string) => void;
+};
+
+function ColorPalette({
+  presets,
+  activeColor,
+  recentColors,
+  onPickColor,
+  onColorChange,
+  onCommitColor,
+}: ColorPaletteProps) {
+  return (
+    <div className="mt-1.5 flex flex-col items-center gap-1.5 border-t border-white/10 pt-1.5">
+      {presets.map((preset) => (
+        <button
+          key={preset.name}
+          type="button"
+          title={preset.name}
+          className={cn(
+            "h-4 w-4 rounded-full border transition hover:scale-110",
+            activeColor.toLowerCase() === preset.value.toLowerCase()
+              ? "border-white ring-2 ring-[#c9952a]"
+              : "border-white/25",
+          )}
+          style={{ backgroundColor: preset.value }}
+          onClick={() => onPickColor(preset.value)}
+        />
+      ))}
+      {recentColors.slice(0, 2).map((color, index) => (
+        <button
+          key={`${index}-${color}`}
+          type="button"
+          title="Recent color"
+          className={cn(
+            "h-4 w-4 rounded-full border transition hover:scale-110",
+            activeColor.toLowerCase() === color.toLowerCase()
+              ? "border-white ring-2 ring-[#c9952a]"
+              : "border-white/25",
+          )}
+          style={{ backgroundColor: color }}
+          onClick={() => onPickColor(color)}
+        />
+      ))}
+      <label
+        title="Custom color"
+        className="relative flex h-4 w-4 cursor-pointer items-center justify-center rounded-full border border-dashed border-white/30 transition hover:scale-110"
+      >
+        <span className="pointer-events-none text-[7px] text-white/60">+</span>
+        <input
+          type="color"
+          value={activeColor}
+          onChange={(e) => onColorChange(e.target.value)}
+          onBlur={(e) => onCommitColor(e.target.value)}
+          className="absolute inset-0 cursor-pointer opacity-0"
+        />
+      </label>
+    </div>
   );
 }
 
@@ -101,7 +171,7 @@ function ToolGroupButton({
         aria-pressed={isGroupActive}
         data-active={isGroupActive}
         onClick={() => onOpenChange(!open)}
-        className="acrobat-tool-btn acrobat-tool-group-btn relative flex h-9 w-9 items-center justify-center rounded"
+        className="acrobat-tool-btn acrobat-tool-group-btn relative flex h-10 w-10 items-center justify-center rounded transition-transform active:scale-95"
       >
         {activeOption.icon}
       </button>
@@ -127,7 +197,7 @@ function ToolGroupButton({
                   {option.icon}
                 </span>
                 <span className="flex-1 text-left">{option.label}</span>
-                {selected && <CheckIcon className="shrink-0 text-[#0a84ff]" />}
+                {selected && <CheckIcon className="shrink-0 text-[#c9952a]" />}
               </button>
             );
           })}
@@ -175,7 +245,7 @@ function ThicknessSliderFlyout({
         aria-haspopup="dialog"
         data-active={open}
         onClick={() => onOpenChange(!open)}
-        className="acrobat-tool-btn acrobat-tool-group-btn relative flex h-9 w-9 items-center justify-center rounded"
+        className="acrobat-tool-btn acrobat-tool-group-btn relative flex h-10 w-10 items-center justify-center rounded transition-transform active:scale-95"
       >
         <LineThicknessIcon />
       </button>
@@ -217,7 +287,7 @@ function SideButton({ label, onClick, disabled, children }: SideButtonProps) {
       aria-label={label}
       disabled={disabled}
       onClick={onClick}
-      className="acrobat-tool-btn flex h-8 w-8 items-center justify-center rounded disabled:cursor-not-allowed disabled:opacity-35"
+      className="acrobat-tool-btn flex h-9 w-9 items-center justify-center rounded transition-transform active:scale-95 disabled:cursor-not-allowed disabled:opacity-35"
     >
       {children}
     </button>
@@ -227,11 +297,17 @@ function SideButton({ label, onClick, disabled, children }: SideButtonProps) {
 type LeftToolbarProps = {
   tool: ReaderTool;
   onSelectTool: (tool: ReaderTool, options?: { force?: boolean }) => void;
+  anchorPageWidth: number | null;
   highlightColor: string;
-  recentColors: string[];
+  penColor: string;
+  recentHighlightColors: string[];
+  recentPenColors: string[];
   onPickHighlightColor: (color: string) => void;
   onCommitHighlightColor: (color: string) => void;
   onHighlightColorChange: (color: string) => void;
+  onPickPenColor: (color: string) => void;
+  onCommitPenColor: (color: string) => void;
+  onPenColorChange: (color: string) => void;
   noteTextColor: string;
   noteFontSize: number;
   editingNote: boolean;
@@ -252,11 +328,17 @@ type LeftToolbarProps = {
 export function LeftToolbar({
   tool,
   onSelectTool,
+  anchorPageWidth,
   highlightColor,
-  recentColors,
+  penColor,
+  recentHighlightColors,
+  recentPenColors,
   onPickHighlightColor,
   onCommitHighlightColor,
   onHighlightColorChange,
+  onPickPenColor,
+  onCommitPenColor,
+  onPenColorChange,
   noteTextColor,
   noteFontSize,
   editingNote,
@@ -275,7 +357,8 @@ export function LeftToolbar({
 }: LeftToolbarProps) {
   const shapesRef = useRef<HTMLDivElement>(null);
   const [openGroup, setOpenGroup] = useState<"thickness" | "eraserThickness" | "shapes" | null>(null);
-  const showDrawColors = tool === "highlight" || tool === "pen" || tool === "shape";
+  const showHighlightSettings = tool === "highlight";
+  const showPenSettings = tool === "pen" || tool === "shape";
   const showEraserControls = tool === "eraser";
   const showNoteColors = tool === "note" || editingNote;
 
@@ -293,7 +376,7 @@ export function LeftToolbar({
   }, [openGroup]);
 
   return (
-    <DraggableToolbar id="left-toolbar">
+    <DraggableToolbar id="left-toolbar" anchorPageWidth={anchorPageWidth}>
       <ToolButton active={tool === "read"} label="Select" onClick={() => onSelectTool("read", { force: true })}>
         <CursorIcon />
       </ToolButton>
@@ -315,7 +398,7 @@ export function LeftToolbar({
         label="Draw"
         onClick={() => onSelectTool("pen", { force: true })}
       >
-        <ReaderToolIcon src={READER_TOOL_ICONS.pen} alt="Pen" accentColor={highlightColor} />
+        <ReaderToolIcon src={READER_TOOL_ICONS.pen} alt="Pen" accentColor={penColor} />
       </ToolButton>
 
       <ToolButton active={tool === "note"} label="Comment" onClick={() => onSelectTool("note")}>
@@ -342,7 +425,7 @@ export function LeftToolbar({
             onSelectTool("shape", { force: true });
             setOpenGroup((current) => (current === "shapes" ? null : "shapes"));
           }}
-          className="acrobat-tool-btn acrobat-tool-group-btn relative flex h-9 w-9 items-center justify-center rounded"
+          className="acrobat-tool-btn acrobat-tool-group-btn relative flex h-10 w-10 items-center justify-center rounded transition-transform active:scale-95"
         >
           {shapeKind === "rect" ? (
             <ShapeRectIcon />
@@ -385,7 +468,7 @@ export function LeftToolbar({
                     {option.icon}
                   </span>
                   <span className="flex-1 text-left">{option.label}</span>
-                  {selected && <CheckIcon className="shrink-0 text-[#0a84ff]" />}
+                  {selected && <CheckIcon className="shrink-0 text-[#c9952a]" />}
                 </button>
               );
             })}
@@ -421,67 +504,46 @@ export function LeftToolbar({
         </div>
       )}
 
-      {showDrawColors && (
-        <div className="mt-1.5 flex flex-col items-center gap-1 border-t border-white/10 pt-1.5">
-          {HIGHLIGHT_PRESETS.map((preset) => (
-            <button
-              key={preset.name}
-              type="button"
-              title={preset.name}
-              className={cn(
-                "h-3.5 w-3.5 rounded-full border transition hover:scale-110",
-                highlightColor.toLowerCase() === preset.value.toLowerCase()
-                  ? "border-white ring-1 ring-[#0a84ff]"
-                  : "border-white/25",
-              )}
-              style={{ backgroundColor: preset.value }}
-              onClick={() => onPickHighlightColor(preset.value)}
-            />
-          ))}
-          {recentColors.slice(0, 2).map((color, index) => (
-            <button
-              key={`${index}-${color}`}
-              type="button"
-              title="Recent color"
-              className={cn(
-                "h-3.5 w-3.5 rounded-full border transition hover:scale-110",
-                highlightColor.toLowerCase() === color.toLowerCase()
-                  ? "border-white ring-1 ring-[#0a84ff]"
-                  : "border-white/25",
-              )}
-              style={{ backgroundColor: color }}
-              onClick={() => onPickHighlightColor(color)}
-            />
-          ))}
-          <label
-            title="Custom color"
-            className="relative flex h-3.5 w-3.5 cursor-pointer items-center justify-center rounded-full border border-dashed border-white/30"
-          >
-            <span className="pointer-events-none text-[7px] text-white/60">+</span>
-            <input
-              type="color"
-              value={highlightColor}
-              onChange={(e) => onHighlightColorChange(e.target.value)}
-              onBlur={(e) => onCommitHighlightColor(e.target.value)}
-              className="absolute inset-0 cursor-pointer opacity-0"
-            />
-          </label>
-
-          <ThicknessSliderFlyout
-            value={
-              tool === "pen" || tool === "shape"
-                ? penStrokeWidth
-                : highlightStrokeWidth
-            }
-            onChange={
-              tool === "pen" || tool === "shape"
-                ? onPenStrokeWidthChange
-                : onHighlightStrokeWidthChange
-            }
-            open={openGroup === "thickness"}
-            onOpenChange={(open) => setOpenGroup(open ? "thickness" : null)}
+      {showHighlightSettings && (
+        <>
+          <ColorPalette
+            presets={HIGHLIGHT_PRESETS}
+            activeColor={highlightColor}
+            recentColors={recentHighlightColors}
+            onPickColor={onPickHighlightColor}
+            onColorChange={onHighlightColorChange}
+            onCommitColor={onCommitHighlightColor}
           />
-        </div>
+          <div className="pb-0.5">
+            <ThicknessSliderFlyout
+              value={highlightStrokeWidth}
+              onChange={onHighlightStrokeWidthChange}
+              open={openGroup === "thickness"}
+              onOpenChange={(open) => setOpenGroup(open ? "thickness" : null)}
+            />
+          </div>
+        </>
+      )}
+
+      {showPenSettings && (
+        <>
+          <ColorPalette
+            presets={PEN_PRESETS}
+            activeColor={penColor}
+            recentColors={recentPenColors}
+            onPickColor={onPickPenColor}
+            onColorChange={onPenColorChange}
+            onCommitColor={onCommitPenColor}
+          />
+          <div className="pb-0.5">
+            <ThicknessSliderFlyout
+              value={penStrokeWidth}
+              onChange={onPenStrokeWidthChange}
+              open={openGroup === "thickness"}
+              onOpenChange={(open) => setOpenGroup(open ? "thickness" : null)}
+            />
+          </div>
+        </>
       )}
 
       {showNoteColors && (
@@ -596,7 +658,7 @@ function PageNumberInput({ page, maxPage, onGoToPage }: PageNumberInputProps) {
         title="Type a page number, then press Enter or click outside"
         className="acrobat-page-input"
       />
-      <span className="text-[10px] font-medium tabular-nums text-white/70">/{maxPage}</span>
+      <span className="text-[11px] font-semibold tabular-nums text-white/75">/{maxPage}</span>
     </div>
   );
 }
@@ -629,7 +691,7 @@ export function RightToolbar({
   return (
     <aside
       id="right-toolbar"
-      className="acrobat-toolbar pointer-events-auto absolute right-3 top-1/2 z-20 flex w-11 -translate-y-1/2 flex-col items-center gap-1.5 rounded py-2.5"
+      className="acrobat-toolbar pointer-events-auto absolute right-2 top-1/2 z-20 flex w-12 -translate-y-1/2 flex-col items-center gap-2 rounded py-2.5"
     >
       <div className="flex flex-col items-center gap-0.5 pb-1.5">
         <SideButton label="Previous page" disabled={prevDisabled} onClick={onPrevPage}>
@@ -641,7 +703,11 @@ export function RightToolbar({
         </SideButton>
       </div>
 
-      <div className="acrobat-zoom-badge border-t border-white/10 pt-1.5" title="Zoom level">
+      <div
+        className="acrobat-zoom-badge border-t border-white/10 pt-1.5 transition-all duration-200"
+        title="Zoom level"
+        key={zoomPercent}
+      >
         {zoomPercent}%
       </div>
 
