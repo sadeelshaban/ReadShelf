@@ -213,6 +213,9 @@ html {
   --reader-divider: rgba(31, 22, 16, 0.12);
   --reader-progress-track: rgba(31, 22, 16, 0.08);
   --reader-progress-fill: #c9952a;
+  --reader-page-filter: none;
+  --reader-actions-bg: rgba(111, 69, 40, 0.06);
+  --reader-actions-border: rgba(168, 152, 136, 0.35);
   --reader-focus-overlay: rgba(31, 22, 16, 0.55);
   background: var(--reader-bg);
   color: var(--reader-text);
@@ -220,7 +223,7 @@ html {
 
 .reader-shell.reader-theme-dark {
   --reader-bg: #323232;
-  --reader-viewport-bg: #4a4a4a;
+  --reader-viewport-bg: #565656;
   --reader-chrome-bg: rgba(43, 43, 43, 0.96);
   --reader-chrome-border: rgba(255, 255, 255, 0.1);
   --reader-text: #f5f5f5;
@@ -230,13 +233,16 @@ html {
   --reader-info-bg: rgba(0, 0, 0, 0.28);
   --reader-info-text: rgba(255, 255, 255, 0.82);
   --reader-info-border: rgba(255, 255, 255, 0.14);
-  --reader-page-bg: #f7f4ef;
+  --reader-page-bg: #e4dfd6;
+  --reader-page-filter: brightness(0.9) saturate(0.94);
+  --reader-actions-bg: rgba(0, 0, 0, 0.18);
+  --reader-actions-border: rgba(201, 149, 42, 0.35);
   --reader-tooltip-bg: #2b2b2b;
   --reader-tooltip-text: #f5f5f5;
   --reader-shadow: 0 4px 16px rgba(0, 0, 0, 0.28), 0 12px 32px rgba(0, 0, 0, 0.38);
   --reader-status-bg: rgba(43, 43, 43, 0.9);
   --reader-divider: rgba(255, 255, 255, 0.12);
-  --reader-progress-track: rgba(255, 255, 255, 0.1);
+  --reader-progress-track: rgba(255, 255, 255, 0.14);
   --reader-focus-overlay: rgba(0, 0, 0, 0.62);
 }
 
@@ -315,15 +321,37 @@ html {
   }
 }
 
+.reader-progress-row {
+  padding: 0 0.75rem 0.5rem;
+}
+
+.reader-progress-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.3rem;
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--reader-text-muted);
+}
+
 .reader-progress-track {
-  height: 2px;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 9999px;
   background: var(--reader-progress-track);
 }
 
 .reader-progress-fill {
   height: 100%;
+  min-width: 4px;
+  border-radius: 9999px;
   background: var(--reader-progress-fill);
   transition: width 0.25s ease;
+  box-shadow: 0 0 8px rgba(201, 149, 42, 0.35);
 }
 
 .acrobat-viewport,
@@ -336,6 +364,7 @@ html {
   background: var(--reader-chrome-bg);
   border: 1px solid var(--reader-chrome-border);
   box-shadow: var(--reader-shadow);
+  overflow: visible;
 }
 
 .acrobat-tool-btn,
@@ -421,10 +450,53 @@ html {
   cursor: grabbing;
 }
 
+.reader-toolbar-section-actions {
+  width: 100%;
+  border-top: 2px solid var(--reader-actions-border) !important;
+  background: var(--reader-actions-bg);
+  margin-top: 0.375rem;
+  padding: 0.5rem 0.25rem 0.25rem;
+  border-radius: 0 0 0.375rem 0.375rem;
+}
+
+.reader-toolbar-section-label {
+  margin-bottom: 0.125rem;
+  font-size: 0.5625rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--reader-text-muted);
+}
+
+.reader-chrome-btn-action {
+  border: 1px solid var(--reader-info-border);
+  background: var(--reader-info-bg);
+}
+
+.reader-chrome-btn-action:hover {
+  border-color: rgba(201, 149, 42, 0.45);
+}
+
+.reader-tooltip-wrap {
+  overflow: visible;
+}
+
 .reader-tooltip {
   background: var(--reader-tooltip-bg);
   color: var(--reader-tooltip-text);
   border: 1px solid var(--reader-chrome-border);
+  z-index: 100;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.15s ease 0.1s,
+    visibility 0.15s ease 0.1s;
+}
+
+.reader-tooltip-wrap:hover .reader-tooltip,
+.reader-tooltip-wrap:focus-within .reader-tooltip {
+  opacity: 1;
+  visibility: visible;
 }
 
 .reader-status-bar {
@@ -563,9 +635,13 @@ html {
 .reader-theme-dark .acrobat-page-panel,
 .reader-theme-dark .reader-page-panel {
   box-shadow:
-    0 0 0 1px rgba(0, 0, 0, 0.2),
-    0 8px 24px rgba(0, 0, 0, 0.28),
-    0 18px 48px rgba(0, 0, 0, 0.32);
+    0 0 0 1px rgba(0, 0, 0, 0.35),
+    0 4px 20px rgba(0, 0, 0, 0.45),
+    0 16px 40px rgba(0, 0, 0, 0.38);
+}
+
+.reader-theme-dark .reader-page-surface {
+  filter: var(--reader-page-filter);
 }
 
 .acrobat-page-input {

@@ -1864,6 +1864,8 @@ export function PdfReader({
       <ReaderTopBar
         bookId={bookId}
         title={bookTitle}
+        page={page}
+        maxPage={maxPage}
         progressPercent={readingProgressPercent}
         darkMode={darkMode}
         focusMode={focusMode}
@@ -2054,7 +2056,7 @@ export function PdfReader({
                   data-page={pageNumber}
                   ref={bindMapRef(pageWrapRefs, pageNumber)}
                   className={cn(
-                    "relative w-fit",
+                    "reader-page-surface relative w-fit",
                     focusMode && pageNumber === page && "reader-focus-page z-[1]",
                     tool === "note" && !editingNoteId && "cursor-crosshair",
                     tool === "eraser" && !editingNoteId && "cursor-none",

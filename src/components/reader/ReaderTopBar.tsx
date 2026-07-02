@@ -7,6 +7,8 @@ import { ReaderTooltip } from "@/components/reader/ReaderTooltip";
 type ReaderTopBarProps = {
   bookId: string;
   title: string;
+  page: number;
+  maxPage: number;
   progressPercent: number;
   darkMode: boolean;
   focusMode: boolean;
@@ -17,6 +19,8 @@ type ReaderTopBarProps = {
 export function ReaderTopBar({
   bookId,
   title,
+  page,
+  maxPage,
   progressPercent,
   darkMode,
   focusMode,
@@ -75,15 +79,23 @@ export function ReaderTopBar({
         </div>
       </div>
 
-      <div
-        className="reader-progress-track"
-        role="progressbar"
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={progressPercent}
-        aria-label="Reading progress"
-      >
-        <div className="reader-progress-fill" style={{ width: `${progressPercent}%` }} />
+      <div className="reader-progress-row">
+        <div className="reader-progress-meta">
+          <span>Reading progress</span>
+          <span>
+            {progressPercent}% · Page {page} of {maxPage}
+          </span>
+        </div>
+        <div
+          className="reader-progress-track"
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={progressPercent}
+          aria-label={`Reading progress ${progressPercent} percent`}
+        >
+          <div className="reader-progress-fill" style={{ width: `${progressPercent}%` }} />
+        </div>
       </div>
     </header>
   );

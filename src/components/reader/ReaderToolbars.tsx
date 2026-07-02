@@ -591,7 +591,8 @@ export function LeftToolbar({
         </div>
       )}
 
-      <div className="reader-toolbar-section">
+      <div className="reader-toolbar-section reader-toolbar-section-actions">
+        <span className="reader-toolbar-section-label">Page actions</span>
         <div className="reader-toolbar-group">
           <ReaderTooltip label={pageBookmarked ? "This page is bookmarked" : "Add bookmark"}>
             <button
@@ -601,7 +602,7 @@ export function LeftToolbar({
               data-active={tool === "bookmark" || pageBookmarked}
               onClick={onBookmark}
               className={cn(
-                "reader-chrome-btn flex h-10 w-10 items-center justify-center rounded transition-transform active:scale-95",
+                "reader-chrome-btn reader-chrome-btn-action flex h-10 w-10 items-center justify-center rounded transition-transform active:scale-95",
                 pageBookmarked && "text-[#f5d78e]",
                 bookmarkPulse && "reader-topbar-btn-bookmark-pulse",
               )}
@@ -621,7 +622,7 @@ export function LeftToolbar({
               disabled={saving}
               onClick={onSave}
               className={cn(
-                "reader-chrome-btn flex h-10 w-10 items-center justify-center rounded transition-transform active:scale-95",
+                "reader-chrome-btn reader-chrome-btn-action flex h-10 w-10 items-center justify-center rounded transition-transform active:scale-95",
                 saving && "opacity-50",
               )}
             >

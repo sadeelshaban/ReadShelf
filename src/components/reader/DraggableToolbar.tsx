@@ -13,6 +13,7 @@ import { ReaderTooltip } from "@/components/reader/ReaderTooltip";
 import { cn } from "@/lib/utils";
 
 const STORAGE_KEY = "readshelf-left-toolbar-pos";
+const DEFAULT_TOOLBAR_HEIGHT = 280;
 
 type Position = { x: number; y: number };
 
@@ -29,10 +30,10 @@ function loadPosition(): Position | null {
   return null;
 }
 
-function clampPosition(pos: Position): Position {
+function clampPosition(pos: Position, toolbarHeight: number): Position {
   const margin = 8;
   const width = 48;
-  const height = 380;
+  const height = Math.max(120, toolbarHeight);
   const maxX = Math.max(margin, window.innerWidth - width - margin);
   const maxY = Math.max(margin, window.innerHeight - height - margin);
   return {
@@ -60,6 +61,7 @@ export function DraggableToolbar({
   className,
   anchorPageWidth,
 }: DraggableToolbarProps) {
+  const asideRef = useRef<HTMLElement>(null);
   const dragRef = useRef<{
     pointerId: number;
     startX: number;
@@ -68,28 +70,54 @@ export function DraggableToolbar({
     originY: number;
   } | null>(null);
   const userDraggedRef = useRef(false);
+  const toolbarHeightRef = useRef(DEFAULT_TOOLBAR_HEIGHT);
 
   const [position, setPosition] = useState<Position>({ x: 12, y: 120 });
+  const [toolbarHeight, setToolbarHeight] = useState(DEFAULT_TOOLBAR_HEIGHT);
+
+  toolbarHeightRef.current = toolbarHeight;
+
+  const clampWithHeight = useCallback((pos: Position) => {
+    return clampPosition(pos, toolbarHeightRef.current);
+  }, []);
+
+  useEffect(() => {
+    const el = asideRef.current;
+    if (!el) return;
+
+    const measure = () => {
+      const nextHeight = el.offsetHeight;
+      if (nextHeight > 0) {
+        setToolbarHeight(nextHeight);
+        setPosition((current) => clampPosition(current, nextHeight));
+      }
+    };
+
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     const saved = loadPosition();
     if (saved) {
       userDraggedRef.current = true;
-      setPosition(clampPosition(saved));
+      setPosition(clampWithHeight(saved));
       return;
     }
 
-    const y = Math.max(12, Math.round(window.innerHeight / 2 - 140));
+    const y = Math.max(12, Math.round(window.innerHeight / 2 - DEFAULT_TOOLBAR_HEIGHT / 2));
     const x = anchorPageWidth ? snapXNearPage(anchorPageWidth) : 12;
-    setPosition(clampPosition({ x, y }));
-  }, [anchorPageWidth]);
+    setPosition(clampWithHeight({ x, y }));
+  }, [anchorPageWidth, clampWithHeight]);
 
   useEffect(() => {
     if (userDraggedRef.current || !anchorPageWidth) return;
     setPosition((current) =>
-      clampPosition({ x: snapXNearPage(anchorPageWidth), y: current.y }),
+      clampWithHeight({ x: snapXNearPage(anchorPageWidth), y: current.y }),
     );
-  }, [anchorPageWidth]);
+  }, [anchorPageWidth, clampWithHeight]);
 
   const persist = useCallback((pos: Position) => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(pos));
@@ -97,11 +125,11 @@ export function DraggableToolbar({
 
   useEffect(() => {
     function onResize() {
-      setPosition((current) => clampPosition(current));
+      setPosition((current) => clampWithHeight(current));
     }
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
-  }, []);
+  }, [clampWithHeight]);
 
   function handleGripDown(e: ReactPointerEvent<HTMLDivElement>) {
     e.preventDefault();
@@ -119,7 +147,7 @@ export function DraggableToolbar({
   function handleGripMove(e: ReactPointerEvent<HTMLDivElement>) {
     const drag = dragRef.current;
     if (!drag || drag.pointerId !== e.pointerId) return;
-    const next = clampPosition({
+    const next = clampWithHeight({
       x: drag.originX + (e.clientX - drag.startX),
       y: drag.originY + (e.clientY - drag.startY),
     });
@@ -135,7 +163,7 @@ export function DraggableToolbar({
       e.currentTarget.releasePointerCapture(e.pointerId);
     }
     setPosition((current) => {
-      const clamped = clampPosition(current);
+      const clamped = clampWithHeight(current);
       persist(clamped);
       return clamped;
     });
@@ -143,6 +171,7 @@ export function DraggableToolbar({
 
   return (
     <aside
+      ref={asideRef}
       id={id}
       style={{ left: position.x, top: position.y }}
       className={cn(
