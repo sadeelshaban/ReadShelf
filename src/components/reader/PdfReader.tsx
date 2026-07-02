@@ -30,7 +30,6 @@ import {
   loadRecentHighlightColors,
   loadShapeFilled,
   loadShapeKind,
-  eraserCursorDataUri,
   saveEraserStrokeWidth,
   saveHighlightStrokeWidth,
   savePenStrokeWidth,
@@ -101,6 +100,7 @@ import {
 } from "@/lib/offline/reader-api";
 import { isOnline } from "@/lib/offline/online";
 import { LeftToolbar, RightToolbar } from "@/components/reader/ReaderToolbars";
+import { EraserCursorOverlay } from "@/components/reader/EraserCursorOverlay";
 import { ReaderTopBar } from "@/components/reader/ReaderTopBar";
 import { PageBookmarkRibbon } from "@/components/reader/PageBookmarkRibbon";
 import {
@@ -240,6 +240,11 @@ export function PdfReader({
   const [eraserStrokeWidth, setEraserStrokeWidth] = useState(loadEraserStrokeWidth);
   const [shapeKind, setShapeKind] = useState<ShapeKind>(loadShapeKind);
   const [shapeFilled, setShapeFilled] = useState(loadShapeFilled);
+  const [eraserOverlay, setEraserOverlay] = useState<{
+    x: number;
+    y: number;
+    diameter: number;
+  } | null>(null);
   const [isTouch] = useState(isTouchDevice);
   const [offline, setOffline] = useState(() => !isOnline());
   const [saving, setSaving] = useState(false);
@@ -862,13 +867,39 @@ export function PdfReader({
     });
   }
 
-  function previewEraser(pageNumber: number, point: { x: number; y: number }) {
+  function syncEraserOverlay(clientX: number, clientY: number) {
+    if (toolRef.current !== "eraser") {
+      setEraserOverlay(null);
+      return;
+    }
+
+    for (const canvas of drawLayerRefs.current.values()) {
+      const rect = canvas.getBoundingClientRect();
+      if (
+        clientX >= rect.left &&
+        clientX <= rect.right &&
+        clientY >= rect.top &&
+        clientY <= rect.bottom
+      ) {
+        const scale = rect.width / canvas.width;
+        const diameter = effectiveStrokeWidth(eraserStrokeWidthRef.current) * scale;
+        setEraserOverlay({ x: clientX, y: clientY, diameter });
+        return;
+      }
+    }
+
+    setEraserOverlay(null);
+  }
+
+  function previewEraser(
+    pageNumber: number,
+    point: { x: number; y: number },
+    clientX: number,
+    clientY: number,
+  ) {
     eraserCursorRef.current = point;
-    redrawPageHighlights(pageNumber, highlightsRef.current, {
-      x: point.x,
-      y: point.y,
-      diameter: eraserStrokeWidthRef.current,
-    });
+    syncEraserOverlay(clientX, clientY);
+    redrawPageHighlights(pageNumber, highlightsRef.current);
   }
 
   function liveApplyEraser(pageNumber: number, eraserPath: Array<{ x: number; y: number }>) {
@@ -885,14 +916,10 @@ export function PdfReader({
     highlightsRef.current = next;
 
     const cursor = eraserCursorRef.current;
-    redrawPageHighlights(
-      pageNumber,
-      next,
-      cursor
-        ? { x: cursor.x, y: cursor.y, diameter: eraserStrokeWidthRef.current }
-        : undefined,
-    );
-    skipHighlightRedrawRef.current.add(pageNumber);
+    redrawPageHighlights(pageNumber, next);
+    if (cursor) {
+      skipHighlightRedrawRef.current.add(pageNumber);
+    }
   }
 
   function finishEraserStroke(pageNumber: number, eraserPath: Array<{ x: number; y: number }>) {
@@ -1076,6 +1103,9 @@ export function PdfReader({
       if (options?.force) return next;
       return current === next ? "read" : next;
     });
+    if (next !== "eraser") {
+      setEraserOverlay(null);
+    }
   }
 
   function setHighlightStrokeWidthAndSave(width: number) {
@@ -1091,6 +1121,25 @@ export function PdfReader({
   function setEraserStrokeWidthAndSave(width: number) {
     setEraserStrokeWidth(width);
     saveEraserStrokeWidth(width);
+    if (eraserOverlay) {
+      const pageCanvas = [...drawLayerRefs.current.values()].find((canvas) => {
+        const rect = canvas.getBoundingClientRect();
+        return (
+          eraserOverlay.x >= rect.left &&
+          eraserOverlay.x <= rect.right &&
+          eraserOverlay.y >= rect.top &&
+          eraserOverlay.y <= rect.bottom
+        );
+      });
+      if (pageCanvas) {
+        const rect = pageCanvas.getBoundingClientRect();
+        const scale = rect.width / pageCanvas.width;
+        setEraserOverlay({
+          ...eraserOverlay,
+          diameter: effectiveStrokeWidth(width) * scale,
+        });
+      }
+    }
   }
 
   function startEditingNote(id: string) {
@@ -1428,7 +1477,7 @@ export function PdfReader({
             : highlight.position,
         })),
       };
-      previewEraser(pageNumber, point);
+      previewEraser(pageNumber, point, e.clientX, e.clientY);
       e.currentTarget.setPointerCapture(e.pointerId);
       return;
     }
@@ -1470,7 +1519,7 @@ export function PdfReader({
       const path = currentEraserPathRef.current;
       const last = path[path.length - 1];
       if (last && Math.hypot(point.x - last.x, point.y - last.y) < 1.5) {
-        previewEraser(pageNumber, point);
+        previewEraser(pageNumber, point, e.clientX, e.clientY);
         return;
       }
       path.push(point);
@@ -1725,6 +1774,10 @@ export function PdfReader({
   }
 
   function handleViewerPointerMove(e: ReactPointerEvent<HTMLDivElement>) {
+    if (tool === "eraser" && !editingNoteId) {
+      syncEraserOverlay(e.clientX, e.clientY);
+    }
+
     const pan = panRef.current;
     const viewer = viewerRef.current;
     if (!pan || !viewer || pan.pointerId !== e.pointerId) return;
@@ -1760,7 +1813,9 @@ export function PdfReader({
         title={bookTitle}
         saving={saving}
         saveLabel={saveLabel}
+        bookmarkActive={tool === "bookmark"}
         onSave={() => void handleSave()}
+        onBookmark={() => selectTool("bookmark", { force: true })}
       />
 
       {(offline || message) && (
@@ -1775,6 +1830,13 @@ export function PdfReader({
       )}
 
       <div className="relative min-h-0 flex-1">
+        {eraserOverlay && tool === "eraser" && (
+          <EraserCursorOverlay
+            x={eraserOverlay.x}
+            y={eraserOverlay.y}
+            diameter={eraserOverlay.diameter}
+          />
+        )}
         <LeftToolbar
           tool={tool}
           onSelectTool={selectTool}
@@ -1867,6 +1929,7 @@ export function PdfReader({
           className={cn(
             "acrobat-viewport h-full overflow-auto outline-none",
             tool === "pan" && "cursor-grab active:cursor-grabbing",
+            tool === "eraser" && !editingNoteId && "cursor-none",
           )}
           onPointerDown={(e) => {
             handleViewerPointerDown(e);
@@ -1877,6 +1940,11 @@ export function PdfReader({
           onPointerMove={handleViewerPointerMove}
           onPointerUp={handleViewerPointerUp}
           onPointerCancel={handleViewerPointerUp}
+          onPointerLeave={(e) => {
+            if (tool === "eraser" && e.currentTarget === viewerRef.current) {
+              setEraserOverlay(null);
+            }
+          }}
         >
           {loading && (
             <p className="flex h-full items-center justify-center text-sm text-white/55">
@@ -1908,12 +1976,8 @@ export function PdfReader({
                   className={cn(
                     "relative w-fit",
                     tool === "note" && !editingNoteId && "cursor-crosshair",
+                    tool === "eraser" && !editingNoteId && "cursor-none",
                   )}
-                  style={
-                    tool === "eraser" && !editingNoteId
-                      ? { cursor: eraserCursorDataUri() }
-                      : undefined
-                  }
                   onPointerDown={(e) => handleContainerPointerDown(e, pageNumber)}
                 >
                   {pageBookmarks.map((bookmark, bookmarkIndex) => (
@@ -1939,14 +2003,16 @@ export function PdfReader({
                           isInteractiveDrawLayer(tool) && tool !== "eraser"
                             ? "cursor-crosshair"
                             : tool === "eraser"
-                              ? ""
+                              ? "cursor-none"
                               : "pointer-events-none",
                         )}
-                        style={
-                          tool === "eraser" ? { cursor: eraserCursorDataUri() } : undefined
-                        }
                         onPointerDown={(e) => handleDrawPointerDown(e, pageNumber)}
-                        onPointerMove={handleDrawPointerMove}
+                        onPointerMove={(e) => {
+                          if (tool === "eraser") {
+                            syncEraserOverlay(e.clientX, e.clientY);
+                          }
+                          handleDrawPointerMove(e);
+                        }}
                         onPointerUp={(e) => handleDrawPointerUp(e, pageNumber)}
                         onPointerLeave={(e) => handleDrawPointerUp(e, pageNumber)}
                       />

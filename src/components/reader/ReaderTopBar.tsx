@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { HomeIcon, SaveIcon } from "@/components/reader/ReaderIcons";
+import { HomeIcon } from "@/components/reader/ReaderIcons";
+import { READER_TOOL_ICONS, ReaderToolIcon } from "@/components/reader/ReaderToolIcon";
 import { cn } from "@/lib/utils";
 
 type ReaderTopBarProps = {
@@ -9,7 +10,9 @@ type ReaderTopBarProps = {
   title: string;
   saving?: boolean;
   saveLabel?: string | null;
+  bookmarkActive?: boolean;
   onSave: () => void;
+  onBookmark: () => void;
 };
 
 export function ReaderTopBar({
@@ -17,7 +20,9 @@ export function ReaderTopBar({
   title,
   saving,
   saveLabel,
+  bookmarkActive,
   onSave,
+  onBookmark,
 }: ReaderTopBarProps) {
   return (
     <header id="reader-top-bar" className="acrobat-topbar shrink-0">
@@ -35,13 +40,24 @@ export function ReaderTopBar({
         <div className="ml-auto flex items-center gap-1">
           <button
             type="button"
+            title="Add bookmark"
+            aria-label="Add bookmark"
+            aria-pressed={bookmarkActive}
+            data-active={bookmarkActive}
+            onClick={onBookmark}
+            className={cn("acrobat-topbar-btn", bookmarkActive && "bg-white/10")}
+          >
+            <ReaderToolIcon src={READER_TOOL_ICONS.bookmark} alt="Bookmark" />
+          </button>
+          <button
+            type="button"
             title="Sync latest annotations and reading progress"
             aria-label="Save latest changes"
             disabled={saving}
             onClick={onSave}
             className={cn("acrobat-topbar-btn", saving && "opacity-50")}
           >
-            <SaveIcon />
+            <ReaderToolIcon src={READER_TOOL_ICONS.save} alt="Save progress" />
           </button>
           {saveLabel && (
             <span className="hidden text-xs text-emerald-400 sm:inline">{saveLabel}</span>

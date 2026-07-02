@@ -12,18 +12,13 @@ import {
 } from "@/lib/reader/constants";
 import { cn } from "@/lib/utils";
 import { DraggableToolbar } from "@/components/reader/DraggableToolbar";
+import { READER_TOOL_ICONS, ReaderToolIcon } from "@/components/reader/ReaderToolIcon";
 import {
-  BookmarkIcon,
   CheckIcon,
   ChevronDownIcon,
   ChevronUpIcon,
   CursorIcon,
-  EraserIcon,
-  HandIcon,
-  HighlighterIcon,
   LineThicknessIcon,
-  NoteIcon,
-  PenIcon,
   ShapeArrowIcon,
   ShapeCircleIcon,
   ShapeLineIcon,
@@ -279,9 +274,7 @@ export function LeftToolbar({
   onShapeFilledChange,
 }: LeftToolbarProps) {
   const shapesRef = useRef<HTMLDivElement>(null);
-  const [openGroup, setOpenGroup] = useState<
-    "nav" | "thickness" | "eraserThickness" | "shapes" | null
-  >(null);
+  const [openGroup, setOpenGroup] = useState<"thickness" | "eraserThickness" | "shapes" | null>(null);
   const showDrawColors = tool === "highlight" || tool === "pen" || tool === "shape";
   const showEraserControls = tool === "eraser";
   const showNoteColors = tool === "note" || editingNote;
@@ -301,27 +294,8 @@ export function LeftToolbar({
 
   return (
     <DraggableToolbar id="left-toolbar">
-      <ToolGroupButton
-        options={[
-          { tool: "read", label: "Select", icon: <CursorIcon /> },
-          { tool: "pan", label: "Pan", icon: <HandIcon /> },
-        ]}
-        activeTool={tool}
-        onSelectTool={(next) => onSelectTool(next, { force: true })}
-        open={openGroup === "nav"}
-        onOpenChange={(open) => setOpenGroup(open ? "nav" : null)}
-      />
-
-      <ToolButton active={tool === "note"} label="Comment" onClick={() => onSelectTool("note")}>
-        <NoteIcon />
-      </ToolButton>
-
-      <ToolButton
-        active={tool === "pen"}
-        label="Draw"
-        onClick={() => onSelectTool("pen", { force: true })}
-      >
-        <PenIcon color={highlightColor} />
+      <ToolButton active={tool === "read"} label="Select" onClick={() => onSelectTool("read", { force: true })}>
+        <CursorIcon />
       </ToolButton>
 
       <ToolButton
@@ -329,11 +303,31 @@ export function LeftToolbar({
         label="Highlighter"
         onClick={() => onSelectTool("highlight", { force: true })}
       >
-        <HighlighterIcon color={highlightColor} />
+        <ReaderToolIcon
+          src={READER_TOOL_ICONS.highlighter}
+          alt="Highlighter"
+          accentColor={highlightColor}
+        />
+      </ToolButton>
+
+      <ToolButton
+        active={tool === "pen"}
+        label="Draw"
+        onClick={() => onSelectTool("pen", { force: true })}
+      >
+        <ReaderToolIcon src={READER_TOOL_ICONS.pen} alt="Pen" accentColor={highlightColor} />
+      </ToolButton>
+
+      <ToolButton active={tool === "note"} label="Comment" onClick={() => onSelectTool("note")}>
+        <ReaderToolIcon src={READER_TOOL_ICONS.note} alt="Note" />
       </ToolButton>
 
       <ToolButton active={tool === "eraser"} label="Eraser" onClick={() => onSelectTool("eraser")}>
-        <EraserIcon />
+        <ReaderToolIcon src={READER_TOOL_ICONS.eraser} alt="Eraser" />
+      </ToolButton>
+
+      <ToolButton active={tool === "pan"} label="Pan" onClick={() => onSelectTool("pan", { force: true })}>
+        <ReaderToolIcon src={READER_TOOL_ICONS.hand} alt="Pan" />
       </ToolButton>
 
       <div ref={shapesRef} className="relative">
@@ -415,14 +409,6 @@ export function LeftToolbar({
           </div>
         )}
       </div>
-
-      <ToolButton
-        active={tool === "bookmark"}
-        label="Bookmark"
-        onClick={() => onSelectTool("bookmark", { force: true })}
-      >
-        <BookmarkIcon />
-      </ToolButton>
 
       {showEraserControls && (
         <div className="mt-1.5 flex flex-col items-center border-t border-white/10 pt-1.5">
