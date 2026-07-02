@@ -265,7 +265,9 @@ export function BookDetailsClient({
   }, [refreshAnnotations]);
 
   const highlightGroups = groupHighlightsByPage(
-    displayHighlights.filter((h) => h.highlight_type !== "pen"),
+    displayHighlights.filter(
+      (h) => h.highlight_type !== "pen" && !h.highlight_type.startsWith("shape_"),
+    ),
   );
   const noteGroups = groupNotesByPage(displayNotes);
   const readLabel = getReadButtonLabel(book);

@@ -1,7 +1,11 @@
 import type { ReaderTool } from "@/types";
 
+export function isShapeTool(activeTool: ReaderTool) {
+  return activeTool === "shape";
+}
+
 export function isDrawingTool(activeTool: ReaderTool) {
-  return activeTool === "highlight" || activeTool === "pen";
+  return activeTool === "highlight" || activeTool === "pen" || isShapeTool(activeTool);
 }
 
 export function isEraserTool(activeTool: ReaderTool) {
@@ -23,6 +27,7 @@ export function canNavigatePages(params: {
     params.activeTool === "note" ||
     params.activeTool === "highlight" ||
     params.activeTool === "pen" ||
+    params.activeTool === "shape" ||
     params.activeTool === "pan" ||
     params.activeTool === "eraser"
   ) {

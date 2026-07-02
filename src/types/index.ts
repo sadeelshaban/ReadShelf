@@ -10,9 +10,19 @@ export type HighlightStroke = {
   width: number;
 };
 
+export type HighlightShape = {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  filled: boolean;
+  strokeWidth: number;
+};
+
 export type HighlightPosition = {
   rects?: HighlightRect[];
   strokes?: HighlightStroke[];
+  shape?: HighlightShape;
   viewportWidth?: number;
   viewportHeight?: number;
 };
@@ -84,7 +94,10 @@ export type ReaderTool =
   | "pen"
   | "note"
   | "eraser"
-  | "bookmark";
+  | "bookmark"
+  | "shape";
+
+export type ShapeKind = "rect" | "ellipse" | "line" | "arrow";
 
 export type Bookmark = {
   id: string;

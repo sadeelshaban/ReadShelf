@@ -2,6 +2,7 @@ import { cn } from "@/lib/utils";
 
 type IconProps = {
   className?: string;
+  color?: string;
 };
 
 export function MenuIcon({ className }: IconProps) {
@@ -61,56 +62,40 @@ export function HandIcon({ className }: IconProps) {
   );
 }
 
-/** Wide-tip marker with highlight band — highlighter tool */
-export function HighlighterIcon({ className }: IconProps) {
+/** Acrobat-style chisel marker — highlighter tool */
+export function HighlighterIcon({ className, color = "#29B6F6" }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={cn("h-[18px] w-[18px]", className)} aria-hidden>
-      <rect x="1.5" y="13.25" width="21" height="5.5" rx="1.25" fill="currentColor" opacity="0.32" />
-      <rect
-        x="2.5"
-        y="6.25"
-        width="12.5"
-        height="4.75"
-        rx="2.4"
+      <path
+        d="M9.25 3.5h4.5l3.25 14.25-4.5 3-4.5-3L9.25 3.5z"
         stroke="currentColor"
-        strokeWidth="1.5"
-        fill="currentColor"
-        fillOpacity="0.12"
+        strokeWidth="1.45"
+        strokeLinejoin="round"
       />
-      <path d="M15 8.6h6.25" stroke="currentColor" strokeWidth="4.25" strokeLinecap="round" />
-      <path d="M4.5 8.6h5.5" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" opacity="0.55" />
+      <path d="M9.75 4.25h3.5l2.75 12.75-3.5 2.35-3.5-2.35L9.75 4.25z" fill={color} />
+      <path
+        d="M8.25 17.25 12 20.75 15.75 17.25 13.75 15.75 10.25 15.75z"
+        fill={color}
+        stroke="currentColor"
+        strokeWidth="1.1"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
 
-/** Fine-tip pencil — pen / ink drawing */
-export function PenIcon({ className }: IconProps) {
+/** Acrobat-style fine nib — pen / ink drawing */
+export function PenIcon({ className, color = "#EC407A" }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={cn("h-[18px] w-[18px]", className)} aria-hidden>
       <path
-        d="M4.25 19.75 14.25 9.75l2.25 2.25-10 10z"
+        d="M12.25 3.25 13.35 4.35 5.85 20.15 4.35 19.35z"
         stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinejoin="round"
-        fill="currentColor"
-        fillOpacity="0.1"
-      />
-      <path
-        d="M14.25 9.75 16.75 7.25 19.75 10.25 17.25 12.75z"
-        stroke="currentColor"
-        strokeWidth="1.4"
+        strokeWidth="1.45"
         strokeLinejoin="round"
       />
-      <path d="M4.25 19.75 2.75 21.25" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-      <path
-        d="M16.75 7.25 19.25 4.75 21.25 6.75 18.75 9.25z"
-        fill="currentColor"
-        fillOpacity="0.42"
-        stroke="currentColor"
-        strokeWidth="1.2"
-        strokeLinejoin="round"
-      />
-      <path d="M19.25 4.75 21.25 2.75" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      <path d="M12.45 3.85 13.05 4.55 5.55 19.55 4.95 18.85z" fill={color} />
+      <path d="M4.35 19.35 3.35 20.85" stroke={color} strokeWidth="2.1" strokeLinecap="round" />
     </svg>
   );
 }
@@ -120,16 +105,63 @@ export function EraserIcon({ className }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={cn("h-[18px] w-[18px]", className)} aria-hidden>
       <path
-        d="M4.5 15.25 11.75 8 18.25 14.5 11 21.75z"
+        d="M5.25 15.75 12.25 8.25 18.25 14.25 11.25 21.75z"
         stroke="currentColor"
-        strokeWidth="1.65"
+        strokeWidth="1.55"
         strokeLinejoin="round"
         fill="currentColor"
-        fillOpacity="0.22"
+        fillOpacity="0.16"
       />
-      <path d="M3.5 21.25h17" stroke="currentColor" strokeWidth="1.85" strokeLinecap="round" />
-      <path d="M7.75 17.5 13.25 12" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" opacity="0.55" />
-      <path d="M9.75 19.5 15.25 14" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" opacity="0.55" />
+      <path d="M4 21.25h16" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
+      <path d="M8.25 17.75 13.25 12.75" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" opacity="0.5" />
+    </svg>
+  );
+}
+
+export function ShapesIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={cn("h-[18px] w-[18px]", className)} aria-hidden>
+      <circle cx="9" cy="9" r="5.25" stroke="currentColor" strokeWidth="1.55" />
+      <rect x="11.25" y="11.25" width="8.5" height="8.5" rx="1.25" stroke="currentColor" strokeWidth="1.55" />
+    </svg>
+  );
+}
+
+export function ShapeRectIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={cn("h-[18px] w-[18px]", className)} aria-hidden>
+      <rect x="5.5" y="6.5" width="13" height="11" rx="1.25" stroke="currentColor" strokeWidth="1.6" />
+    </svg>
+  );
+}
+
+export function ShapeCircleIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={cn("h-[18px] w-[18px]", className)} aria-hidden>
+      <circle cx="12" cy="12" r="6.75" stroke="currentColor" strokeWidth="1.6" />
+    </svg>
+  );
+}
+
+export function ShapeLineIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={cn("h-[18px] w-[18px]", className)} aria-hidden>
+      <path d="M5 18.5 18.5 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function ShapeArrowIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={cn("h-[18px] w-[18px]", className)} aria-hidden>
+      <path d="M5 18.5 16.5 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path
+        d="M11.5 7H16.5V12"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }

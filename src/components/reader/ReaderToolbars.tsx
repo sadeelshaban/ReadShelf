@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import type { ReaderTool } from "@/types";
+import type { ReaderTool, ShapeKind } from "@/types";
 import {
   HIGHLIGHT_PRESETS,
   MAX_STROKE_WIDTH,
@@ -24,6 +24,11 @@ import {
   LineThicknessIcon,
   NoteIcon,
   PenIcon,
+  ShapeArrowIcon,
+  ShapeCircleIcon,
+  ShapeLineIcon,
+  ShapeRectIcon,
+  ShapesIcon,
   ZoomInIcon,
   ZoomOutIcon,
 } from "@/components/reader/ReaderIcons";
@@ -243,6 +248,10 @@ type LeftToolbarProps = {
   onHighlightStrokeWidthChange: (width: number) => void;
   onPenStrokeWidthChange: (width: number) => void;
   onEraserStrokeWidthChange: (width: number) => void;
+  shapeKind: ShapeKind;
+  shapeFilled: boolean;
+  onShapeKindChange: (kind: ShapeKind) => void;
+  onShapeFilledChange: (filled: boolean) => void;
 };
 
 export function LeftToolbar({
@@ -264,13 +273,31 @@ export function LeftToolbar({
   onHighlightStrokeWidthChange,
   onPenStrokeWidthChange,
   onEraserStrokeWidthChange,
+  shapeKind,
+  shapeFilled,
+  onShapeKindChange,
+  onShapeFilledChange,
 }: LeftToolbarProps) {
-  const [openGroup, setOpenGroup] = useState<"nav" | "thickness" | "eraserThickness" | null>(
-    null,
-  );
-  const showDrawColors = tool === "highlight" || tool === "pen";
+  const shapesRef = useRef<HTMLDivElement>(null);
+  const [openGroup, setOpenGroup] = useState<
+    "nav" | "thickness" | "eraserThickness" | "shapes" | null
+  >(null);
+  const showDrawColors = tool === "highlight" || tool === "pen" || tool === "shape";
   const showEraserControls = tool === "eraser";
   const showNoteColors = tool === "note" || editingNote;
+
+  useEffect(() => {
+    if (openGroup !== "shapes") return;
+
+    function handlePointerDown(event: PointerEvent) {
+      if (!shapesRef.current?.contains(event.target as Node)) {
+        setOpenGroup(null);
+      }
+    }
+
+    window.addEventListener("pointerdown", handlePointerDown);
+    return () => window.removeEventListener("pointerdown", handlePointerDown);
+  }, [openGroup]);
 
   return (
     <DraggableToolbar id="left-toolbar">
@@ -290,24 +317,104 @@ export function LeftToolbar({
       </ToolButton>
 
       <ToolButton
-        active={tool === "highlight"}
-        label="Highlighter"
-        onClick={() => onSelectTool("highlight", { force: true })}
-      >
-        <HighlighterIcon />
-      </ToolButton>
-
-      <ToolButton
         active={tool === "pen"}
         label="Draw"
         onClick={() => onSelectTool("pen", { force: true })}
       >
-        <PenIcon />
+        <PenIcon color={highlightColor} />
+      </ToolButton>
+
+      <ToolButton
+        active={tool === "highlight"}
+        label="Highlighter"
+        onClick={() => onSelectTool("highlight", { force: true })}
+      >
+        <HighlighterIcon color={highlightColor} />
       </ToolButton>
 
       <ToolButton active={tool === "eraser"} label="Eraser" onClick={() => onSelectTool("eraser")}>
         <EraserIcon />
       </ToolButton>
+
+      <div ref={shapesRef} className="relative">
+        <button
+          type="button"
+          title="Shapes"
+          aria-label="Shapes"
+          aria-expanded={openGroup === "shapes"}
+          aria-haspopup="menu"
+          data-active={tool === "shape"}
+          onClick={() => {
+            onSelectTool("shape", { force: true });
+            setOpenGroup((current) => (current === "shapes" ? null : "shapes"));
+          }}
+          className="acrobat-tool-btn acrobat-tool-group-btn relative flex h-9 w-9 items-center justify-center rounded"
+        >
+          {shapeKind === "rect" ? (
+            <ShapeRectIcon />
+          ) : shapeKind === "ellipse" ? (
+            <ShapeCircleIcon />
+          ) : shapeKind === "line" ? (
+            <ShapeLineIcon />
+          ) : shapeKind === "arrow" ? (
+            <ShapeArrowIcon />
+          ) : (
+            <ShapesIcon />
+          )}
+        </button>
+
+        {openGroup === "shapes" && (
+          <div className="acrobat-tool-flyout min-w-[10.5rem]" role="menu">
+            {(
+              [
+                { kind: "rect" as const, label: "Rectangle", icon: <ShapeRectIcon /> },
+                { kind: "ellipse" as const, label: "Circle", icon: <ShapeCircleIcon /> },
+                { kind: "line" as const, label: "Line", icon: <ShapeLineIcon /> },
+                { kind: "arrow" as const, label: "Arrow", icon: <ShapeArrowIcon /> },
+              ] as const
+            ).map((option) => {
+              const selected = shapeKind === option.kind;
+              return (
+                <button
+                  key={option.kind}
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={selected}
+                  data-active={selected}
+                  className="acrobat-tool-flyout-item"
+                  onClick={() => {
+                    onShapeKindChange(option.kind);
+                    onSelectTool("shape", { force: true });
+                  }}
+                >
+                  <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center">
+                    {option.icon}
+                  </span>
+                  <span className="flex-1 text-left">{option.label}</span>
+                  {selected && <CheckIcon className="shrink-0 text-[#0a84ff]" />}
+                </button>
+              );
+            })}
+            <div className="border-t border-white/10 px-3 py-2">
+              <div className="flex items-center justify-between gap-2 text-[11px] text-white/70">
+                <span>Fill</span>
+                <button
+                  type="button"
+                  className={cn(
+                    "rounded px-2 py-0.5 text-[10px] font-medium transition",
+                    shapeFilled
+                      ? "bg-[#0a84ff] text-white"
+                      : "bg-white/10 text-white/75 hover:bg-white/16",
+                  )}
+                  onClick={() => onShapeFilledChange(!shapeFilled)}
+                >
+                  {shapeFilled ? "On" : "Off"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
 
       <ToolButton
         active={tool === "bookmark"}
@@ -375,8 +482,16 @@ export function LeftToolbar({
           </label>
 
           <ThicknessSliderFlyout
-            value={tool === "pen" ? penStrokeWidth : highlightStrokeWidth}
-            onChange={tool === "pen" ? onPenStrokeWidthChange : onHighlightStrokeWidthChange}
+            value={
+              tool === "pen" || tool === "shape"
+                ? penStrokeWidth
+                : highlightStrokeWidth
+            }
+            onChange={
+              tool === "pen" || tool === "shape"
+                ? onPenStrokeWidthChange
+                : onHighlightStrokeWidthChange
+            }
             open={openGroup === "thickness"}
             onOpenChange={(open) => setOpenGroup(open ? "thickness" : null)}
           />

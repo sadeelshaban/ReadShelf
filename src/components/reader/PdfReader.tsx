@@ -10,10 +10,12 @@ import {
 import type {
   Bookmark,
   Highlight,
+  HighlightShape,
   HighlightStroke,
   Note,
   NotePosition,
   ReaderTool,
+  ShapeKind,
 } from "@/types";
 import { createClient } from "@/lib/supabase/client";
 import { canvasPointFromClient, type ViewportSize } from "@/lib/reader/coordinates";
@@ -26,11 +28,17 @@ import {
   loadLastHighlightColor,
   loadPenStrokeWidth,
   loadRecentHighlightColors,
+  loadShapeFilled,
+  loadShapeKind,
+  eraserCursorDataUri,
   saveEraserStrokeWidth,
   saveHighlightStrokeWidth,
   savePenStrokeWidth,
   saveRecentHighlightColor,
+  saveShapeFilled,
+  saveShapeKind,
 } from "@/lib/reader/constants";
+import { shapeHighlightType } from "@/lib/reader/shapes";
 import { redrawHighlightLayer } from "@/lib/reader/pdf-reader-canvas";
 import {
   MAX_ZOOM,
@@ -147,6 +155,7 @@ export function PdfReader({
   const renderGenRef = useRef<Map<number, number>>(new Map());
   const pdfRef = useRef<Awaited<ReturnType<typeof getPdfDocument>> | null>(null);
   const currentStrokeRef = useRef<HighlightStroke | null>(null);
+  const currentShapeRef = useRef<HighlightShape | null>(null);
   const isDrawingRef = useRef(false);
   const isErasingRef = useRef(false);
   const currentEraserPathRef = useRef<Array<{ x: number; y: number }>>([]);
@@ -229,6 +238,8 @@ export function PdfReader({
   const [highlightStrokeWidth, setHighlightStrokeWidth] = useState(loadHighlightStrokeWidth);
   const [penStrokeWidth, setPenStrokeWidth] = useState(loadPenStrokeWidth);
   const [eraserStrokeWidth, setEraserStrokeWidth] = useState(loadEraserStrokeWidth);
+  const [shapeKind, setShapeKind] = useState<ShapeKind>(loadShapeKind);
+  const [shapeFilled, setShapeFilled] = useState(loadShapeFilled);
   const [isTouch] = useState(isTouchDevice);
   const [offline, setOffline] = useState(() => !isOnline());
   const [saving, setSaving] = useState(false);
@@ -1357,6 +1368,35 @@ export function PdfReader({
       });
   }
 
+  function saveShape(pageNumber: number, shape: HighlightShape, kind: ShapeKind) {
+    const viewport = getViewportSize(pageNumber);
+    const highlight: Highlight = {
+      id: crypto.randomUUID(),
+      book_id: bookId,
+      user_id: userId,
+      page_number: pageNumber,
+      selected_text: "",
+      color: highlightColor,
+      highlight_type: shapeHighlightType(kind),
+      position: {
+        shape,
+        viewportWidth: viewport?.viewportWidth,
+        viewportHeight: viewport?.viewportHeight,
+      },
+      created_at: new Date().toISOString(),
+    };
+
+    addHighlightOptimistic(highlight);
+    pushHistory({ type: "add_highlight", highlight });
+    pickHighlightColor(highlightColor);
+
+    void persistHighlight(highlight)
+      .then(() => scheduleAnnotationSync())
+      .catch((err) => {
+        setMessage(err instanceof Error ? err.message : "Could not save shape");
+      });
+  }
+
   function getCanvasPoint(e: ReactPointerEvent<HTMLCanvasElement>) {
     return canvasPointFromClient(e.clientX, e.clientY, e.currentTarget);
   }
@@ -1381,6 +1421,9 @@ export function PdfReader({
                   ...stroke,
                   points: stroke.points.map((p) => ({ ...p })),
                 })),
+                shape: highlight.position.shape
+                  ? { ...highlight.position.shape }
+                  : undefined,
               }
             : highlight.position,
         })),
@@ -1394,10 +1437,27 @@ export function PdfReader({
     isDrawingRef.current = true;
     currentDrawPageRef.current = pageNumber;
     const point = getCanvasPoint(e);
+
+    if (tool === "shape") {
+      const width = effectiveStrokeWidth(penStrokeWidth);
+      currentShapeRef.current = {
+        x1: point.x,
+        y1: point.y,
+        x2: point.x,
+        y2: point.y,
+        filled: shapeFilled,
+        strokeWidth: width,
+      };
+      currentStrokeRef.current = null;
+      e.currentTarget.setPointerCapture(e.pointerId);
+      return;
+    }
+
     const width = effectiveStrokeWidth(
       tool === "pen" ? penStrokeWidth : highlightStrokeWidth,
     );
     currentStrokeRef.current = { points: [point], width };
+    currentShapeRef.current = null;
     e.currentTarget.setPointerCapture(e.pointerId);
   }
 
@@ -1419,12 +1479,29 @@ export function PdfReader({
     }
 
     if (!isDrawingRef.current || !isDrawingTool(tool)) return;
-    const stroke = currentStrokeRef.current;
     const canvas = e.currentTarget;
     const pageNumber = currentDrawPageRef.current;
-    if (!stroke || !canvas || pageNumber == null) return;
+    if (!canvas || pageNumber == null) return;
 
     const point = getCanvasPoint(e);
+
+    if (tool === "shape") {
+      const shape = currentShapeRef.current;
+      if (!shape) return;
+      shape.x2 = point.x;
+      shape.y2 = point.y;
+      redrawHighlightLayer(canvas, highlightsRef.current, pageNumber, {
+        shape,
+        shapeKind,
+        color: highlightColor,
+        type: "shape",
+      });
+      return;
+    }
+
+    const stroke = currentStrokeRef.current;
+    if (!stroke) return;
+
     const last = stroke.points[stroke.points.length - 1];
     if (Math.hypot(point.x - last.x, point.y - last.y) < 1.5) return;
     stroke.points.push(point);
@@ -1457,6 +1534,19 @@ export function PdfReader({
     if (!isDrawingRef.current || !isDrawingTool(tool)) return;
     isDrawingRef.current = false;
     currentDrawPageRef.current = null;
+
+    if (tool === "shape") {
+      const shape = currentShapeRef.current;
+      currentShapeRef.current = null;
+      if (
+        shape &&
+        (Math.abs(shape.x2 - shape.x1) >= 4 || Math.abs(shape.y2 - shape.y1) >= 4)
+      ) {
+        saveShape(pageNumber, shape, shapeKind);
+      }
+      return;
+    }
+
     const stroke = currentStrokeRef.current;
     const highlightType = tool === "pen" ? "pen" : "freeform";
     currentStrokeRef.current = null;
@@ -1704,6 +1794,16 @@ export function PdfReader({
           onHighlightStrokeWidthChange={setHighlightStrokeWidthAndSave}
           onPenStrokeWidthChange={setPenStrokeWidthAndSave}
           onEraserStrokeWidthChange={setEraserStrokeWidthAndSave}
+          shapeKind={shapeKind}
+          shapeFilled={shapeFilled}
+          onShapeKindChange={(kind) => {
+            setShapeKind(kind);
+            saveShapeKind(kind);
+          }}
+          onShapeFilledChange={(filled) => {
+            setShapeFilled(filled);
+            saveShapeFilled(filled);
+          }}
         />
 
         {tool === "bookmark" && !bookmarkToDelete && (
@@ -1807,10 +1907,13 @@ export function PdfReader({
                   ref={bindMapRef(pageWrapRefs, pageNumber)}
                   className={cn(
                     "relative w-fit",
-                    (tool === "note" || tool === "eraser") &&
-                      !editingNoteId &&
-                      "cursor-crosshair",
+                    tool === "note" && !editingNoteId && "cursor-crosshair",
                   )}
+                  style={
+                    tool === "eraser" && !editingNoteId
+                      ? { cursor: eraserCursorDataUri() }
+                      : undefined
+                  }
                   onPointerDown={(e) => handleContainerPointerDown(e, pageNumber)}
                 >
                   {pageBookmarks.map((bookmark, bookmarkIndex) => (
@@ -1833,10 +1936,15 @@ export function PdfReader({
                         ref={bindMapRef(drawLayerRefs, pageNumber)}
                         className={cn(
                           "absolute left-0 top-0 touch-none",
-                          isInteractiveDrawLayer(tool)
+                          isInteractiveDrawLayer(tool) && tool !== "eraser"
                             ? "cursor-crosshair"
-                            : "pointer-events-none",
+                            : tool === "eraser"
+                              ? ""
+                              : "pointer-events-none",
                         )}
+                        style={
+                          tool === "eraser" ? { cursor: eraserCursorDataUri() } : undefined
+                        }
                         onPointerDown={(e) => handleDrawPointerDown(e, pageNumber)}
                         onPointerMove={handleDrawPointerMove}
                         onPointerUp={(e) => handleDrawPointerUp(e, pageNumber)}

@@ -1,3 +1,5 @@
+import type { ShapeKind } from "@/types";
+
 export const HIGHLIGHT_PRESETS = [
   { name: "Yellow", value: "#FFEB3B" },
   { name: "Sky blue", value: "#29B6F6" },
@@ -130,6 +132,15 @@ export const HIGHLIGHT_STROKE_WIDTH_KEY = "readshelf-highlight-stroke-width";
 export const PEN_STROKE_WIDTH_KEY = "readshelf-pen-stroke-width";
 export const ERASER_STROKE_WIDTH_KEY = "readshelf-eraser-stroke-width";
 
+export const SHAPE_KIND_KEY = "readshelf-shape-kind";
+export const SHAPE_FILLED_KEY = "readshelf-shape-filled";
+
+export const READER_THEME_PRIMARY = "#6f4528";
+export const READER_THEME_ACCENT = "#c9952a";
+export const READER_ERASER_RING = "rgba(201, 149, 42, 0.55)";
+export const READER_ERASER_STROKE = "#6f4528";
+export const READER_ERASER_HALO = "rgba(255, 252, 247, 0.92)";
+
 function clampStrokeWidth(value: number, fallback: number) {
   if (!Number.isFinite(value)) return fallback;
   return Math.min(MAX_STROKE_WIDTH, Math.max(MIN_STROKE_WIDTH, value));
@@ -163,6 +174,34 @@ export function savePenStrokeWidth(width: number) {
 
 export function saveEraserStrokeWidth(width: number) {
   localStorage.setItem(ERASER_STROKE_WIDTH_KEY, String(clampStrokeWidth(width, DEFAULT_ERASER_STROKE_WIDTH)));
+}
+
+const SHAPE_KINDS: ShapeKind[] = ["rect", "ellipse", "line", "arrow"];
+
+export function loadShapeKind(): ShapeKind {
+  if (typeof window === "undefined") return "rect";
+  const raw = localStorage.getItem(SHAPE_KIND_KEY);
+  return SHAPE_KINDS.includes(raw as ShapeKind) ? (raw as ShapeKind) : "rect";
+}
+
+export function saveShapeKind(kind: ShapeKind) {
+  localStorage.setItem(SHAPE_KIND_KEY, kind);
+}
+
+export function loadShapeFilled() {
+  if (typeof window === "undefined") return false;
+  return localStorage.getItem(SHAPE_FILLED_KEY) === "1";
+}
+
+export function saveShapeFilled(filled: boolean) {
+  localStorage.setItem(SHAPE_FILLED_KEY, filled ? "1" : "0");
+}
+
+export function eraserCursorDataUri(size = 28) {
+  const center = size / 2;
+  const radius = size * 0.34;
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${size}' height='${size}' viewBox='0 0 ${size} ${size}'><circle cx='${center}' cy='${center}' r='${radius + 2.2}' fill='none' stroke='${READER_ERASER_HALO}' stroke-width='2.4'/><circle cx='${center}' cy='${center}' r='${radius}' fill='${READER_ERASER_RING}' stroke='${READER_ERASER_STROKE}' stroke-width='1.8'/></svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}") ${center} ${center}, crosshair`;
 }
 
 export function noteTextCss(color: string) {

@@ -1,4 +1,5 @@
 import type { Highlight, HighlightStroke } from "@/types";
+import { shapeHitByEraser, shapeKindFromHighlight } from "@/lib/reader/shapes";
 
 type Point = { x: number; y: number };
 
@@ -153,6 +154,14 @@ export function computeEraserChanges(
   );
 
   for (const highlight of pageHighlights) {
+    const shapeKind = shapeKindFromHighlight(highlight);
+    if (shapeKind && highlight.position?.shape) {
+      if (shapeHitByEraser(highlight.position.shape, shapeKind, eraserPoints, eraserWidth)) {
+        changes.push({ before: highlight, after: null });
+      }
+      continue;
+    }
+
     const oldStrokes = highlight.position?.strokes ?? [];
     const newStrokes = oldStrokes.flatMap((stroke) =>
       eraseStrokeByPath(stroke, eraserPoints, eraserWidth),

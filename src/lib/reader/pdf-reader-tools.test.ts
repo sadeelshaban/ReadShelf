@@ -7,9 +7,10 @@ import {
 } from "@/lib/reader/pdf-reader-tools";
 
 describe("isDrawingTool", () => {
-  it("is true for highlight and pen", () => {
+  it("is true for highlight, pen, and shape", () => {
     expect(isDrawingTool("highlight")).toBe(true);
     expect(isDrawingTool("pen")).toBe(true);
+    expect(isDrawingTool("shape")).toBe(true);
   });
 
   it("is false for other tools", () => {
@@ -23,6 +24,7 @@ describe("isInteractiveDrawLayer", () => {
     expect(isInteractiveDrawLayer("highlight")).toBe(true);
     expect(isInteractiveDrawLayer("pen")).toBe(true);
     expect(isInteractiveDrawLayer("eraser")).toBe(true);
+    expect(isInteractiveDrawLayer("shape")).toBe(true);
     expect(isInteractiveDrawLayer("read")).toBe(false);
   });
 });
@@ -50,6 +52,7 @@ describe("canNavigatePages", () => {
 
   it("blocks navigation for annotation tools", () => {
     expect(canNavigatePages({ ...base, activeTool: "highlight" })).toBe(false);
+    expect(canNavigatePages({ ...base, activeTool: "shape" })).toBe(false);
     expect(canNavigatePages({ ...base, activeTool: "pan" })).toBe(false);
   });
 
