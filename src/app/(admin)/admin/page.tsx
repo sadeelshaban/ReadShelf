@@ -35,6 +35,7 @@ export default async function AdminDashboardPage() {
   let readerPreferences;
   let trends;
   let totalStorageBytes = 0;
+  let setupError: string | null = null;
   try {
     stats = await getPlatformStats();
     [engagement, readerPreferences, trends, totalStorageBytes] = await Promise.all([
@@ -43,17 +44,26 @@ export default async function AdminDashboardPage() {
       getPlatformTrends(),
       getPlatformStorageBytes(),
     ]);
-  } catch {
+  } catch (err) {
+    setupError = err instanceof Error ? err.message : "Unknown admin setup error";
+  }
+
+  if (setupError) {
+    const missingServiceKey = setupError.includes("SUPABASE_SERVICE_ROLE_KEY");
     return (
       <div className="rounded-2xl border border-accent/40 bg-card p-8 text-center">
         <h1 className="font-serif text-2xl font-semibold text-primary">
           Admin setup incomplete
         </h1>
-        <p className="mt-3 text-text-muted">
-          Add <code className="rounded bg-background px-1">SUPABASE_SERVICE_ROLE_KEY</code> to{" "}
-          <code className="rounded bg-background px-1">.env.local</code> and restart the dev
-          server.
-        </p>
+        {missingServiceKey ? (
+          <p className="mt-3 text-text-muted">
+            Add <code className="rounded bg-background px-1">SUPABASE_SERVICE_ROLE_KEY</code> to{" "}
+            <code className="rounded bg-background px-1">.env.local</code> and restart the dev
+            server.
+          </p>
+        ) : (
+          <p className="mt-3 text-text-muted">{setupError}</p>
+        )}
       </div>
     );
   }
