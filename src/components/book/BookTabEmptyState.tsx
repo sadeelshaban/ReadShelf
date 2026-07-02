@@ -37,7 +37,7 @@ export function BookTabEmptyState({ variant, bookId }: BookTabEmptyStateProps) {
   return (
     <div className="book-tab-panel flex min-h-[18rem] flex-col items-center justify-center px-6 py-12 text-center">
       <span className="mb-6 flex h-24 w-24 items-center justify-center rounded-3xl border border-[#eadbc8]/80 bg-[#fff8f1] shadow-[0_12px_28px_rgba(0,0,0,0.08)]">
-        <VariantIcon className="h-12 w-12 text-[#8B6F52]" />
+        <VariantIcon className="h-12 w-12" size="lg" />
       </span>
       <h3 className="font-serif text-2xl font-semibold text-[#3c2a21]">{title}</h3>
       <p className="mt-3 max-w-md text-sm leading-relaxed text-[#8a7968]">{description}</p>

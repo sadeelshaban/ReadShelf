@@ -341,6 +341,17 @@ html {
   filter: brightness(0) invert(1);
 }
 
+.book-detail-tool-icon {
+  filter: brightness(0) saturate(100%) invert(56%) sepia(14%) saturate(687%)
+    hue-rotate(353deg) brightness(91%) contrast(87%);
+  transition: filter 0.2s ease;
+}
+
+span[data-active="true"] .book-detail-tool-icon {
+  filter: brightness(0) saturate(100%) invert(24%) sepia(35%) saturate(845%)
+    hue-rotate(353deg) brightness(95%) contrast(92%);
+}
+
 .reader-progress-row {
   padding: 0 0.75rem 0.5rem;
 }

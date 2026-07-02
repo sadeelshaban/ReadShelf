@@ -186,6 +186,16 @@ export function PdfReader({
   const applyingHistoryRef = useRef(false);
   const eraserStrokeWidthRef = useRef(loadEraserStrokeWidth());
   const skipHighlightRedrawRef = useRef<Set<number>>(new Set());
+  const drawDraftRef = useRef<{
+    pageNumber: number;
+    draft: {
+      stroke?: HighlightStroke;
+      shape?: HighlightShape;
+      shapeKind?: ShapeKind;
+      color: string;
+      type: "freeform" | "pen" | "shape";
+    };
+  } | null>(null);
   const highlightsRef = useRef(initialHighlights);
   const editingDraftRef = useRef("");
   const noteHadContentRef = useRef(false);
@@ -868,10 +878,11 @@ export function PdfReader({
   }, [fitScale, zoomMultiplier]);
 
   useEffect(() => {
+    if (isDrawingRef.current || isErasingRef.current) return;
+
     for (const pageNumber of renderedPages) {
       if (skipHighlightRedrawRef.current.has(pageNumber)) continue;
-      const drawLayer = drawLayerRefs.current.get(pageNumber);
-      if (drawLayer) redrawHighlightLayer(drawLayer, highlights, pageNumber);
+      redrawPageHighlights(pageNumber, highlights);
     }
     skipHighlightRedrawRef.current.clear();
   }, [highlights, renderedPages]);
@@ -882,9 +893,27 @@ export function PdfReader({
     eraserPreview?: { x: number; y: number; diameter: number },
   ) {
     const drawLayer = drawLayerRefs.current.get(pageNumber);
-    if (drawLayer) {
-      redrawHighlightLayer(drawLayer, list, pageNumber, undefined, eraserPreview);
+    if (!drawLayer) return;
+
+    const activeDraft = drawDraftRef.current;
+    const draft =
+      activeDraft?.pageNumber === pageNumber ? activeDraft.draft : undefined;
+
+    redrawHighlightLayer(drawLayer, list, pageNumber, draft, eraserPreview);
+  }
+
+  function clearDrawDraft(pageNumber?: number) {
+    if (pageNumber == null || drawDraftRef.current?.pageNumber === pageNumber) {
+      drawDraftRef.current = null;
     }
+  }
+
+  function eraserPreviewAt(point: { x: number; y: number }) {
+    return {
+      x: point.x,
+      y: point.y,
+      diameter: effectiveStrokeWidth(eraserStrokeWidthRef.current),
+    };
   }
 
   function scheduleAnnotationSync() {
@@ -943,7 +972,7 @@ export function PdfReader({
   ) {
     eraserCursorRef.current = point;
     syncEraserOverlay(clientX, clientY);
-    redrawPageHighlights(pageNumber, highlightsRef.current);
+    redrawPageHighlights(pageNumber, highlightsRef.current, eraserPreviewAt(point));
   }
 
   function liveApplyEraser(pageNumber: number, eraserPath: Array<{ x: number; y: number }>) {
@@ -960,7 +989,11 @@ export function PdfReader({
     highlightsRef.current = next;
 
     const cursor = eraserCursorRef.current;
-    redrawPageHighlights(pageNumber, next);
+    redrawPageHighlights(
+      pageNumber,
+      next,
+      cursor ? eraserPreviewAt(cursor) : undefined,
+    );
     if (cursor) {
       skipHighlightRedrawRef.current.add(pageNumber);
     }
@@ -1558,6 +1591,15 @@ export function PdfReader({
         strokeWidth: width,
       };
       currentStrokeRef.current = null;
+      drawDraftRef.current = {
+        pageNumber,
+        draft: {
+          shape: currentShapeRef.current,
+          shapeKind,
+          color: penColor,
+          type: "shape",
+        },
+      };
       e.currentTarget.setPointerCapture(e.pointerId);
       return;
     }
@@ -1565,8 +1607,17 @@ export function PdfReader({
     const width = effectiveStrokeWidth(
       tool === "pen" ? penStrokeWidth : highlightStrokeWidth,
     );
-    currentStrokeRef.current = { points: [point], width };
+    const stroke = { points: [point], width };
+    currentStrokeRef.current = stroke;
     currentShapeRef.current = null;
+    drawDraftRef.current = {
+      pageNumber,
+      draft: {
+        stroke,
+        color: tool === "pen" ? penColor : highlightColor,
+        type: tool === "pen" ? "pen" : "freeform",
+      },
+    };
     e.currentTarget.setPointerCapture(e.pointerId);
   }
 
@@ -1588,9 +1639,8 @@ export function PdfReader({
     }
 
     if (!isDrawingRef.current || !isDrawingTool(tool)) return;
-    const canvas = e.currentTarget;
     const pageNumber = currentDrawPageRef.current;
-    if (!canvas || pageNumber == null) return;
+    if (pageNumber == null) return;
 
     const point = getCanvasPoint(e);
 
@@ -1599,12 +1649,14 @@ export function PdfReader({
       if (!shape) return;
       shape.x2 = point.x;
       shape.y2 = point.y;
-      redrawHighlightLayer(canvas, highlightsRef.current, pageNumber, {
+      const draft = {
         shape,
         shapeKind,
         color: penColor,
-        type: "shape",
-      });
+        type: "shape" as const,
+      };
+      drawDraftRef.current = { pageNumber, draft };
+      redrawPageHighlights(pageNumber, highlightsRef.current);
       return;
     }
 
@@ -1615,11 +1667,13 @@ export function PdfReader({
     if (Math.hypot(point.x - last.x, point.y - last.y) < 1.5) return;
     stroke.points.push(point);
 
-    redrawHighlightLayer(canvas, highlightsRef.current, pageNumber, {
+    const draft = {
       stroke,
       color: tool === "pen" ? penColor : highlightColor,
-      type: tool === "pen" ? "pen" : "freeform",
-    });
+      type: (tool === "pen" ? "pen" : "freeform") as "pen" | "freeform",
+    };
+    drawDraftRef.current = { pageNumber, draft };
+    redrawPageHighlights(pageNumber, highlightsRef.current);
   }
 
   function handleDrawPointerUp(
@@ -1641,17 +1695,21 @@ export function PdfReader({
     }
 
     if (!isDrawingRef.current || !isDrawingTool(tool)) return;
+    const drawPage = currentDrawPageRef.current;
     isDrawingRef.current = false;
     currentDrawPageRef.current = null;
 
     if (tool === "shape") {
       const shape = currentShapeRef.current;
       currentShapeRef.current = null;
+      clearDrawDraft(pageNumber);
       if (
         shape &&
         (Math.abs(shape.x2 - shape.x1) >= 4 || Math.abs(shape.y2 - shape.y1) >= 4)
       ) {
         saveShape(pageNumber, shape, shapeKind);
+      } else if (drawPage != null) {
+        redrawPageHighlights(drawPage, highlightsRef.current);
       }
       return;
     }
@@ -1659,9 +1717,12 @@ export function PdfReader({
     const stroke = currentStrokeRef.current;
     const highlightType = tool === "pen" ? "pen" : "freeform";
     currentStrokeRef.current = null;
+    clearDrawDraft(pageNumber);
 
     if (stroke && stroke.points.length > 1) {
       saveStroke(pageNumber, stroke, highlightType);
+    } else if (drawPage != null) {
+      redrawPageHighlights(drawPage, highlightsRef.current);
     }
   }
 

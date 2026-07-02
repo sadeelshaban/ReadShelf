@@ -600,11 +600,11 @@ export function BookDetailsClient({
               )}
             >
               {item.id === "bookmarks" ? (
-                <TabBookmarkIcon />
+                <TabBookmarkIcon active={tab === item.id} />
               ) : item.id === "highlights" ? (
-                <TabHighlighterIcon />
+                <TabHighlighterIcon active={tab === item.id} />
               ) : (
-                <TabNoteIcon />
+                <TabNoteIcon active={tab === item.id} />
               )}
               {item.label}
               <span className="rounded-full bg-[#fff8f1] px-2 py-0.5 text-xs font-semibold text-[#5b4028] ring-1 ring-[#eadbc8]/80">

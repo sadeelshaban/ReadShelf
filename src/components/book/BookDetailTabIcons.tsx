@@ -1,64 +1,85 @@
+import Image from "next/image";
+import { READER_TOOL_ICONS } from "@/components/reader/ReaderToolIcon";
 import { cn } from "@/lib/utils";
 
 type IconProps = {
   className?: string;
+  active?: boolean;
+  size?: "sm" | "md" | "lg";
 };
 
-export function TabHighlighterIcon({ className }: IconProps) {
+const SIZE_CLASS = {
+  sm: "h-[18px] w-[18px]",
+  md: "h-5 w-5",
+  lg: "h-12 w-12",
+} as const;
+
+function BookDetailToolIcon({
+  src,
+  alt,
+  className,
+  active = false,
+  size = "md",
+}: IconProps & { src: string; alt: string }) {
+  const dimension = size === "lg" ? 48 : size === "md" ? 20 : 18;
+
   return (
-    <svg
-      className={cn("h-5 w-5 shrink-0", className)}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.75"
-      aria-hidden
+    <span
+      className={cn(
+        "relative inline-flex shrink-0 items-center justify-center",
+        SIZE_CLASS[size],
+        className,
+      )}
+      data-active={active ? "true" : undefined}
     >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="m9 11-6 6v3h3l6-6M20.5 3.5a2.12 2.12 0 0 0-3 3L7 17l-3 1 1-3 10.5-10.5a2.12 2.12 0 0 1 3-3Z"
+      <Image
+        src={src}
+        alt={alt}
+        width={dimension}
+        height={dimension}
+        className={cn(
+          "book-detail-tool-icon object-contain",
+          SIZE_CLASS[size],
+        )}
+        unoptimized
+        draggable={false}
       />
-    </svg>
+    </span>
   );
 }
 
-export function TabNoteIcon({ className }: IconProps) {
+export function TabHighlighterIcon({ className, active, size }: IconProps) {
   return (
-    <svg
-      className={cn("h-5 w-5 shrink-0", className)}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.75"
-      aria-hidden
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6Z"
-      />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M14 2v6h6" />
-      <path strokeLinecap="round" d="M16 13H8M16 17H8M10 9H8" />
-    </svg>
+    <BookDetailToolIcon
+      src={READER_TOOL_ICONS.highlighter}
+      alt="Highlights"
+      className={className}
+      active={active}
+      size={size}
+    />
   );
 }
 
-export function TabBookmarkIcon({ className }: IconProps) {
+export function TabNoteIcon({ className, active, size }: IconProps) {
   return (
-    <svg
-      className={cn("h-5 w-5 shrink-0", className)}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.75"
-      aria-hidden
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M8 4.5h8a1 1 0 0 1 1 1v12.8l-3.2-2.2-2.8 2.2-2.8-2.2L7 18.3V5.5a1 1 0 0 1 1-1z"
-      />
-    </svg>
+    <BookDetailToolIcon
+      src={READER_TOOL_ICONS.note}
+      alt="Notes"
+      className={className}
+      active={active}
+      size={size}
+    />
+  );
+}
+
+export function TabBookmarkIcon({ className, active, size }: IconProps) {
+  return (
+    <BookDetailToolIcon
+      src={READER_TOOL_ICONS.bookmark}
+      alt="Bookmarks"
+      className={className}
+      active={active}
+      size={size}
+    />
   );
 }
