@@ -12,6 +12,16 @@ import { scaleStroke } from "@/lib/reader/coordinates";
 import { drawShape, scaleShape, shapeKindFromHighlight } from "@/lib/reader/shapes";
 import { eraserBrushRadius } from "@/lib/reader/stroke-erase";
 
+export type HighlightDrawDraft = {
+  stroke?: HighlightStroke;
+  shape?: HighlightShape;
+  shapeKind?: ShapeKind;
+  color: string;
+  type: "freeform" | "pen" | "shape";
+};
+
+export type EraserPreview = { x: number; y: number; diameter: number };
+
 export function drawStroke(
   ctx: CanvasRenderingContext2D,
   stroke: HighlightStroke,
@@ -54,21 +64,12 @@ export function drawPenStroke(
   ctx.restore();
 }
 
-export function redrawHighlightLayer(
+function renderCommittedHighlights(
+  ctx: CanvasRenderingContext2D,
   canvas: HTMLCanvasElement,
   highlights: Highlight[],
   page: number,
-  draft?: {
-    stroke?: HighlightStroke;
-    shape?: HighlightShape;
-    shapeKind?: ShapeKind;
-    color: string;
-    type: "freeform" | "pen" | "shape";
-  },
-  eraserPreview?: { x: number; y: number; diameter: number },
 ) {
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   highlights
     .filter((h) => h.page_number === page)
@@ -97,12 +98,33 @@ export function redrawHighlightLayer(
         else drawStroke(ctx, scaled, color);
       });
     });
+}
 
+export function paintDraftOverlay(
+  ctx: CanvasRenderingContext2D,
+  draft?: HighlightDrawDraft,
+  eraserPreview?: EraserPreview,
+) {
   if (draft?.type === "shape" && draft.shape && draft.shapeKind) {
     drawShape(ctx, draft.shape, draft.shapeKind, draft.color);
   } else if (draft?.stroke && draft.stroke.points.length >= 2) {
     if (draft.type === "pen") drawPenStroke(ctx, draft.stroke, draft.color);
     else drawStroke(ctx, draft.stroke, draft.color);
+  } else if (draft?.stroke && draft.stroke.points.length === 1) {
+    const point = draft.stroke.points[0];
+    const radius = Math.max(2, draft.stroke.width / 2);
+    ctx.save();
+    if (draft.type === "pen") {
+      ctx.fillStyle = draft.color;
+      ctx.globalCompositeOperation = "source-over";
+    } else {
+      ctx.fillStyle = hexToRgba(draft.color, HIGHLIGHT_DRAW_ALPHA);
+      ctx.globalCompositeOperation = "multiply";
+    }
+    ctx.beginPath();
+    ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
   }
 
   if (eraserPreview) {
@@ -123,4 +145,46 @@ export function redrawHighlightLayer(
     ctx.stroke();
     ctx.restore();
   }
+}
+
+export function syncHighlightBackup(
+  backup: HTMLCanvasElement,
+  highlights: Highlight[],
+  page: number,
+  source: HTMLCanvasElement,
+) {
+  if (backup.width !== source.width || backup.height !== source.height) {
+    backup.width = source.width;
+    backup.height = source.height;
+  }
+
+  const ctx = backup.getContext("2d");
+  if (!ctx) return;
+  renderCommittedHighlights(ctx, backup, highlights, page);
+}
+
+export function compositeHighlightLayer(
+  canvas: HTMLCanvasElement,
+  backup: HTMLCanvasElement,
+  draft?: HighlightDrawDraft,
+  eraserPreview?: EraserPreview,
+) {
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(backup, 0, 0);
+  paintDraftOverlay(ctx, draft, eraserPreview);
+}
+
+export function redrawHighlightLayer(
+  canvas: HTMLCanvasElement,
+  highlights: Highlight[],
+  page: number,
+  draft?: HighlightDrawDraft,
+  eraserPreview?: EraserPreview,
+) {
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  renderCommittedHighlights(ctx, canvas, highlights, page);
+  paintDraftOverlay(ctx, draft, eraserPreview);
 }

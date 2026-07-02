@@ -41,7 +41,7 @@ import {
   saveShapeKind,
 } from "@/lib/reader/constants";
 import { shapeHighlightType } from "@/lib/reader/shapes";
-import { redrawHighlightLayer } from "@/lib/reader/pdf-reader-canvas";
+import { redrawHighlightLayer, compositeHighlightLayer, syncHighlightBackup } from "@/lib/reader/pdf-reader-canvas";
 import {
   DEFAULT_ZOOM,
   MAX_ZOOM,
@@ -196,6 +196,13 @@ export function PdfReader({
       type: "freeform" | "pen" | "shape";
     };
   } | null>(null);
+  const drawBackupRefs = useRef<Map<number, HTMLCanvasElement>>(new Map());
+  const drawBackupFrozenRef = useRef(false);
+  const drawFrameRef = useRef<number | null>(null);
+  const pendingDrawPageRef = useRef<number | null>(null);
+  const pendingEraserPreviewRef = useRef<
+    { x: number; y: number; diameter: number } | undefined
+  >(undefined);
   const highlightsRef = useRef(initialHighlights);
   const editingDraftRef = useRef("");
   const noteHadContentRef = useRef(false);
@@ -785,7 +792,7 @@ export function PdfReader({
       });
     }
 
-    redrawHighlightLayer(drawLayer, highlightsRef.current, pageNumber);
+    redrawPageHighlights(pageNumber, highlightsRef.current);
 
     if (
       pendingZoomRestoreRef.current &&
@@ -887,19 +894,80 @@ export function PdfReader({
     skipHighlightRedrawRef.current.clear();
   }, [highlights, renderedPages]);
 
-  function redrawPageHighlights(
+  function getDrawBackup(pageNumber: number) {
+    const drawLayer = drawLayerRefs.current.get(pageNumber);
+    if (!drawLayer) return null;
+
+    let backup = drawBackupRefs.current.get(pageNumber);
+    if (!backup) {
+      backup = document.createElement("canvas");
+      drawBackupRefs.current.set(pageNumber, backup);
+    }
+    if (backup.width !== drawLayer.width || backup.height !== drawLayer.height) {
+      backup.width = drawLayer.width;
+      backup.height = drawLayer.height;
+    }
+    return backup;
+  }
+
+  function syncDrawBackup(pageNumber: number, list: Highlight[], force = false) {
+    if (drawBackupFrozenRef.current && !force) return;
+    const drawLayer = drawLayerRefs.current.get(pageNumber);
+    const backup = getDrawBackup(pageNumber);
+    if (!drawLayer || !backup) return;
+    syncHighlightBackup(backup, list, pageNumber, drawLayer);
+  }
+
+  function paintDrawLayer(
     pageNumber: number,
     list: Highlight[],
     eraserPreview?: { x: number; y: number; diameter: number },
   ) {
     const drawLayer = drawLayerRefs.current.get(pageNumber);
-    if (!drawLayer) return;
+    const backup = getDrawBackup(pageNumber);
+    if (!drawLayer || !backup) return;
 
     const activeDraft = drawDraftRef.current;
     const draft =
       activeDraft?.pageNumber === pageNumber ? activeDraft.draft : undefined;
 
+    const interacting =
+      (isDrawingRef.current || isErasingRef.current) &&
+      currentDrawPageRef.current === pageNumber;
+
+    if (interacting) {
+      compositeHighlightLayer(drawLayer, backup, draft, eraserPreview);
+      return;
+    }
+
     redrawHighlightLayer(drawLayer, list, pageNumber, draft, eraserPreview);
+    syncDrawBackup(pageNumber, list, true);
+  }
+
+  function scheduleDrawLayerPaint(
+    pageNumber: number,
+    eraserPreview?: { x: number; y: number; diameter: number },
+  ) {
+    pendingDrawPageRef.current = pageNumber;
+    pendingEraserPreviewRef.current = eraserPreview;
+
+    if (drawFrameRef.current != null) return;
+
+    drawFrameRef.current = requestAnimationFrame(() => {
+      drawFrameRef.current = null;
+      const page = pendingDrawPageRef.current;
+      if (page == null) return;
+      paintDrawLayer(page, highlightsRef.current, pendingEraserPreviewRef.current);
+      pendingEraserPreviewRef.current = undefined;
+    });
+  }
+
+  function redrawPageHighlights(
+    pageNumber: number,
+    list: Highlight[],
+    eraserPreview?: { x: number; y: number; diameter: number },
+  ) {
+    paintDrawLayer(pageNumber, list, eraserPreview);
   }
 
   function clearDrawDraft(pageNumber?: number) {
@@ -972,7 +1040,7 @@ export function PdfReader({
   ) {
     eraserCursorRef.current = point;
     syncEraserOverlay(clientX, clientY);
-    redrawPageHighlights(pageNumber, highlightsRef.current, eraserPreviewAt(point));
+    scheduleDrawLayerPaint(pageNumber, eraserPreviewAt(point));
   }
 
   function liveApplyEraser(pageNumber: number, eraserPath: Array<{ x: number; y: number }>) {
@@ -987,11 +1055,11 @@ export function PdfReader({
     );
     const next = applyEraserChanges(session.baseline, changes);
     highlightsRef.current = next;
+    syncDrawBackup(pageNumber, next, true);
 
     const cursor = eraserCursorRef.current;
-    redrawPageHighlights(
+    scheduleDrawLayerPaint(
       pageNumber,
-      next,
       cursor ? eraserPreviewAt(cursor) : undefined,
     );
     if (cursor) {
@@ -1117,6 +1185,7 @@ export function PdfReader({
         "postgres_changes",
         { event: "*", schema: "public", table: "highlights", filter: `book_id=eq.${bookId}` },
         (payload) => {
+          if (isDrawingRef.current || isErasingRef.current) return;
           if (payload.eventType === "INSERT") {
             setHighlights((prev) => {
               const row = payload.new as Highlight;
@@ -1549,6 +1618,7 @@ export function PdfReader({
   ) {
     if (tool === "eraser") {
       isErasingRef.current = true;
+      drawBackupFrozenRef.current = false;
       currentDrawPageRef.current = pageNumber;
       const point = getCanvasPoint(e);
       currentEraserPathRef.current = [point];
@@ -1570,6 +1640,7 @@ export function PdfReader({
             : highlight.position,
         })),
       };
+      syncDrawBackup(pageNumber, eraserSessionRef.current.baseline, true);
       previewEraser(pageNumber, point, e.clientX, e.clientY);
       e.currentTarget.setPointerCapture(e.pointerId);
       return;
@@ -1577,7 +1648,9 @@ export function PdfReader({
 
     if (!isDrawingTool(tool)) return;
     isDrawingRef.current = true;
+    drawBackupFrozenRef.current = true;
     currentDrawPageRef.current = pageNumber;
+    syncDrawBackup(pageNumber, highlightsRef.current, true);
     const point = getCanvasPoint(e);
 
     if (tool === "shape") {
@@ -1601,6 +1674,7 @@ export function PdfReader({
         },
       };
       e.currentTarget.setPointerCapture(e.pointerId);
+      scheduleDrawLayerPaint(pageNumber);
       return;
     }
 
@@ -1619,6 +1693,7 @@ export function PdfReader({
       },
     };
     e.currentTarget.setPointerCapture(e.pointerId);
+    scheduleDrawLayerPaint(pageNumber);
   }
 
   function handleDrawPointerMove(e: ReactPointerEvent<HTMLCanvasElement>) {
@@ -1656,7 +1731,7 @@ export function PdfReader({
         type: "shape" as const,
       };
       drawDraftRef.current = { pageNumber, draft };
-      redrawPageHighlights(pageNumber, highlightsRef.current);
+      scheduleDrawLayerPaint(pageNumber);
       return;
     }
 
@@ -1673,7 +1748,7 @@ export function PdfReader({
       type: (tool === "pen" ? "pen" : "freeform") as "pen" | "freeform",
     };
     drawDraftRef.current = { pageNumber, draft };
-    redrawPageHighlights(pageNumber, highlightsRef.current);
+    scheduleDrawLayerPaint(pageNumber);
   }
 
   function handleDrawPointerUp(
@@ -1687,6 +1762,11 @@ export function PdfReader({
 
     if (isErasingRef.current && tool === "eraser") {
       isErasingRef.current = false;
+      drawBackupFrozenRef.current = false;
+      if (drawFrameRef.current != null) {
+        cancelAnimationFrame(drawFrameRef.current);
+        drawFrameRef.current = null;
+      }
       const path = [...currentEraserPathRef.current];
       currentEraserPathRef.current = [];
       currentDrawPageRef.current = null;
@@ -1697,7 +1777,14 @@ export function PdfReader({
     if (!isDrawingRef.current || !isDrawingTool(tool)) return;
     const drawPage = currentDrawPageRef.current;
     isDrawingRef.current = false;
+    drawBackupFrozenRef.current = false;
     currentDrawPageRef.current = null;
+    pendingDrawPageRef.current = null;
+    pendingEraserPreviewRef.current = undefined;
+    if (drawFrameRef.current != null) {
+      cancelAnimationFrame(drawFrameRef.current);
+      drawFrameRef.current = null;
+    }
 
     if (tool === "shape") {
       const shape = currentShapeRef.current;
@@ -1709,7 +1796,8 @@ export function PdfReader({
       ) {
         saveShape(pageNumber, shape, shapeKind);
       } else if (drawPage != null) {
-        redrawPageHighlights(drawPage, highlightsRef.current);
+        syncDrawBackup(drawPage, highlightsRef.current, true);
+        paintDrawLayer(drawPage, highlightsRef.current);
       }
       return;
     }
@@ -1722,7 +1810,8 @@ export function PdfReader({
     if (stroke && stroke.points.length > 1) {
       saveStroke(pageNumber, stroke, highlightType);
     } else if (drawPage != null) {
-      redrawPageHighlights(drawPage, highlightsRef.current);
+      syncDrawBackup(drawPage, highlightsRef.current, true);
+      paintDrawLayer(drawPage, highlightsRef.current);
     }
   }
 
