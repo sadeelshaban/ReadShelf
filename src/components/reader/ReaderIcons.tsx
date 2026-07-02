@@ -61,84 +61,75 @@ export function HandIcon({ className }: IconProps) {
   );
 }
 
-/** Fine-tip marker with chevron — highlighter tool */
+/** Wide-tip marker with highlight band — highlighter tool */
 export function HighlighterIcon({ className }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={cn("h-[18px] w-[18px]", className)} aria-hidden>
-      <path
-        d="M7 19.5 15.5 11 17.8 13.3 9.3 21.8z"
+      <rect x="1.5" y="13.25" width="21" height="5.5" rx="1.25" fill="currentColor" opacity="0.32" />
+      <rect
+        x="2.5"
+        y="6.25"
+        width="12.5"
+        height="4.75"
+        rx="2.4"
         stroke="currentColor"
         strokeWidth="1.5"
-        strokeLinejoin="round"
+        fill="currentColor"
+        fillOpacity="0.12"
       />
-      <path
-        d="M15.5 11 17.2 9.3 19.2 11.3 17.5 13z"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M7 19.5 5.5 21"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-      />
-      <path
-        d="M15.8 15.2 17.1 16.7 18.4 15.2"
-        stroke="currentColor"
-        strokeWidth="1.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      <path d="M15 8.6h6.25" stroke="currentColor" strokeWidth="4.25" strokeLinecap="round" />
+      <path d="M4.5 8.6h5.5" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" opacity="0.55" />
     </svg>
   );
 }
 
-/** Chisel-tip marker — draw / pen tool */
+/** Fine-tip pencil — pen / ink drawing */
 export function PenIcon({ className }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={cn("h-[18px] w-[18px]", className)} aria-hidden>
       <path
-        d="M5 19.5 11.5 8.5 15.8 10.8 9.3 21.8z"
-        fill="#AB47BC"
+        d="M4.25 19.75 14.25 9.75l2.25 2.25-10 10z"
         stroke="currentColor"
-        strokeWidth="1.2"
+        strokeWidth="1.5"
         strokeLinejoin="round"
+        fill="currentColor"
+        fillOpacity="0.1"
       />
       <path
-        d="M11.5 8.5 14.8 5.2 18.8 9.2 15.8 10.8z"
-        fill="#AB47BC"
+        d="M14.25 9.75 16.75 7.25 19.75 10.25 17.25 12.75z"
         stroke="currentColor"
-        strokeWidth="1.2"
+        strokeWidth="1.4"
         strokeLinejoin="round"
       />
+      <path d="M4.25 19.75 2.75 21.25" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
       <path
-        d="M14.8 5.2 17.2 3.2 20.2 6.2 18.8 9.2z"
+        d="M16.75 7.25 19.25 4.75 21.25 6.75 18.75 9.25z"
+        fill="currentColor"
+        fillOpacity="0.42"
         stroke="currentColor"
         strokeWidth="1.2"
         strokeLinejoin="round"
       />
+      <path d="M19.25 4.75 21.25 2.75" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
     </svg>
   );
 }
 
+/** Block eraser on a page line — eraser tool */
 export function EraserIcon({ className }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={cn("h-[18px] w-[18px]", className)} aria-hidden>
       <path
-        d="m16.5 3.5 4 4-9.5 9.5-4-4L16.5 3.5z"
+        d="M4.5 15.25 11.75 8 18.25 14.5 11 21.75z"
         stroke="currentColor"
-        strokeWidth="1.6"
+        strokeWidth="1.65"
         strokeLinejoin="round"
+        fill="currentColor"
+        fillOpacity="0.22"
       />
-      <path
-        d="M6 16.5 3 19.5a1.2 1.2 0 0 0 0 1.7l.8.8a1.2 1.2 0 0 0 1.7 0l3-3"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path d="M10 20h8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      <path d="M3.5 21.25h17" stroke="currentColor" strokeWidth="1.85" strokeLinecap="round" />
+      <path d="M7.75 17.5 13.25 12" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" opacity="0.55" />
+      <path d="M9.75 19.5 15.25 14" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" opacity="0.55" />
     </svg>
   );
 }
