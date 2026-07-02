@@ -1,17 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { FocusIcon, HomeIcon, MoonIcon, SunIcon } from "@/components/reader/ReaderIcons";
+import { BookmarkFilledIcon, FocusIcon, HomeIcon, MoonIcon, SunIcon } from "@/components/reader/ReaderIcons";
+import { READER_TOOL_ICONS, ReaderToolIcon } from "@/components/reader/ReaderToolIcon";
 import { ReaderTooltip } from "@/components/reader/ReaderTooltip";
+import { cn } from "@/lib/utils";
 
 type ReaderTopBarProps = {
   bookId: string;
   title: string;
-  page: number;
-  maxPage: number;
-  progressPercent: number;
+  saving?: boolean;
+  pageBookmarked?: boolean;
+  bookmarkPulse?: boolean;
   darkMode: boolean;
   focusMode: boolean;
+  onBookmark: () => void;
+  onSave: () => void;
   onToggleDarkMode: () => void;
   onToggleFocusMode: () => void;
 };
@@ -19,11 +23,13 @@ type ReaderTopBarProps = {
 export function ReaderTopBar({
   bookId,
   title,
-  page,
-  maxPage,
-  progressPercent,
+  saving,
+  pageBookmarked,
+  bookmarkPulse,
   darkMode,
   focusMode,
+  onBookmark,
+  onSave,
   onToggleDarkMode,
   onToggleFocusMode,
 }: ReaderTopBarProps) {
@@ -42,7 +48,7 @@ export function ReaderTopBar({
           </ReaderTooltip>
         </div>
 
-        <div className="flex min-w-0 flex-col items-center justify-center px-2">
+        <div className="flex min-w-0 justify-center px-2">
           <Link
             href={`/book/${bookId}`}
             className="max-w-full truncate text-center text-sm text-[var(--reader-text)] transition-colors hover:opacity-80"
@@ -53,6 +59,41 @@ export function ReaderTopBar({
         </div>
 
         <div className="flex items-center justify-end gap-1">
+          <ReaderTooltip label={pageBookmarked ? "This page is bookmarked" : "Add bookmark"}>
+            <button
+              type="button"
+              aria-label={pageBookmarked ? "This page is bookmarked" : "Add bookmark"}
+              aria-pressed={pageBookmarked}
+              data-active={pageBookmarked}
+              onClick={onBookmark}
+              className={cn(
+                "reader-topbar-btn reader-topbar-btn-lg",
+                pageBookmarked && "text-[#f5d78e]",
+                bookmarkPulse && "reader-topbar-btn-bookmark-pulse",
+              )}
+            >
+              {pageBookmarked ? (
+                <BookmarkFilledIcon />
+              ) : (
+                <ReaderToolIcon src={READER_TOOL_ICONS.bookmark} alt="Bookmark" />
+              )}
+            </button>
+          </ReaderTooltip>
+
+          <ReaderTooltip label="Save progress">
+            <button
+              type="button"
+              aria-label="Save progress"
+              disabled={saving}
+              onClick={onSave}
+              className={cn("reader-topbar-btn reader-topbar-btn-lg", saving && "opacity-50")}
+            >
+              <ReaderToolIcon src={READER_TOOL_ICONS.save} alt="Save progress" />
+            </button>
+          </ReaderTooltip>
+
+          <span className="reader-topbar-divider mx-0.5" aria-hidden />
+
           <ReaderTooltip label={focusMode ? "Exit focus mode" : "Focus mode"}>
             <button
               type="button"
@@ -65,6 +106,7 @@ export function ReaderTopBar({
               <FocusIcon />
             </button>
           </ReaderTooltip>
+
           <ReaderTooltip label={darkMode ? "Light mode" : "Dark mode"}>
             <button
               type="button"
@@ -76,25 +118,6 @@ export function ReaderTopBar({
               {darkMode ? <SunIcon /> : <MoonIcon />}
             </button>
           </ReaderTooltip>
-        </div>
-      </div>
-
-      <div className="reader-progress-row">
-        <div className="reader-progress-meta">
-          <span>Reading progress</span>
-          <span>
-            {progressPercent}% · Page {page} of {maxPage}
-          </span>
-        </div>
-        <div
-          className="reader-progress-track"
-          role="progressbar"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={progressPercent}
-          aria-label={`Reading progress ${progressPercent} percent`}
-        >
-          <div className="reader-progress-fill" style={{ width: `${progressPercent}%` }} />
         </div>
       </div>
     </header>

@@ -206,6 +206,7 @@ html {
   --reader-info-text: rgba(31, 22, 16, 0.72);
   --reader-info-border: rgba(31, 22, 16, 0.1);
   --reader-page-bg: #f7f4ef;
+  --reader-page-filter: none;
   --reader-tooltip-bg: #1f1610;
   --reader-tooltip-text: #faf6f0;
   --reader-shadow: 0 4px 16px rgba(31, 22, 16, 0.1), 0 12px 32px rgba(31, 22, 16, 0.08);
@@ -213,7 +214,8 @@ html {
   --reader-divider: rgba(31, 22, 16, 0.12);
   --reader-progress-track: rgba(31, 22, 16, 0.08);
   --reader-progress-fill: #c9952a;
-  --reader-page-filter: none;
+  --reader-icon-color: #1f1610;
+  --reader-icon-filter: none;
   --reader-actions-bg: rgba(111, 69, 40, 0.06);
   --reader-actions-border: rgba(168, 152, 136, 0.35);
   --reader-focus-overlay: rgba(31, 22, 16, 0.55);
@@ -235,6 +237,8 @@ html {
   --reader-info-border: rgba(255, 255, 255, 0.14);
   --reader-page-bg: #e4dfd6;
   --reader-page-filter: brightness(0.9) saturate(0.94);
+  --reader-icon-color: rgba(255, 255, 255, 0.92);
+  --reader-icon-filter: brightness(0) invert(1);
   --reader-actions-bg: rgba(0, 0, 0, 0.18);
   --reader-actions-border: rgba(201, 149, 42, 0.35);
   --reader-tooltip-bg: #2b2b2b;
@@ -267,7 +271,7 @@ html {
   align-items: center;
   justify-content: center;
   border-radius: 0.375rem;
-  color: var(--reader-btn-color);
+  color: var(--reader-icon-color);
   transition:
     background-color 0.15s ease,
     color 0.15s ease,
@@ -321,6 +325,22 @@ html {
   }
 }
 
+.reader-topbar-divider {
+  width: 1px;
+  height: 1.5rem;
+  background: var(--reader-divider);
+}
+
+.reader-tool-icon-img {
+  filter: var(--reader-icon-filter);
+  transition: filter 0.15s ease;
+}
+
+.reader-chrome-btn[data-active="true"] .reader-tool-icon-img,
+.reader-topbar-btn[data-active="true"] .reader-tool-icon-img {
+  filter: brightness(0) invert(1);
+}
+
 .reader-progress-row {
   padding: 0 0.75rem 0.5rem;
 }
@@ -369,7 +389,7 @@ html {
 
 .acrobat-tool-btn,
 .reader-chrome-btn {
-  color: var(--reader-btn-color);
+  color: var(--reader-icon-color);
   transition:
     background-color 0.15s ease,
     color 0.15s ease,

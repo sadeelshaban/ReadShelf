@@ -16,7 +16,6 @@ import { DraggableToolbar } from "@/components/reader/DraggableToolbar";
 import { READER_TOOL_ICONS, ReaderToolIcon } from "@/components/reader/ReaderToolIcon";
 import { ReaderTooltip } from "@/components/reader/ReaderTooltip";
 import {
-  BookmarkFilledIcon,
   CheckIcon,
   CursorIcon,
   LineThicknessIcon,
@@ -46,7 +45,7 @@ function ToolButton({ active, label, onClick, children }: ToolButtonProps) {
         onClick={onClick}
         className={cn(
           "reader-chrome-btn flex h-10 w-10 items-center justify-center rounded transition-transform active:scale-95",
-          active && "[&_img]:brightness-0 [&_img]:invert",
+          active && "[&_.reader-tool-icon-img]:brightness-0 [&_.reader-tool-icon-img]:invert",
         )}
       >
         {children}
@@ -303,11 +302,6 @@ type LeftToolbarProps = {
   shapeFilled: boolean;
   onShapeKindChange: (kind: ShapeKind) => void;
   onShapeFilledChange: (filled: boolean) => void;
-  pageBookmarked: boolean;
-  bookmarkPulse: boolean;
-  saving: boolean;
-  onBookmark: () => void;
-  onSave: () => void;
 };
 
 export function LeftToolbar({
@@ -339,11 +333,6 @@ export function LeftToolbar({
   shapeFilled,
   onShapeKindChange,
   onShapeFilledChange,
-  pageBookmarked,
-  bookmarkPulse,
-  saving,
-  onBookmark,
-  onSave,
 }: LeftToolbarProps) {
   const shapesRef = useRef<HTMLDivElement>(null);
   const [openGroup, setOpenGroup] = useState<"thickness" | "eraserThickness" | "shapes" | null>(null);
@@ -590,47 +579,6 @@ export function LeftToolbar({
           </button>
         </div>
       )}
-
-      <div className="reader-toolbar-section reader-toolbar-section-actions">
-        <span className="reader-toolbar-section-label">Page actions</span>
-        <div className="reader-toolbar-group">
-          <ReaderTooltip label={pageBookmarked ? "This page is bookmarked" : "Add bookmark"}>
-            <button
-              type="button"
-              aria-label={pageBookmarked ? "This page is bookmarked" : "Add bookmark"}
-              aria-pressed={pageBookmarked || tool === "bookmark"}
-              data-active={tool === "bookmark" || pageBookmarked}
-              onClick={onBookmark}
-              className={cn(
-                "reader-chrome-btn reader-chrome-btn-action flex h-10 w-10 items-center justify-center rounded transition-transform active:scale-95",
-                pageBookmarked && "text-[#f5d78e]",
-                bookmarkPulse && "reader-topbar-btn-bookmark-pulse",
-              )}
-            >
-              {pageBookmarked ? (
-                <BookmarkFilledIcon />
-              ) : (
-                <ReaderToolIcon src={READER_TOOL_ICONS.bookmark} alt="Bookmark" />
-              )}
-            </button>
-          </ReaderTooltip>
-
-          <ReaderTooltip label="Save progress">
-            <button
-              type="button"
-              aria-label="Save progress"
-              disabled={saving}
-              onClick={onSave}
-              className={cn(
-                "reader-chrome-btn reader-chrome-btn-action flex h-10 w-10 items-center justify-center rounded transition-transform active:scale-95",
-                saving && "opacity-50",
-              )}
-            >
-              <ReaderToolIcon src={READER_TOOL_ICONS.save} alt="Save progress" />
-            </button>
-          </ReaderTooltip>
-        </div>
-      </div>
     </DraggableToolbar>
   );
 }

@@ -282,8 +282,6 @@ export function PdfReader({
 
   const maxPage = pdfNumPages ?? totalPages ?? page;
   maxPageRef.current = maxPage;
-  const readingProgressPercent =
-    maxPage > 0 ? Math.min(100, Math.max(0, Math.round((page / maxPage) * 100))) : 0;
 
   const bumpStatusActivity = useCallback(() => {
     setStatusActivity((current) => current + 1);
@@ -1864,11 +1862,13 @@ export function PdfReader({
       <ReaderTopBar
         bookId={bookId}
         title={bookTitle}
-        page={page}
-        maxPage={maxPage}
-        progressPercent={readingProgressPercent}
+        saving={saving}
+        pageBookmarked={bookmarks.some((bookmark) => bookmark.page_number === page)}
+        bookmarkPulse={bookmarkPulse}
         darkMode={darkMode}
         focusMode={focusMode}
+        onBookmark={() => selectTool("bookmark", { force: true })}
+        onSave={() => void handleSave()}
         onToggleDarkMode={() => {
           setDarkMode((current) => {
             const next = !current;
@@ -1940,11 +1940,6 @@ export function PdfReader({
             setShapeFilled(filled);
             saveShapeFilled(filled);
           }}
-          pageBookmarked={bookmarks.some((bookmark) => bookmark.page_number === page)}
-          bookmarkPulse={bookmarkPulse}
-          saving={saving}
-          onBookmark={() => selectTool("bookmark", { force: true })}
-          onSave={() => void handleSave()}
         />
 
         {tool === "bookmark" && !bookmarkToDelete && (

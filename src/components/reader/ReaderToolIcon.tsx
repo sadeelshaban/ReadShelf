@@ -26,13 +26,13 @@ export function ReaderToolIcon({ src, alt, className, accentColor }: ReaderToolI
         alt={alt}
         width={18}
         height={18}
-        className="h-[18px] w-[18px] object-contain"
+        className="reader-tool-icon-img h-[18px] w-[18px] object-contain"
         unoptimized
         draggable={false}
       />
       {accentColor && (
         <span
-          className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full ring-1 ring-white/40"
+          className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full ring-1 ring-[var(--reader-icon-color)]"
           style={{ backgroundColor: accentColor }}
           aria-hidden
         />
