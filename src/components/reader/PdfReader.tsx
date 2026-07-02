@@ -229,6 +229,8 @@ export function PdfReader({
   const [bookmarkColor, setBookmarkColor] = useState<BookmarkColorId>("yellow");
   const [bookmarkLabel, setBookmarkLabel] = useState("");
   const [bookmarkToDelete, setBookmarkToDelete] = useState<Bookmark | null>(null);
+  const [bookmarkPulse, setBookmarkPulse] = useState(false);
+  const bookmarkPulseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [resumeReady, setResumeReady] = useState(!showResumePrompt && !showReadAgainPrompt);
   const [showResumeOverlay, setShowResumeOverlay] = useState(showResumePrompt);
   const [showReadAgainOverlay, setShowReadAgainOverlay] = useState(showReadAgainPrompt);
@@ -628,6 +630,11 @@ export function PdfReader({
     );
     setBookmarkLabel("");
     setTool("read");
+    if (bookmarkPulseTimeoutRef.current) {
+      clearTimeout(bookmarkPulseTimeoutRef.current);
+    }
+    setBookmarkPulse(true);
+    bookmarkPulseTimeoutRef.current = setTimeout(() => setBookmarkPulse(false), 550);
   }, [bookId, userId, bookmarkColor, bookmarkLabel]);
 
   const handleConfirmDeleteBookmark = useCallback(async () => {
@@ -1834,7 +1841,8 @@ export function PdfReader({
         title={bookTitle}
         saving={saving}
         saveLabel={saveLabel}
-        bookmarkActive={tool === "bookmark"}
+        pageBookmarked={bookmarks.some((bookmark) => bookmark.page_number === page)}
+        bookmarkPulse={bookmarkPulse}
         onSave={() => void handleSave()}
         onBookmark={() => selectTool("bookmark", { force: true })}
       />

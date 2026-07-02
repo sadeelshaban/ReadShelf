@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { HomeIcon } from "@/components/reader/ReaderIcons";
+import { BookmarkFilledIcon, HomeIcon } from "@/components/reader/ReaderIcons";
 import { READER_TOOL_ICONS, ReaderToolIcon } from "@/components/reader/ReaderToolIcon";
 import { cn } from "@/lib/utils";
 
@@ -10,7 +10,8 @@ type ReaderTopBarProps = {
   title: string;
   saving?: boolean;
   saveLabel?: string | null;
-  bookmarkActive?: boolean;
+  pageBookmarked?: boolean;
+  bookmarkPulse?: boolean;
   onSave: () => void;
   onBookmark: () => void;
 };
@@ -20,47 +21,62 @@ export function ReaderTopBar({
   title,
   saving,
   saveLabel,
-  bookmarkActive,
+  pageBookmarked,
+  bookmarkPulse,
   onSave,
   onBookmark,
 }: ReaderTopBarProps) {
   return (
     <header id="reader-top-bar" className="acrobat-topbar shrink-0">
-      <div className="flex h-11 items-center gap-1 border-b border-white/10 px-3 sm:gap-2">
-        <Link
-          href="/shelf"
-          title="Home"
-          aria-label="Home"
-          className="acrobat-topbar-btn acrobat-topbar-btn-lg"
-        >
-          <HomeIcon />
-        </Link>
-        <Link
-          href={`/book/${bookId}`}
-          className="ml-2 max-w-[min(52vw,360px)] truncate px-1 text-sm text-white/90 transition-colors hover:text-white sm:ml-3"
-          title={title}
-        >
-          {title}
-        </Link>
-        <div className="ml-auto flex items-center gap-1.5">
+      <div className="grid h-11 grid-cols-[auto_1fr_auto] items-center gap-2 border-b border-white/10 px-3 sm:gap-3">
+        <div className="flex items-center justify-start">
+          <Link
+            href="/shelf"
+            title="Home"
+            aria-label="Home"
+            className="acrobat-topbar-btn acrobat-topbar-btn-lg"
+          >
+            <HomeIcon />
+          </Link>
+        </div>
+
+        <div className="flex min-w-0 justify-center px-2">
+          <Link
+            href={`/book/${bookId}`}
+            className="max-w-full truncate text-center text-sm text-white/90 transition-colors hover:text-white"
+            title={title}
+          >
+            {title}
+          </Link>
+        </div>
+
+        <div className="flex items-center justify-end gap-1.5 pr-0.5">
           <button
             type="button"
-            title="Add bookmark"
-            aria-label="Add bookmark"
-            aria-pressed={bookmarkActive}
-            data-active={bookmarkActive}
+            title={pageBookmarked ? "This page is bookmarked" : "Add bookmark"}
+            aria-label={pageBookmarked ? "This page is bookmarked" : "Add bookmark"}
+            aria-pressed={pageBookmarked}
+            data-active={pageBookmarked}
             onClick={onBookmark}
-            className={cn("acrobat-topbar-btn acrobat-topbar-btn-lg", bookmarkActive && "bg-[#c9952a]/25")}
+            className={cn(
+              "acrobat-topbar-btn acrobat-topbar-btn-xl",
+              pageBookmarked && "text-[#f5d78e]",
+              bookmarkPulse && "acrobat-topbar-btn-bookmark-pulse",
+            )}
           >
-            <ReaderToolIcon src={READER_TOOL_ICONS.bookmark} alt="Bookmark" />
+            {pageBookmarked ? (
+              <BookmarkFilledIcon />
+            ) : (
+              <ReaderToolIcon src={READER_TOOL_ICONS.bookmark} alt="Bookmark" />
+            )}
           </button>
           <button
             type="button"
             title="Save progress"
-            aria-label="Save latest changes"
+            aria-label="Save progress"
             disabled={saving}
             onClick={onSave}
-            className={cn("acrobat-topbar-btn acrobat-topbar-btn-lg", saving && "opacity-50")}
+            className={cn("acrobat-topbar-btn acrobat-topbar-btn-xl", saving && "opacity-50")}
           >
             <ReaderToolIcon src={READER_TOOL_ICONS.save} alt="Save progress" />
           </button>

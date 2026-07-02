@@ -20,6 +20,7 @@ import {
   ChevronUpIcon,
   CursorIcon,
   LineThicknessIcon,
+  PaletteIcon,
   ShapeArrowIcon,
   ShapeCircleIcon,
   ShapeLineIcon,
@@ -73,16 +74,16 @@ function ColorPalette({
   onCommitColor,
 }: ColorPaletteProps) {
   return (
-    <div className="mt-1.5 flex flex-col items-center gap-1.5 border-t border-white/10 pt-1.5">
+    <div className="acrobat-toolbar-section">
       {presets.map((preset) => (
         <button
           key={preset.name}
           type="button"
           title={preset.name}
           className={cn(
-            "h-4 w-4 rounded-full border transition hover:scale-110",
+            "h-3.5 w-3.5 rounded-full border transition hover:scale-110",
             activeColor.toLowerCase() === preset.value.toLowerCase()
-              ? "border-white ring-2 ring-[#c9952a]"
+              ? "border-white ring-1 ring-[#c9952a]"
               : "border-white/25",
           )}
           style={{ backgroundColor: preset.value }}
@@ -95,9 +96,9 @@ function ColorPalette({
           type="button"
           title="Recent color"
           className={cn(
-            "h-4 w-4 rounded-full border transition hover:scale-110",
+            "h-3.5 w-3.5 rounded-full border transition hover:scale-110",
             activeColor.toLowerCase() === color.toLowerCase()
-              ? "border-white ring-2 ring-[#c9952a]"
+              ? "border-white ring-1 ring-[#c9952a]"
               : "border-white/25",
           )}
           style={{ backgroundColor: color }}
@@ -105,10 +106,11 @@ function ColorPalette({
         />
       ))}
       <label
-        title="Custom color"
-        className="relative flex h-4 w-4 cursor-pointer items-center justify-center rounded-full border border-dashed border-white/30 transition hover:scale-110"
+        title="Pick a custom color"
+        aria-label="Pick a custom color"
+        className="relative flex h-3.5 w-3.5 cursor-pointer items-center justify-center rounded-full border border-dashed border-white/35 bg-white/5 text-white/70 transition hover:scale-110 hover:border-white/55 hover:bg-white/10"
       >
-        <span className="pointer-events-none text-[7px] text-white/60">+</span>
+        <PaletteIcon />
         <input
           type="color"
           value={activeColor}
@@ -287,7 +289,7 @@ function SideButton({ label, onClick, disabled, children }: SideButtonProps) {
       aria-label={label}
       disabled={disabled}
       onClick={onClick}
-      className="acrobat-tool-btn flex h-9 w-9 items-center justify-center rounded transition-transform active:scale-95 disabled:cursor-not-allowed disabled:opacity-35"
+      className="acrobat-tool-btn flex h-10 w-10 items-center justify-center rounded transition-transform active:scale-95 disabled:cursor-not-allowed disabled:opacity-35"
     >
       {children}
     </button>
@@ -357,8 +359,10 @@ export function LeftToolbar({
 }: LeftToolbarProps) {
   const shapesRef = useRef<HTMLDivElement>(null);
   const [openGroup, setOpenGroup] = useState<"thickness" | "eraserThickness" | "shapes" | null>(null);
-  const showHighlightSettings = tool === "highlight";
-  const showPenSettings = tool === "pen" || tool === "shape";
+  const showHighlightColorPanel = tool === "highlight";
+  const showPenColorPanel = tool === "pen";
+  const showHighlightThickness = tool === "highlight";
+  const showPenThickness = tool === "pen" || tool === "shape";
   const showEraserControls = tool === "eraser";
   const showNoteColors = tool === "note" || editingNote;
 
@@ -377,124 +381,126 @@ export function LeftToolbar({
 
   return (
     <DraggableToolbar id="left-toolbar" anchorPageWidth={anchorPageWidth}>
-      <ToolButton active={tool === "read"} label="Select" onClick={() => onSelectTool("read", { force: true })}>
-        <CursorIcon />
-      </ToolButton>
+      <div className="flex w-full flex-col items-center gap-1">
+        <ToolButton active={tool === "read"} label="Select" onClick={() => onSelectTool("read", { force: true })}>
+          <CursorIcon />
+        </ToolButton>
 
-      <ToolButton
-        active={tool === "highlight"}
-        label="Highlighter"
-        onClick={() => onSelectTool("highlight", { force: true })}
-      >
-        <ReaderToolIcon
-          src={READER_TOOL_ICONS.highlighter}
-          alt="Highlighter"
-          accentColor={highlightColor}
-        />
-      </ToolButton>
-
-      <ToolButton
-        active={tool === "pen"}
-        label="Draw"
-        onClick={() => onSelectTool("pen", { force: true })}
-      >
-        <ReaderToolIcon src={READER_TOOL_ICONS.pen} alt="Pen" accentColor={penColor} />
-      </ToolButton>
-
-      <ToolButton active={tool === "note"} label="Comment" onClick={() => onSelectTool("note")}>
-        <ReaderToolIcon src={READER_TOOL_ICONS.note} alt="Note" />
-      </ToolButton>
-
-      <ToolButton active={tool === "eraser"} label="Eraser" onClick={() => onSelectTool("eraser")}>
-        <ReaderToolIcon src={READER_TOOL_ICONS.eraser} alt="Eraser" />
-      </ToolButton>
-
-      <ToolButton active={tool === "pan"} label="Pan" onClick={() => onSelectTool("pan", { force: true })}>
-        <ReaderToolIcon src={READER_TOOL_ICONS.hand} alt="Pan" />
-      </ToolButton>
-
-      <div ref={shapesRef} className="relative">
-        <button
-          type="button"
-          title="Shapes"
-          aria-label="Shapes"
-          aria-expanded={openGroup === "shapes"}
-          aria-haspopup="menu"
-          data-active={tool === "shape"}
-          onClick={() => {
-            onSelectTool("shape", { force: true });
-            setOpenGroup((current) => (current === "shapes" ? null : "shapes"));
-          }}
-          className="acrobat-tool-btn acrobat-tool-group-btn relative flex h-10 w-10 items-center justify-center rounded transition-transform active:scale-95"
+        <ToolButton
+          active={tool === "highlight"}
+          label="Highlighter"
+          onClick={() => onSelectTool("highlight", { force: true })}
         >
-          {shapeKind === "rect" ? (
-            <ShapeRectIcon />
-          ) : shapeKind === "ellipse" ? (
-            <ShapeCircleIcon />
-          ) : shapeKind === "line" ? (
-            <ShapeLineIcon />
-          ) : shapeKind === "arrow" ? (
-            <ShapeArrowIcon />
-          ) : (
-            <ShapesIcon />
-          )}
-        </button>
+          <ReaderToolIcon
+            src={READER_TOOL_ICONS.highlighter}
+            alt="Highlighter"
+            accentColor={highlightColor}
+          />
+        </ToolButton>
 
-        {openGroup === "shapes" && (
-          <div className="acrobat-tool-flyout min-w-[10.5rem]" role="menu">
-            {(
-              [
-                { kind: "rect" as const, label: "Rectangle", icon: <ShapeRectIcon /> },
-                { kind: "ellipse" as const, label: "Circle", icon: <ShapeCircleIcon /> },
-                { kind: "line" as const, label: "Line", icon: <ShapeLineIcon /> },
-                { kind: "arrow" as const, label: "Arrow", icon: <ShapeArrowIcon /> },
-              ] as const
-            ).map((option) => {
-              const selected = shapeKind === option.kind;
-              return (
-                <button
-                  key={option.kind}
-                  type="button"
-                  role="menuitemradio"
-                  aria-checked={selected}
-                  data-active={selected}
-                  className="acrobat-tool-flyout-item"
-                  onClick={() => {
-                    onShapeKindChange(option.kind);
-                    onSelectTool("shape", { force: true });
-                  }}
-                >
-                  <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center">
-                    {option.icon}
-                  </span>
-                  <span className="flex-1 text-left">{option.label}</span>
-                  {selected && <CheckIcon className="shrink-0 text-[#c9952a]" />}
-                </button>
-              );
-            })}
-            <div className="border-t border-white/10 px-3 py-2">
-              <div className="flex items-center justify-between gap-2 text-[11px] text-white/70">
-                <span>Fill</span>
-                <button
-                  type="button"
-                  className={cn(
-                    "rounded px-2 py-0.5 text-[10px] font-medium transition",
-                    shapeFilled
-                      ? "bg-[#0a84ff] text-white"
-                      : "bg-white/10 text-white/75 hover:bg-white/16",
-                  )}
-                  onClick={() => onShapeFilledChange(!shapeFilled)}
-                >
-                  {shapeFilled ? "On" : "Off"}
-                </button>
+        <ToolButton
+          active={tool === "pen"}
+          label="Draw"
+          onClick={() => onSelectTool("pen", { force: true })}
+        >
+          <ReaderToolIcon src={READER_TOOL_ICONS.pen} alt="Pen" accentColor={penColor} />
+        </ToolButton>
+
+        <ToolButton active={tool === "note"} label="Comment" onClick={() => onSelectTool("note")}>
+          <ReaderToolIcon src={READER_TOOL_ICONS.note} alt="Note" />
+        </ToolButton>
+
+        <ToolButton active={tool === "eraser"} label="Eraser" onClick={() => onSelectTool("eraser")}>
+          <ReaderToolIcon src={READER_TOOL_ICONS.eraser} alt="Eraser" />
+        </ToolButton>
+
+        <ToolButton active={tool === "pan"} label="Pan" onClick={() => onSelectTool("pan", { force: true })}>
+          <ReaderToolIcon src={READER_TOOL_ICONS.hand} alt="Pan" />
+        </ToolButton>
+
+        <div ref={shapesRef} className="relative">
+          <button
+            type="button"
+            title="Shapes"
+            aria-label="Shapes"
+            aria-expanded={openGroup === "shapes"}
+            aria-haspopup="menu"
+            data-active={tool === "shape"}
+            onClick={() => {
+              onSelectTool("shape", { force: true });
+              setOpenGroup((current) => (current === "shapes" ? null : "shapes"));
+            }}
+            className="acrobat-tool-btn acrobat-tool-group-btn relative flex h-10 w-10 items-center justify-center rounded transition-transform active:scale-95"
+          >
+            {shapeKind === "rect" ? (
+              <ShapeRectIcon />
+            ) : shapeKind === "ellipse" ? (
+              <ShapeCircleIcon />
+            ) : shapeKind === "line" ? (
+              <ShapeLineIcon />
+            ) : shapeKind === "arrow" ? (
+              <ShapeArrowIcon />
+            ) : (
+              <ShapesIcon />
+            )}
+          </button>
+
+          {openGroup === "shapes" && (
+            <div className="acrobat-tool-flyout min-w-[10.5rem]" role="menu">
+              {(
+                [
+                  { kind: "rect" as const, label: "Rectangle", icon: <ShapeRectIcon /> },
+                  { kind: "ellipse" as const, label: "Circle", icon: <ShapeCircleIcon /> },
+                  { kind: "line" as const, label: "Line", icon: <ShapeLineIcon /> },
+                  { kind: "arrow" as const, label: "Arrow", icon: <ShapeArrowIcon /> },
+                ] as const
+              ).map((option) => {
+                const selected = shapeKind === option.kind;
+                return (
+                  <button
+                    key={option.kind}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={selected}
+                    data-active={selected}
+                    className="acrobat-tool-flyout-item"
+                    onClick={() => {
+                      onShapeKindChange(option.kind);
+                      onSelectTool("shape", { force: true });
+                    }}
+                  >
+                    <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center">
+                      {option.icon}
+                    </span>
+                    <span className="flex-1 text-left">{option.label}</span>
+                    {selected && <CheckIcon className="shrink-0 text-[#c9952a]" />}
+                  </button>
+                );
+              })}
+              <div className="border-t border-white/10 px-3 py-2">
+                <div className="flex items-center justify-between gap-2 text-[11px] text-white/70">
+                  <span>Fill</span>
+                  <button
+                    type="button"
+                    className={cn(
+                      "rounded px-2 py-0.5 text-[10px] font-medium transition",
+                      shapeFilled
+                        ? "bg-[#c9952a] text-white"
+                        : "bg-white/10 text-white/75 hover:bg-white/16",
+                    )}
+                    onClick={() => onShapeFilledChange(!shapeFilled)}
+                  >
+                    {shapeFilled ? "On" : "Off"}
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {showEraserControls && (
-        <div className="mt-1.5 flex flex-col items-center border-t border-white/10 pt-1.5">
+        <div className="acrobat-toolbar-section">
           <ThicknessSliderFlyout
             value={eraserStrokeWidth}
             onChange={onEraserStrokeWidthChange}
@@ -504,52 +510,54 @@ export function LeftToolbar({
         </div>
       )}
 
-      {showHighlightSettings && (
-        <>
-          <ColorPalette
-            presets={HIGHLIGHT_PRESETS}
-            activeColor={highlightColor}
-            recentColors={recentHighlightColors}
-            onPickColor={onPickHighlightColor}
-            onColorChange={onHighlightColorChange}
-            onCommitColor={onCommitHighlightColor}
-          />
-          <div className="pb-0.5">
-            <ThicknessSliderFlyout
-              value={highlightStrokeWidth}
-              onChange={onHighlightStrokeWidthChange}
-              open={openGroup === "thickness"}
-              onOpenChange={(open) => setOpenGroup(open ? "thickness" : null)}
-            />
-          </div>
-        </>
+      {showHighlightColorPanel && (
+        <ColorPalette
+          presets={HIGHLIGHT_PRESETS}
+          activeColor={highlightColor}
+          recentColors={recentHighlightColors}
+          onPickColor={onPickHighlightColor}
+          onColorChange={onHighlightColorChange}
+          onCommitColor={onCommitHighlightColor}
+        />
       )}
 
-      {showPenSettings && (
-        <>
-          <ColorPalette
-            presets={PEN_PRESETS}
-            activeColor={penColor}
-            recentColors={recentPenColors}
-            onPickColor={onPickPenColor}
-            onColorChange={onPenColorChange}
-            onCommitColor={onCommitPenColor}
+      {showHighlightThickness && (
+        <div className="acrobat-toolbar-section border-t-0 pt-0">
+          <ThicknessSliderFlyout
+            value={highlightStrokeWidth}
+            onChange={onHighlightStrokeWidthChange}
+            open={openGroup === "thickness"}
+            onOpenChange={(open) => setOpenGroup(open ? "thickness" : null)}
           />
-          <div className="pb-0.5">
-            <ThicknessSliderFlyout
-              value={penStrokeWidth}
-              onChange={onPenStrokeWidthChange}
-              open={openGroup === "thickness"}
-              onOpenChange={(open) => setOpenGroup(open ? "thickness" : null)}
-            />
-          </div>
-        </>
+        </div>
+      )}
+
+      {showPenColorPanel && (
+        <ColorPalette
+          presets={PEN_PRESETS}
+          activeColor={penColor}
+          recentColors={recentPenColors}
+          onPickColor={onPickPenColor}
+          onColorChange={onPenColorChange}
+          onCommitColor={onCommitPenColor}
+        />
+      )}
+
+      {showPenThickness && (
+        <div className={cn("acrobat-toolbar-section", showPenColorPanel && "border-t-0 pt-0")}>
+          <ThicknessSliderFlyout
+            value={penStrokeWidth}
+            onChange={onPenStrokeWidthChange}
+            open={openGroup === "thickness"}
+            onOpenChange={(open) => setOpenGroup(open ? "thickness" : null)}
+          />
+        </div>
       )}
 
       {showNoteColors && (
         <div
           id="note-toolbar"
-          className="mt-1.5 flex flex-col items-center gap-1 border-t border-white/10 pt-1.5"
+          className="acrobat-toolbar-section"
           onMouseDown={(e) => e.preventDefault()}
         >
           {NOTE_TEXT_COLORS.map((c) => (
@@ -658,7 +666,7 @@ function PageNumberInput({ page, maxPage, onGoToPage }: PageNumberInputProps) {
         title="Type a page number, then press Enter or click outside"
         className="acrobat-page-input"
       />
-      <span className="text-[11px] font-semibold tabular-nums text-white/75">/{maxPage}</span>
+      <span className="text-xs font-semibold tabular-nums text-white/78">/{maxPage}</span>
     </div>
   );
 }

@@ -193,6 +193,37 @@ export function BookmarkIcon({ className }: IconProps) {
   );
 }
 
+export function BookmarkFilledIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" className={cn("h-[18px] w-[18px]", className)} aria-hidden>
+      <path
+        d="M8 4.5h8a1 1 0 0 1 1 1v12.8l-3.2-2.2-2.8 2.2-2.8-2.2L7 18.3V5.5a1 1 0 0 1 1-1z"
+        fill="currentColor"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+export function PaletteIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={cn("h-3 w-3", className)} aria-hidden>
+      <path
+        d="M12 3a9 9 0 1 0 8.2 12.7c-.4-1.5-1.8-2.4-3.3-2.1-.8.2-1.4.8-1.6 1.6-.3 1.5-1.2 2.9-2.7 3.3A9 9 0 0 1 12 3z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+      <circle cx="7.5" cy="10" r="1" fill="currentColor" />
+      <circle cx="10.5" cy="7.5" r="1" fill="currentColor" />
+      <circle cx="14.5" cy="8" r="1" fill="currentColor" />
+      <circle cx="16.5" cy="11.5" r="1" fill="currentColor" />
+    </svg>
+  );
+}
+
 export function ChevronUpIcon({ className }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={cn("h-4 w-4", className)} aria-hidden>
