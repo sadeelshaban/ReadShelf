@@ -103,8 +103,9 @@ import {
   updateNoteText,
 } from "@/lib/offline/reader-api";
 import { isOnline } from "@/lib/offline/online";
-import { LeftToolbar, RightToolbar } from "@/components/reader/ReaderToolbars";
+import { LeftToolbar } from "@/components/reader/ReaderToolbars";
 import { EraserCursorOverlay } from "@/components/reader/EraserCursorOverlay";
+import { ReaderStatusBar } from "@/components/reader/ReaderStatusBar";
 import { ReaderTopBar } from "@/components/reader/ReaderTopBar";
 import { PageBookmarkRibbon } from "@/components/reader/PageBookmarkRibbon";
 import {
@@ -116,6 +117,12 @@ import { PageNote } from "@/components/reader/PageNote";
 import { ReadAgainPrompt } from "@/components/reader/ReadAgainPrompt";
 import type { BookmarkColorId } from "@/lib/reader/bookmarks";
 import { normalizeBookmarkLabel } from "@/lib/reader/bookmarks";
+import {
+  loadReaderDarkMode,
+  loadReaderFocusMode,
+  saveReaderDarkMode,
+  saveReaderFocusMode,
+} from "@/lib/reader/reader-theme";
 import { cn } from "@/lib/utils";
 
 type PdfReaderProps = {
@@ -231,6 +238,9 @@ export function PdfReader({
   const [bookmarkToDelete, setBookmarkToDelete] = useState<Bookmark | null>(null);
   const [bookmarkPulse, setBookmarkPulse] = useState(false);
   const bookmarkPulseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [darkMode, setDarkMode] = useState(false);
+  const [focusMode, setFocusMode] = useState(false);
+  const [statusActivity, setStatusActivity] = useState(0);
   const [resumeReady, setResumeReady] = useState(!showResumePrompt && !showReadAgainPrompt);
   const [showResumeOverlay, setShowResumeOverlay] = useState(showResumePrompt);
   const [showReadAgainOverlay, setShowReadAgainOverlay] = useState(showReadAgainPrompt);
@@ -272,6 +282,17 @@ export function PdfReader({
 
   const maxPage = pdfNumPages ?? totalPages ?? page;
   maxPageRef.current = maxPage;
+  const readingProgressPercent =
+    maxPage > 0 ? Math.min(100, Math.max(0, Math.round((page / maxPage) * 100))) : 0;
+
+  const bumpStatusActivity = useCallback(() => {
+    setStatusActivity((current) => current + 1);
+  }, []);
+
+  useEffect(() => {
+    setDarkMode(loadReaderDarkMode());
+    setFocusMode(loadReaderFocusMode());
+  }, []);
 
   const syncPageFromScroll = useCallback(
     (options?: { force?: boolean }) => {
@@ -993,6 +1014,7 @@ export function PdfReader({
     function onScroll() {
       scheduleScrollSync();
       scheduleProgressSaveFromScroll();
+      bumpStatusActivity();
     }
 
     viewer.addEventListener("scroll", onScroll, { passive: true });
@@ -1010,7 +1032,7 @@ export function PdfReader({
         window.clearTimeout(idleProgressTimerRef.current);
       }
     };
-  }, [loading, maxPage, scheduleScrollSync, scheduleProgressSaveFromScroll, syncPageFromScroll]);
+  }, [loading, maxPage, scheduleScrollSync, scheduleProgressSaveFromScroll, syncPageFromScroll, bumpStatusActivity]);
 
   useEffect(() => {
     function onVisibilityChange() {
@@ -1827,7 +1849,10 @@ export function PdfReader({
 
   return (
     <div
-      className="acrobat-reader fixed inset-0 z-40 flex flex-col outline-none"
+      className={cn(
+        "reader-shell acrobat-reader fixed inset-0 z-40 flex flex-col outline-none",
+        darkMode && "reader-theme-dark",
+      )}
       tabIndex={-1}
       onPointerDown={(e) => {
         if ((e.target as HTMLElement).closest("input, textarea, button, select, a")) {
@@ -1839,26 +1864,38 @@ export function PdfReader({
       <ReaderTopBar
         bookId={bookId}
         title={bookTitle}
-        saving={saving}
-        saveLabel={saveLabel}
-        pageBookmarked={bookmarks.some((bookmark) => bookmark.page_number === page)}
-        bookmarkPulse={bookmarkPulse}
-        onSave={() => void handleSave()}
-        onBookmark={() => selectTool("bookmark", { force: true })}
+        progressPercent={readingProgressPercent}
+        darkMode={darkMode}
+        focusMode={focusMode}
+        onToggleDarkMode={() => {
+          setDarkMode((current) => {
+            const next = !current;
+            saveReaderDarkMode(next);
+            return next;
+          });
+        }}
+        onToggleFocusMode={() => {
+          setFocusMode((current) => {
+            const next = !current;
+            saveReaderFocusMode(next);
+            return next;
+          });
+        }}
       />
 
       {(offline || message) && (
-        <div className="shrink-0 space-y-1 border-b border-white/10 px-3 py-1.5 text-xs">
+        <div className="shrink-0 space-y-1 border-b border-[var(--reader-chrome-border)] px-3 py-1.5 text-xs">
           {offline && (
-            <p className="text-white/60">
+            <p className="text-[var(--reader-text-muted)]">
               Offline. Changes sync when you are back online.
             </p>
           )}
-          {message && <p className="text-amber-300">{message}</p>}
+          {message && <p className={darkMode ? "text-amber-300" : "text-amber-700"}>{message}</p>}
         </div>
       )}
 
       <div className="relative min-h-0 flex-1">
+        {focusMode && <div className="reader-focus-overlay" aria-hidden />}
         {eraserOverlay && tool === "eraser" && (
           <EraserCursorOverlay
             x={eraserOverlay.x}
@@ -1901,6 +1938,11 @@ export function PdfReader({
             setShapeFilled(filled);
             saveShapeFilled(filled);
           }}
+          pageBookmarked={bookmarks.some((bookmark) => bookmark.page_number === page)}
+          bookmarkPulse={bookmarkPulse}
+          saving={saving}
+          onBookmark={() => selectTool("bookmark", { force: true })}
+          onSave={() => void handleSave()}
         />
 
         {tool === "bookmark" && !bookmarkToDelete && (
@@ -1962,7 +2004,7 @@ export function PdfReader({
           ref={viewerRef}
           tabIndex={-1}
           className={cn(
-            "acrobat-viewport h-full overflow-auto outline-none",
+            "reader-viewport-shell h-full overflow-auto outline-none",
             tool === "pan" && "cursor-grab active:cursor-grabbing",
             tool === "eraser" && !editingNoteId && "cursor-none",
           )}
@@ -1972,7 +2014,10 @@ export function PdfReader({
               e.currentTarget.focus({ preventScroll: true });
             }
           }}
-          onPointerMove={handleViewerPointerMove}
+          onPointerMove={(e) => {
+            bumpStatusActivity();
+            handleViewerPointerMove(e);
+          }}
           onPointerUp={handleViewerPointerUp}
           onPointerCancel={handleViewerPointerUp}
           onPointerLeave={(e) => {
@@ -1982,7 +2027,7 @@ export function PdfReader({
           }}
         >
           {loading && (
-            <p className="flex h-full items-center justify-center text-sm text-white/55">
+            <p className="flex h-full items-center justify-center text-sm text-[var(--reader-text-muted)]">
               Loading PDF...
             </p>
           )}
@@ -2010,6 +2055,7 @@ export function PdfReader({
                   ref={bindMapRef(pageWrapRefs, pageNumber)}
                   className={cn(
                     "relative w-fit",
+                    focusMode && pageNumber === page && "reader-focus-page z-[1]",
                     tool === "note" && !editingNoteId && "cursor-crosshair",
                     tool === "eraser" && !editingNoteId && "cursor-none",
                   )}
@@ -2029,7 +2075,7 @@ export function PdfReader({
                     <>
                       <canvas
                         ref={bindMapRef(canvasRefs, pageNumber)}
-                        className="acrobat-page-panel block bg-white"
+                        className="reader-page-panel acrobat-page-panel block"
                       />
                       <canvas
                         ref={bindMapRef(drawLayerRefs, pageNumber)}
@@ -2085,7 +2131,7 @@ export function PdfReader({
                     </>
                   ) : (
                     <div
-                      className="acrobat-page-panel bg-white"
+                      className="reader-page-panel acrobat-page-panel"
                       style={{ width: slotWidth, height: slotHeight }}
                     />
                   )}
@@ -2095,17 +2141,14 @@ export function PdfReader({
           </div>
         </div>
 
-        <RightToolbar
+        <ReaderStatusBar
           page={page}
           maxPage={maxPage}
           zoomPercent={Math.round(zoomMultiplier * 100)}
           onGoToPage={scrollToPage}
-          onPrevPage={goToPrevPage}
-          onNextPage={goToNextPage}
-          prevDisabled={page <= 1}
-          nextDisabled={page >= maxPage}
           onZoomIn={zoomIn}
           onZoomOut={zoomOut}
+          activitySignal={statusActivity}
         />
       </div>
     </div>

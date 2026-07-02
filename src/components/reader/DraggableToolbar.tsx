@@ -8,6 +8,8 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
+import { GripIcon } from "@/components/reader/ReaderIcons";
+import { ReaderTooltip } from "@/components/reader/ReaderTooltip";
 import { cn } from "@/lib/utils";
 
 const STORAGE_KEY = "readshelf-left-toolbar-pos";
@@ -30,7 +32,7 @@ function loadPosition(): Position | null {
 function clampPosition(pos: Position): Position {
   const margin = 8;
   const width = 48;
-  const height = 280;
+  const height = 380;
   const maxX = Math.max(margin, window.innerWidth - width - margin);
   const maxY = Math.max(margin, window.innerHeight - height - margin);
   return {
@@ -144,21 +146,23 @@ export function DraggableToolbar({
       id={id}
       style={{ left: position.x, top: position.y }}
       className={cn(
-        "acrobat-toolbar pointer-events-auto absolute z-20 flex w-12 flex-col items-center gap-1 rounded py-1.5",
+        "reader-toolbar-panel pointer-events-auto absolute z-20 flex w-12 flex-col items-center gap-1 rounded py-1.5",
         className,
       )}
     >
-      <div
-        title="Drag toolbar"
-        aria-label="Drag toolbar"
-        className="mb-0.5 flex h-4 w-full cursor-grab items-center justify-center rounded active:cursor-grabbing"
-        onPointerDown={handleGripDown}
-        onPointerMove={handleGripMove}
-        onPointerUp={handleGripUp}
-        onPointerCancel={handleGripUp}
-      >
-        <span className="h-0.5 w-4 rounded-full bg-white/35" />
-      </div>
+      <ReaderTooltip label="Drag to move toolbar" side="right">
+        <div
+          aria-label="Drag toolbar"
+          className="reader-toolbar-grip mb-0.5"
+          onPointerDown={handleGripDown}
+          onPointerMove={handleGripMove}
+          onPointerUp={handleGripUp}
+          onPointerCancel={handleGripUp}
+        >
+          <GripIcon />
+          <span className="text-[8px] font-medium uppercase tracking-wide opacity-70">Drag</span>
+        </div>
+      </ReaderTooltip>
       {children}
     </aside>
   );

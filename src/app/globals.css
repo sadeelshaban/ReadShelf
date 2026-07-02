@@ -190,24 +190,78 @@ html {
   box-shadow: var(--shadow-soft);
 }
 
-/* Adobe Acrobat–style reader chrome */
-.acrobat-reader {
-  background: #323232;
-  color: #f5f5f5;
+/* Reader shell — light default, optional dark mode */
+.reader-shell {
+  --reader-bg: #ebe4da;
+  --reader-viewport-bg: #e0d8cc;
+  --reader-chrome-bg: rgba(250, 246, 240, 0.96);
+  --reader-chrome-border: rgba(168, 152, 136, 0.3);
+  --reader-text: #1f1610;
+  --reader-text-muted: rgba(31, 22, 16, 0.58);
+  --reader-btn-color: rgba(31, 22, 16, 0.72);
+  --reader-btn-hover-bg: rgba(111, 69, 40, 0.08);
+  --reader-btn-active-bg: #c9952a;
+  --reader-btn-active-text: #fff;
+  --reader-info-bg: rgba(31, 22, 16, 0.06);
+  --reader-info-text: rgba(31, 22, 16, 0.72);
+  --reader-info-border: rgba(31, 22, 16, 0.1);
+  --reader-page-bg: #f7f4ef;
+  --reader-tooltip-bg: #1f1610;
+  --reader-tooltip-text: #faf6f0;
+  --reader-shadow: 0 4px 16px rgba(31, 22, 16, 0.1), 0 12px 32px rgba(31, 22, 16, 0.08);
+  --reader-status-bg: rgba(250, 246, 240, 0.92);
+  --reader-divider: rgba(31, 22, 16, 0.12);
+  --reader-progress-track: rgba(31, 22, 16, 0.08);
+  --reader-progress-fill: #c9952a;
+  --reader-focus-overlay: rgba(31, 22, 16, 0.55);
+  background: var(--reader-bg);
+  color: var(--reader-text);
 }
 
-.acrobat-topbar {
-  background: #1e1e1e;
+.reader-shell.reader-theme-dark {
+  --reader-bg: #323232;
+  --reader-viewport-bg: #4a4a4a;
+  --reader-chrome-bg: rgba(43, 43, 43, 0.96);
+  --reader-chrome-border: rgba(255, 255, 255, 0.1);
+  --reader-text: #f5f5f5;
+  --reader-text-muted: rgba(255, 255, 255, 0.58);
+  --reader-btn-color: rgba(255, 255, 255, 0.78);
+  --reader-btn-hover-bg: rgba(255, 255, 255, 0.12);
+  --reader-info-bg: rgba(0, 0, 0, 0.28);
+  --reader-info-text: rgba(255, 255, 255, 0.82);
+  --reader-info-border: rgba(255, 255, 255, 0.14);
+  --reader-page-bg: #f7f4ef;
+  --reader-tooltip-bg: #2b2b2b;
+  --reader-tooltip-text: #f5f5f5;
+  --reader-shadow: 0 4px 16px rgba(0, 0, 0, 0.28), 0 12px 32px rgba(0, 0, 0, 0.38);
+  --reader-status-bg: rgba(43, 43, 43, 0.9);
+  --reader-divider: rgba(255, 255, 255, 0.12);
+  --reader-progress-track: rgba(255, 255, 255, 0.1);
+  --reader-focus-overlay: rgba(0, 0, 0, 0.62);
 }
 
-.acrobat-topbar-btn {
+/* Legacy aliases mapped to reader theme */
+.acrobat-reader,
+.reader-shell {
+  background: var(--reader-bg);
+  color: var(--reader-text);
+}
+
+.acrobat-topbar,
+.reader-topbar {
+  background: var(--reader-chrome-bg);
+  border-color: var(--reader-chrome-border);
+}
+
+.acrobat-topbar-btn,
+.reader-topbar-btn {
   display: inline-flex;
   height: 2rem;
   width: 2rem;
   align-items: center;
   justify-content: center;
   border-radius: 0.375rem;
-  color: rgba(255, 255, 255, 0.82);
+  color: var(--reader-btn-color);
   transition:
     background-color 0.15s ease,
     color 0.15s ease,
@@ -215,31 +269,37 @@ html {
     box-shadow 0.15s ease;
 }
 
-.acrobat-topbar-btn-lg {
+.acrobat-topbar-btn-lg,
+.reader-topbar-btn-lg {
   height: 2.5rem;
   width: 2.5rem;
 }
 
-.acrobat-topbar-btn-xl {
+.acrobat-topbar-btn-xl,
+.reader-topbar-btn-xl {
   height: 2.75rem;
   width: 2.75rem;
 }
 
-.acrobat-topbar-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
+.acrobat-topbar-btn:hover,
+.reader-topbar-btn:hover {
+  background: var(--reader-btn-hover-bg);
+  color: var(--reader-text);
 }
 
-.acrobat-topbar-btn:active {
+.acrobat-topbar-btn:active,
+.reader-topbar-btn:active {
   transform: scale(0.94);
 }
 
-.acrobat-topbar-btn[data-active="true"] {
+.acrobat-topbar-btn[data-active="true"],
+.reader-topbar-btn[data-active="true"] {
   color: #f5d78e;
   background: rgba(201, 149, 42, 0.22);
 }
 
-.acrobat-topbar-btn-bookmark-pulse {
+.acrobat-topbar-btn-bookmark-pulse,
+.reader-topbar-btn-bookmark-pulse {
   animation: reader-bookmark-pulse 0.55s ease-out;
 }
 
@@ -255,20 +315,32 @@ html {
   }
 }
 
-.acrobat-viewport {
-  background: #525252;
+.reader-progress-track {
+  height: 2px;
+  background: var(--reader-progress-track);
 }
 
-.acrobat-toolbar {
-  background: #2b2b2b;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow:
-    0 4px 16px rgba(0, 0, 0, 0.28),
-    0 12px 32px rgba(0, 0, 0, 0.38);
+.reader-progress-fill {
+  height: 100%;
+  background: var(--reader-progress-fill);
+  transition: width 0.25s ease;
 }
 
-.acrobat-tool-btn {
-  color: rgba(255, 255, 255, 0.78);
+.acrobat-viewport,
+.reader-viewport-shell {
+  background: var(--reader-viewport-bg);
+}
+
+.acrobat-toolbar,
+.reader-toolbar-panel {
+  background: var(--reader-chrome-bg);
+  border: 1px solid var(--reader-chrome-border);
+  box-shadow: var(--reader-shadow);
+}
+
+.acrobat-tool-btn,
+.reader-chrome-btn {
+  color: var(--reader-btn-color);
   transition:
     background-color 0.15s ease,
     color 0.15s ease,
@@ -276,29 +348,140 @@ html {
     transform 0.12s ease;
 }
 
-.acrobat-tool-btn:hover {
-  background: rgba(255, 255, 255, 0.12);
-  color: #fff;
+.reader-chrome-btn-sm {
+  display: inline-flex;
+  height: 2rem;
+  width: 2rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.375rem;
 }
 
-.acrobat-tool-btn:active {
+.acrobat-tool-btn:hover,
+.reader-chrome-btn:hover {
+  background: var(--reader-btn-hover-bg);
+  color: var(--reader-text);
+}
+
+.acrobat-tool-btn:active,
+.reader-chrome-btn:active {
   transform: scale(0.94);
 }
 
-.acrobat-tool-btn[data-active="true"] {
-  background: #c9952a;
-  color: #fff;
+.acrobat-tool-btn[data-active="true"],
+.reader-chrome-btn[data-active="true"] {
+  background: var(--reader-btn-active-bg);
+  color: var(--reader-btn-active-text);
   box-shadow: 0 2px 8px rgba(201, 149, 42, 0.32);
 }
 
-.acrobat-toolbar-section {
+.reader-chrome-btn[data-active="true"] .reader-tool-icon-accent img {
+  filter: brightness(0) invert(1);
+}
+
+.acrobat-toolbar-section,
+.reader-toolbar-section {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0.25rem;
   width: 100%;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  padding-top: 0.375rem;
+  border-top: 1px solid var(--reader-divider);
+  padding-top: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.reader-toolbar-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  width: 100%;
+}
+
+.reader-toolbar-grip {
+  display: flex;
+  width: 100%;
+  cursor: grab;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.125rem;
+  border-radius: 0.25rem;
+  padding: 0.25rem 0;
+  color: var(--reader-text-muted);
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.reader-toolbar-grip:hover {
+  background: var(--reader-btn-hover-bg);
+  color: var(--reader-text);
+}
+
+.reader-toolbar-grip:active {
+  cursor: grabbing;
+}
+
+.reader-tooltip {
+  background: var(--reader-tooltip-bg);
+  color: var(--reader-tooltip-text);
+  border: 1px solid var(--reader-chrome-border);
+}
+
+.reader-status-bar {
+  background: var(--reader-status-bg);
+  border: 1px solid var(--reader-chrome-border);
+  box-shadow: var(--reader-shadow);
+  backdrop-filter: blur(12px);
+}
+
+.reader-status-info {
+  border-radius: 0.375rem;
+  border: 1px solid var(--reader-info-border);
+  background: var(--reader-info-bg);
+  color: var(--reader-info-text);
+  font-size: 0.8125rem;
+  pointer-events: none;
+  user-select: none;
+}
+
+.reader-status-page-field {
+  border: 1px dashed transparent;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.reader-status-page-field:hover,
+.reader-status-page-field:focus-within {
+  border-color: var(--reader-info-border);
+  background: var(--reader-info-bg);
+}
+
+.reader-status-page-input {
+  color: var(--reader-text);
+  font-size: 0.875rem;
+}
+
+.reader-status-page-total {
+  color: var(--reader-text-muted);
+  font-size: 0.8125rem;
+}
+
+.reader-status-divider {
+  background: var(--reader-divider);
+}
+
+.reader-focus-overlay {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  background:
+    radial-gradient(ellipse 58% 72% at 50% 46%, transparent 0%, var(--reader-focus-overlay) 100%);
+}
+
+.reader-focus-page {
+  box-shadow:
+    0 0 0 2px rgba(201, 149, 42, 0.35),
+    0 16px 48px rgba(31, 22, 16, 0.18) !important;
 }
 
 .acrobat-tool-group-btn::after {
@@ -309,11 +492,12 @@ html {
   width: 0;
   height: 0;
   border-left: 4px solid transparent;
-  border-bottom: 4px solid rgba(255, 255, 255, 0.65);
+  border-bottom: 4px solid var(--reader-text-muted);
   pointer-events: none;
 }
 
-.acrobat-tool-flyout {
+.acrobat-tool-flyout,
+.reader-tool-flyout {
   position: absolute;
   left: calc(100% + 6px);
   top: 0;
@@ -321,24 +505,26 @@ html {
   min-width: 9.5rem;
   overflow: hidden;
   border-radius: 0.375rem;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: #2b2b2b;
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+  border: 1px solid var(--reader-chrome-border);
+  background: var(--reader-chrome-bg);
+  box-shadow: var(--reader-shadow);
 }
 
-.acrobat-tool-flyout-item {
+.acrobat-tool-flyout-item,
+.reader-tool-flyout-item {
   display: flex;
   width: 100%;
   align-items: center;
   gap: 0.625rem;
   padding: 0.5rem 0.75rem;
   font-size: 0.8125rem;
-  color: rgba(255, 255, 255, 0.88);
+  color: var(--reader-text);
   transition: background-color 0.12s ease;
 }
 
-.acrobat-tool-flyout-item:hover {
-  background: rgba(255, 255, 255, 0.08);
+.acrobat-tool-flyout-item:hover,
+.reader-tool-flyout-item:hover {
+  background: var(--reader-btn-hover-bg);
 }
 
 .acrobat-tool-flyout-item[data-active="true"] {
@@ -365,7 +551,17 @@ html {
   margin: 3.25rem 0;
 }
 
-.acrobat-page-panel {
+.acrobat-page-panel,
+.reader-page-panel {
+  background: var(--reader-page-bg);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.08),
+    0 8px 24px rgba(31, 22, 16, 0.12),
+    0 18px 48px rgba(31, 22, 16, 0.1);
+}
+
+.reader-theme-dark .acrobat-page-panel,
+.reader-theme-dark .reader-page-panel {
   box-shadow:
     0 0 0 1px rgba(0, 0, 0, 0.2),
     0 8px 24px rgba(0, 0, 0, 0.28),
@@ -375,14 +571,14 @@ html {
 .acrobat-page-input {
   width: 2.35rem;
   border-radius: 0.25rem;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  background: #1a1a1a;
+  border: 1px solid var(--reader-info-border);
+  background: var(--reader-info-bg);
   padding: 0.22rem 0.32rem;
   text-align: center;
   font-size: 0.8125rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--reader-text);
   outline: none;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
@@ -394,13 +590,13 @@ html {
 
 .acrobat-zoom-badge {
   border-radius: 0.25rem;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  background: #1a1a1a;
+  border: 1px solid var(--reader-info-border);
+  background: var(--reader-info-bg);
   padding: 0.3rem 0.45rem;
   font-size: 0.75rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-  color: rgba(255, 255, 255, 0.82);
+  color: var(--reader-info-text);
 }
 
 .acrobat-page-nav-btn {

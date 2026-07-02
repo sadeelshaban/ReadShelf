@@ -14,10 +14,10 @@ import {
 import { cn } from "@/lib/utils";
 import { DraggableToolbar } from "@/components/reader/DraggableToolbar";
 import { READER_TOOL_ICONS, ReaderToolIcon } from "@/components/reader/ReaderToolIcon";
+import { ReaderTooltip } from "@/components/reader/ReaderTooltip";
 import {
+  BookmarkFilledIcon,
   CheckIcon,
-  ChevronDownIcon,
-  ChevronUpIcon,
   CursorIcon,
   LineThicknessIcon,
   PaletteIcon,
@@ -26,8 +26,6 @@ import {
   ShapeLineIcon,
   ShapeRectIcon,
   ShapesIcon,
-  ZoomInIcon,
-  ZoomOutIcon,
 } from "@/components/reader/ReaderIcons";
 
 type ToolButtonProps = {
@@ -39,20 +37,21 @@ type ToolButtonProps = {
 
 function ToolButton({ active, label, onClick, children }: ToolButtonProps) {
   return (
-    <button
-      type="button"
-      title={label}
-      aria-label={label}
-      aria-pressed={active}
-      data-active={active}
-      onClick={onClick}
-      className={cn(
-        "acrobat-tool-btn flex h-10 w-10 items-center justify-center rounded transition-transform active:scale-95",
-        active && "[&_img]:brightness-0 [&_img]:invert",
-      )}
-    >
-      {children}
-    </button>
+    <ReaderTooltip label={label}>
+      <button
+        type="button"
+        aria-label={label}
+        aria-pressed={active}
+        data-active={active}
+        onClick={onClick}
+        className={cn(
+          "reader-chrome-btn flex h-10 w-10 items-center justify-center rounded transition-transform active:scale-95",
+          active && "[&_img]:brightness-0 [&_img]:invert",
+        )}
+      >
+        {children}
+      </button>
+    </ReaderTooltip>
   );
 }
 
@@ -239,23 +238,24 @@ function ThicknessSliderFlyout({
 
   return (
     <div ref={rootRef} className="relative">
-      <button
-        type="button"
-        title="Line thickness"
-        aria-label="Line thickness"
-        aria-expanded={open}
-        aria-haspopup="dialog"
-        data-active={open}
-        onClick={() => onOpenChange(!open)}
-        className="acrobat-tool-btn acrobat-tool-group-btn relative flex h-10 w-10 items-center justify-center rounded transition-transform active:scale-95"
-      >
-        <LineThicknessIcon />
-      </button>
+      <ReaderTooltip label="Line thickness">
+        <button
+          type="button"
+          aria-label="Line thickness"
+          aria-expanded={open}
+          aria-haspopup="dialog"
+          data-active={open}
+          onClick={() => onOpenChange(!open)}
+          className="reader-chrome-btn acrobat-tool-group-btn relative flex h-10 w-10 items-center justify-center rounded transition-transform active:scale-95"
+        >
+          <LineThicknessIcon />
+        </button>
+      </ReaderTooltip>
 
       {open && (
         <div className="acrobat-tool-flyout acrobat-thickness-flyout" role="dialog" aria-label="Line thickness">
           <div className="flex flex-col items-center gap-2 px-3 py-3">
-            <span className="text-[10px] tabular-nums text-white/50">{MAX_STROKE_WIDTH}</span>
+            <span className="text-[10px] tabular-nums text-[var(--reader-text-muted)]">{MAX_STROKE_WIDTH}</span>
             <input
               type="range"
               min={MIN_STROKE_WIDTH}
@@ -266,33 +266,11 @@ function ThicknessSliderFlyout({
               className="acrobat-thickness-slider"
               aria-label="Thickness"
             />
-            <span className="text-[11px] font-medium tabular-nums text-white/85">{value}px</span>
+            <span className="text-[11px] font-medium tabular-nums text-[var(--reader-text)]">{value}px</span>
           </div>
         </div>
       )}
     </div>
-  );
-}
-
-type SideButtonProps = {
-  label: string;
-  onClick: () => void;
-  disabled?: boolean;
-  children: React.ReactNode;
-};
-
-function SideButton({ label, onClick, disabled, children }: SideButtonProps) {
-  return (
-    <button
-      type="button"
-      title={label}
-      aria-label={label}
-      disabled={disabled}
-      onClick={onClick}
-      className="acrobat-tool-btn flex h-10 w-10 items-center justify-center rounded transition-transform active:scale-95 disabled:cursor-not-allowed disabled:opacity-35"
-    >
-      {children}
-    </button>
   );
 }
 
@@ -325,6 +303,11 @@ type LeftToolbarProps = {
   shapeFilled: boolean;
   onShapeKindChange: (kind: ShapeKind) => void;
   onShapeFilledChange: (filled: boolean) => void;
+  pageBookmarked: boolean;
+  bookmarkPulse: boolean;
+  saving: boolean;
+  onBookmark: () => void;
+  onSave: () => void;
 };
 
 export function LeftToolbar({
@@ -356,6 +339,11 @@ export function LeftToolbar({
   shapeFilled,
   onShapeKindChange,
   onShapeFilledChange,
+  pageBookmarked,
+  bookmarkPulse,
+  saving,
+  onBookmark,
+  onSave,
 }: LeftToolbarProps) {
   const shapesRef = useRef<HTMLDivElement>(null);
   const [openGroup, setOpenGroup] = useState<"thickness" | "eraserThickness" | "shapes" | null>(null);
@@ -381,57 +369,62 @@ export function LeftToolbar({
 
   return (
     <DraggableToolbar id="left-toolbar" anchorPageWidth={anchorPageWidth}>
-      <div className="flex w-full flex-col items-center gap-1">
+      <div className="reader-toolbar-group">
         <ToolButton active={tool === "read"} label="Select" onClick={() => onSelectTool("read", { force: true })}>
           <CursorIcon />
         </ToolButton>
-
-        <ToolButton
-          active={tool === "highlight"}
-          label="Highlighter"
-          onClick={() => onSelectTool("highlight", { force: true })}
-        >
-          <ReaderToolIcon
-            src={READER_TOOL_ICONS.highlighter}
-            alt="Highlighter"
-            accentColor={highlightColor}
-          />
-        </ToolButton>
-
-        <ToolButton
-          active={tool === "pen"}
-          label="Draw"
-          onClick={() => onSelectTool("pen", { force: true })}
-        >
-          <ReaderToolIcon src={READER_TOOL_ICONS.pen} alt="Pen" accentColor={penColor} />
-        </ToolButton>
-
-        <ToolButton active={tool === "note"} label="Comment" onClick={() => onSelectTool("note")}>
-          <ReaderToolIcon src={READER_TOOL_ICONS.note} alt="Note" />
-        </ToolButton>
-
-        <ToolButton active={tool === "eraser"} label="Eraser" onClick={() => onSelectTool("eraser")}>
-          <ReaderToolIcon src={READER_TOOL_ICONS.eraser} alt="Eraser" />
-        </ToolButton>
-
         <ToolButton active={tool === "pan"} label="Pan" onClick={() => onSelectTool("pan", { force: true })}>
           <ReaderToolIcon src={READER_TOOL_ICONS.hand} alt="Pan" />
         </ToolButton>
+      </div>
 
-        <div ref={shapesRef} className="relative">
-          <button
-            type="button"
-            title="Shapes"
-            aria-label="Shapes"
-            aria-expanded={openGroup === "shapes"}
-            aria-haspopup="menu"
-            data-active={tool === "shape"}
-            onClick={() => {
-              onSelectTool("shape", { force: true });
-              setOpenGroup((current) => (current === "shapes" ? null : "shapes"));
-            }}
-            className="acrobat-tool-btn acrobat-tool-group-btn relative flex h-10 w-10 items-center justify-center rounded transition-transform active:scale-95"
+      <div className="reader-toolbar-section">
+        <div className="reader-toolbar-group">
+          <ToolButton
+            active={tool === "highlight"}
+            label="Highlighter"
+            onClick={() => onSelectTool("highlight", { force: true })}
           >
+            <ReaderToolIcon
+              src={READER_TOOL_ICONS.highlighter}
+              alt="Highlighter"
+              accentColor={highlightColor}
+            />
+          </ToolButton>
+
+          <ToolButton
+            active={tool === "pen"}
+            label="Draw"
+            onClick={() => onSelectTool("pen", { force: true })}
+          >
+            <ReaderToolIcon src={READER_TOOL_ICONS.pen} alt="Pen" accentColor={penColor} />
+          </ToolButton>
+
+          <ToolButton active={tool === "note"} label="Comment" onClick={() => onSelectTool("note")}>
+            <ReaderToolIcon src={READER_TOOL_ICONS.note} alt="Note" />
+          </ToolButton>
+
+          <ToolButton active={tool === "eraser"} label="Eraser" onClick={() => onSelectTool("eraser")}>
+            <ReaderToolIcon src={READER_TOOL_ICONS.eraser} alt="Eraser" />
+          </ToolButton>
+        </div>
+      </div>
+
+      <div className="reader-toolbar-section border-t-0 pt-0">
+        <div ref={shapesRef} className="relative">
+          <ReaderTooltip label="Shapes">
+            <button
+              type="button"
+              aria-label="Shapes"
+              aria-expanded={openGroup === "shapes"}
+              aria-haspopup="menu"
+              data-active={tool === "shape"}
+              onClick={() => {
+                onSelectTool("shape", { force: true });
+                setOpenGroup((current) => (current === "shapes" ? null : "shapes"));
+              }}
+              className="reader-chrome-btn acrobat-tool-group-btn relative flex h-10 w-10 items-center justify-center rounded transition-transform active:scale-95"
+            >
             {shapeKind === "rect" ? (
               <ShapeRectIcon />
             ) : shapeKind === "ellipse" ? (
@@ -444,9 +437,10 @@ export function LeftToolbar({
               <ShapesIcon />
             )}
           </button>
+          </ReaderTooltip>
 
           {openGroup === "shapes" && (
-            <div className="acrobat-tool-flyout min-w-[10.5rem]" role="menu">
+            <div className="reader-tool-flyout min-w-[10.5rem]" role="menu">
               {(
                 [
                   { kind: "rect" as const, label: "Rectangle", icon: <ShapeRectIcon /> },
@@ -463,7 +457,7 @@ export function LeftToolbar({
                     role="menuitemradio"
                     aria-checked={selected}
                     data-active={selected}
-                    className="acrobat-tool-flyout-item"
+                    className="reader-tool-flyout-item"
                     onClick={() => {
                       onShapeKindChange(option.kind);
                       onSelectTool("shape", { force: true });
@@ -477,8 +471,8 @@ export function LeftToolbar({
                   </button>
                 );
               })}
-              <div className="border-t border-white/10 px-3 py-2">
-                <div className="flex items-center justify-between gap-2 text-[11px] text-white/70">
+              <div className="border-t border-[var(--reader-divider)] px-3 py-2">
+                <div className="flex items-center justify-between gap-2 text-[11px] text-[var(--reader-text-muted)]">
                   <span>Fill</span>
                   <button
                     type="button"
@@ -486,7 +480,7 @@ export function LeftToolbar({
                       "rounded px-2 py-0.5 text-[10px] font-medium transition",
                       shapeFilled
                         ? "bg-[#c9952a] text-white"
-                        : "bg-white/10 text-white/75 hover:bg-white/16",
+                        : "bg-[var(--reader-info-bg)] text-[var(--reader-text-muted)] hover:bg-[var(--reader-btn-hover-bg)]",
                     )}
                     onClick={() => onShapeFilledChange(!shapeFilled)}
                   >
@@ -500,7 +494,7 @@ export function LeftToolbar({
       </div>
 
       {showEraserControls && (
-        <div className="acrobat-toolbar-section">
+        <div className="reader-toolbar-section">
           <ThicknessSliderFlyout
             value={eraserStrokeWidth}
             onChange={onEraserStrokeWidthChange}
@@ -522,7 +516,7 @@ export function LeftToolbar({
       )}
 
       {showHighlightThickness && (
-        <div className="acrobat-toolbar-section border-t-0 pt-0">
+        <div className="reader-toolbar-section border-t-0 pt-0">
           <ThicknessSliderFlyout
             value={highlightStrokeWidth}
             onChange={onHighlightStrokeWidthChange}
@@ -544,7 +538,7 @@ export function LeftToolbar({
       )}
 
       {showPenThickness && (
-        <div className={cn("acrobat-toolbar-section", showPenColorPanel && "border-t-0 pt-0")}>
+        <div className={cn("reader-toolbar-section", showPenColorPanel && "border-t-0 pt-0")}>
           <ThicknessSliderFlyout
             value={penStrokeWidth}
             onChange={onPenStrokeWidthChange}
@@ -557,7 +551,7 @@ export function LeftToolbar({
       {showNoteColors && (
         <div
           id="note-toolbar"
-          className="acrobat-toolbar-section"
+          className="reader-toolbar-section"
           onMouseDown={(e) => e.preventDefault()}
         >
           {NOTE_TEXT_COLORS.map((c) => (
@@ -596,137 +590,46 @@ export function LeftToolbar({
           </button>
         </div>
       )}
+
+      <div className="reader-toolbar-section">
+        <div className="reader-toolbar-group">
+          <ReaderTooltip label={pageBookmarked ? "This page is bookmarked" : "Add bookmark"}>
+            <button
+              type="button"
+              aria-label={pageBookmarked ? "This page is bookmarked" : "Add bookmark"}
+              aria-pressed={pageBookmarked || tool === "bookmark"}
+              data-active={tool === "bookmark" || pageBookmarked}
+              onClick={onBookmark}
+              className={cn(
+                "reader-chrome-btn flex h-10 w-10 items-center justify-center rounded transition-transform active:scale-95",
+                pageBookmarked && "text-[#f5d78e]",
+                bookmarkPulse && "reader-topbar-btn-bookmark-pulse",
+              )}
+            >
+              {pageBookmarked ? (
+                <BookmarkFilledIcon />
+              ) : (
+                <ReaderToolIcon src={READER_TOOL_ICONS.bookmark} alt="Bookmark" />
+              )}
+            </button>
+          </ReaderTooltip>
+
+          <ReaderTooltip label="Save progress">
+            <button
+              type="button"
+              aria-label="Save progress"
+              disabled={saving}
+              onClick={onSave}
+              className={cn(
+                "reader-chrome-btn flex h-10 w-10 items-center justify-center rounded transition-transform active:scale-95",
+                saving && "opacity-50",
+              )}
+            >
+              <ReaderToolIcon src={READER_TOOL_ICONS.save} alt="Save progress" />
+            </button>
+          </ReaderTooltip>
+        </div>
+      </div>
     </DraggableToolbar>
-  );
-}
-
-type PageNumberInputProps = {
-  page: number;
-  maxPage: number;
-  onGoToPage: (page: number) => void;
-};
-
-function PageNumberInput({ page, maxPage, onGoToPage }: PageNumberInputProps) {
-  const [draft, setDraft] = useState(String(page));
-  const [focused, setFocused] = useState(false);
-
-  useEffect(() => {
-    if (!focused) {
-      setDraft(String(page));
-    }
-  }, [page, focused]);
-
-  function commit() {
-    const trimmed = draft.trim();
-    if (!trimmed) {
-      setDraft(String(page));
-      return;
-    }
-
-    const parsed = Number.parseInt(trimmed, 10);
-    if (Number.isNaN(parsed)) {
-      setDraft(String(page));
-      return;
-    }
-
-    const clamped = Math.min(maxPage, Math.max(1, parsed));
-    setDraft(String(clamped));
-    onGoToPage(clamped);
-  }
-
-  return (
-    <div className="flex flex-col items-center gap-0.5">
-      <input
-        type="text"
-        inputMode="numeric"
-        pattern="[0-9]*"
-        value={draft}
-        onChange={(e) => setDraft(e.target.value.replace(/\D/g, ""))}
-        onFocus={(e) => {
-          setFocused(true);
-          e.target.select();
-        }}
-        onBlur={() => {
-          setFocused(false);
-          commit();
-        }}
-        onKeyDown={(e) => {
-          e.stopPropagation();
-          if (e.key === "Enter") {
-            e.preventDefault();
-            commit();
-            e.currentTarget.blur();
-          }
-          if (e.key === "Escape") {
-            setDraft(String(page));
-            e.currentTarget.blur();
-          }
-        }}
-        aria-label="Go to page"
-        title="Type a page number, then press Enter or click outside"
-        className="acrobat-page-input"
-      />
-      <span className="text-xs font-semibold tabular-nums text-white/78">/{maxPage}</span>
-    </div>
-  );
-}
-
-type RightToolbarProps = {
-  page: number;
-  maxPage: number;
-  zoomPercent: number;
-  onGoToPage: (page: number) => void;
-  onPrevPage: () => void;
-  onNextPage: () => void;
-  onZoomIn: () => void;
-  onZoomOut: () => void;
-  prevDisabled: boolean;
-  nextDisabled: boolean;
-};
-
-export function RightToolbar({
-  page,
-  maxPage,
-  zoomPercent,
-  onGoToPage,
-  onPrevPage,
-  onNextPage,
-  onZoomIn,
-  onZoomOut,
-  prevDisabled,
-  nextDisabled,
-}: RightToolbarProps) {
-  return (
-    <aside
-      id="right-toolbar"
-      className="acrobat-toolbar pointer-events-auto absolute right-2 top-1/2 z-20 flex w-12 -translate-y-1/2 flex-col items-center gap-2 rounded py-2.5"
-    >
-      <div className="flex flex-col items-center gap-0.5 pb-1.5">
-        <SideButton label="Previous page" disabled={prevDisabled} onClick={onPrevPage}>
-          <ChevronUpIcon />
-        </SideButton>
-        <PageNumberInput page={page} maxPage={maxPage} onGoToPage={onGoToPage} />
-        <SideButton label="Next page" disabled={nextDisabled} onClick={onNextPage}>
-          <ChevronDownIcon />
-        </SideButton>
-      </div>
-
-      <div
-        className="acrobat-zoom-badge border-t border-white/10 pt-1.5 transition-all duration-200"
-        title="Zoom level"
-        key={zoomPercent}
-      >
-        {zoomPercent}%
-      </div>
-
-      <div className="flex flex-col items-center gap-0.5 border-t border-white/10 pt-1.5">
-        <SideButton label="Zoom in" onClick={onZoomIn}>
-          <ZoomInIcon />
-        </SideButton>
-        <SideButton label="Zoom out" onClick={onZoomOut}>
-          <ZoomOutIcon />
-        </SideButton>
-      </div>
-    </aside>
   );
 }
