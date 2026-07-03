@@ -10,11 +10,13 @@ export default function ForgotPasswordPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [accountNotFound, setAccountNotFound] = useState(false);
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    setAccountNotFound(false);
     setLoading(true);
 
     try {
@@ -24,10 +26,14 @@ export default function ForgotPasswordPage() {
         body: JSON.stringify({ email }),
       });
 
-      const body = (await response.json()) as { error?: string };
+      const body = (await response.json()) as { error?: string; code?: string };
 
       if (!response.ok) {
-        setError(body.error ?? "Could not send reset code. Please try again.");
+        if (body.code === "not_found") {
+          setAccountNotFound(true);
+        } else {
+          setError(body.error ?? "Could not send reset code. Please try again.");
+        }
         setLoading(false);
         return;
       }
@@ -60,8 +66,24 @@ export default function ForgotPasswordPage() {
             autoComplete="email"
             required
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              setError(null);
+              setAccountNotFound(false);
+            }}
           />
+          {accountNotFound && (
+            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+              No account is registered with this email.{" "}
+              <Link
+                href={`/signup?email=${encodeURIComponent(email)}`}
+                className="font-medium text-primary underline underline-offset-2 hover:text-primary/80"
+              >
+                Sign up
+              </Link>{" "}
+              first.
+            </p>
+          )}
           {error && (
             <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
               {error}

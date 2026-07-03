@@ -1,37 +1,10 @@
 import { NextResponse } from "next/server";
-import { createServiceClient } from "@/lib/supabase/service";
+import { emailIsRegistered } from "@/lib/auth/email-registered";
 import { createClient } from "@/lib/supabase/server";
 
-const WRONG_CREDENTIALS = "Incorrect email or password. Please try again.";
 const WRONG_PASSWORD = "Incorrect password. Please try again.";
 const EMAIL_NOT_CONFIRMED =
   "Please confirm your email before logging in. Check your inbox for the confirmation link.";
-
-async function emailExists(email: string) {
-  const supabase = createServiceClient();
-  const normalized = email.trim().toLowerCase();
-  let page = 1;
-
-  while (true) {
-    const { data, error } = await supabase.auth.admin.listUsers({
-      page,
-      perPage: 1000,
-    });
-
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    if (data.users.some((user) => user.email?.toLowerCase() === normalized)) {
-      return true;
-    }
-
-    if (data.users.length < 1000) break;
-    page += 1;
-  }
-
-  return false;
-}
 
 export async function POST(request: Request) {
   let body: { email?: string; password?: string };
@@ -50,12 +23,9 @@ export async function POST(request: Request) {
   }
 
   try {
-    const exists = await emailExists(email);
+    const exists = await emailIsRegistered(email);
     if (!exists) {
-      return NextResponse.json(
-        { field: "form", message: WRONG_CREDENTIALS },
-        { status: 401 },
-      );
+      return NextResponse.json({ field: "not_found" as const }, { status: 404 });
     }
 
     const supabase = await createClient();

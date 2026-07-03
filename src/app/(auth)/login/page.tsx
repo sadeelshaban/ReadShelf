@@ -20,6 +20,7 @@ function LoginForm() {
   const [email, setEmail] = useState(prefilledEmail);
   const [password, setPassword] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
+  const [accountNotFound, setAccountNotFound] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -45,6 +46,7 @@ function LoginForm() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setFormError(null);
+    setAccountNotFound(false);
     setPasswordError(null);
     setLoading(true);
 
@@ -57,12 +59,14 @@ function LoginForm() {
       });
 
       const body = (await response.json()) as {
-        field?: "form" | "password";
+        field?: "form" | "password" | "not_found";
         message?: string;
       };
 
       if (!response.ok) {
-        if (body.field === "password") {
+        if (body.field === "not_found") {
+          setAccountNotFound(true);
+        } else if (body.field === "password") {
           setPasswordError(body.message ?? "Incorrect password. Please try again.");
         } else {
           setFormError(body.message ?? "Incorrect email or password. Please try again.");
@@ -116,6 +120,7 @@ function LoginForm() {
           onChange={(e) => {
             setEmail(e.target.value);
             setFormError(null);
+            setAccountNotFound(false);
           }}
           className="border-white/20 bg-white/92 text-[#24180f] placeholder:text-[#8a7968] focus:border-[#f0dfc4] focus:bg-white focus:ring-[#f2e3c8]/35"
         />
@@ -133,6 +138,18 @@ function LoginForm() {
           error={passwordError ?? undefined}
           className="border-white/20 bg-white/92 text-[#24180f] placeholder:text-[#8a7968] focus:border-[#f0dfc4] focus:bg-white focus:ring-[#f2e3c8]/35"
         />
+        {accountNotFound && (
+          <p className="rounded-2xl border border-[#e5c79d]/28 bg-[#2f241b]/52 px-4 py-3 text-sm text-[#fff4e3] backdrop-blur-md">
+            No account exists with this email.{" "}
+            <Link
+              href={`/signup?email=${encodeURIComponent(email)}`}
+              className="font-medium text-[#f2dfbf] underline underline-offset-2 hover:text-white"
+            >
+              Sign up
+            </Link>{" "}
+            to create one.
+          </p>
+        )}
         {formError && (
           <p className="rounded-2xl border border-[#e5c79d]/28 bg-[#2f241b]/52 px-4 py-3 text-sm text-[#fff4e3] backdrop-blur-md">
             {formError}

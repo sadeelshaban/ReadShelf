@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
+import { emailIsRegistered } from "@/lib/auth/email-registered";
 import { createRecoveryOtp } from "@/lib/email/auth-links";
 import { getSiteUrl, isEmailConfigured } from "@/lib/email/config";
 import { sendEmail } from "@/lib/email/send";
 import { recoveryOtpEmailHtml } from "@/lib/email/templates";
-
-const GENERIC_MESSAGE = "If that email exists, a reset code has been sent.";
 
 export async function POST(request: Request) {
   let body: { email?: string };
@@ -29,18 +28,31 @@ export async function POST(request: Request) {
   }
 
   try {
-    const otp = await createRecoveryOtp(email);
-
-    if (otp) {
-      const siteUrl = getSiteUrl(request);
-      await sendEmail({
-        to: email,
-        subject: "Your ReadShelf password reset code",
-        html: recoveryOtpEmailHtml(siteUrl, otp),
-      });
+    const exists = await emailIsRegistered(email);
+    if (!exists) {
+      return NextResponse.json({ code: "not_found" as const }, { status: 404 });
     }
 
-    return NextResponse.json({ ok: true, message: GENERIC_MESSAGE });
+    const otp = await createRecoveryOtp(email);
+
+    if (!otp) {
+      return NextResponse.json(
+        { error: "Could not create a reset code. Please try again." },
+        { status: 500 },
+      );
+    }
+
+    const siteUrl = getSiteUrl(request);
+    await sendEmail({
+      to: email,
+      subject: "Your ReadShelf password reset code",
+      html: recoveryOtpEmailHtml(siteUrl, otp),
+    });
+
+    return NextResponse.json({
+      ok: true,
+      message: "A reset code has been sent to your email.",
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Could not send reset code.";
     return NextResponse.json({ error: message }, { status: 500 });
