@@ -65,6 +65,7 @@ export function PageNote({
     origin: { x: number; y: number; width: number; height: number; fontSize: number };
     dragging: boolean;
   } | null>(null);
+  const isDraggingRef = useRef(false);
   const pinchRef = useRef<{ distance: number; fontSize: number } | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const noteRootRef = useRef<HTMLDivElement>(null);
@@ -85,9 +86,15 @@ export function PageNote({
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !note.position || dragRef.current) return;
+    if (!canvas || !note.position || dragRef.current || isDraggingRef.current) return;
     setLocalPos(displayRectFromPagePosition(note.position, canvas));
   }, [note.position, pageViewport, canvasRef]);
+
+  useEffect(() => {
+    if (!editing) {
+      setText(note.note_text);
+    }
+  }, [note.note_text, editing]);
 
   useEffect(() => {
     if (editing) textareaRef.current?.focus();
@@ -149,6 +156,7 @@ export function PageNote({
     if (!dragRef.current.dragging) {
       if (Math.hypot(dx, dy) < 4) return;
       dragRef.current.dragging = true;
+      isDraggingRef.current = true;
       e.preventDefault();
     }
     setLocalPos({
@@ -161,24 +169,28 @@ export function PageNote({
   function handleDragEnd(e: ReactPointerEvent<HTMLElement>) {
     if (!dragRef.current) return;
     e.stopPropagation();
+    const drag = dragRef.current;
     const canvas = canvasRef.current;
-    if (dragRef.current.dragging && localPos && canvas) {
+
+    if (drag.dragging && canvas) {
+      const dx = e.clientX - drag.startX;
+      const dy = e.clientY - drag.startY;
+      const finalDisplay = {
+        x: drag.origin.x + dx,
+        y: drag.origin.y + dy,
+        width: drag.origin.width,
+        height: drag.origin.height,
+        fontSize: drag.origin.fontSize,
+      };
+      setLocalPos(finalDisplay);
       onMove(
         note.id,
-        pagePositionFromDisplay(
-          {
-            x: localPos.x,
-            y: localPos.y,
-            width: localPos.width,
-            height: localPos.height,
-            fontSize: note.position?.fontSize,
-          },
-          canvas,
-          note.position,
-        ),
+        pagePositionFromDisplay(finalDisplay, canvas, note.position),
       );
     }
+
     dragRef.current = null;
+    isDraggingRef.current = false;
     if (e.currentTarget.hasPointerCapture(e.pointerId)) {
       e.currentTarget.releasePointerCapture(e.pointerId);
     }
@@ -274,7 +286,7 @@ export function PageNote({
           touchAction: editing ? "none" : "auto",
         }}
         dir="auto"
-        placeholder="Write your message"
+        placeholder="Write a message"
         value={text}
         readOnly={!editing}
         onChange={(e) => {

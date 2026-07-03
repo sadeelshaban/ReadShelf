@@ -1935,19 +1935,17 @@ export function PdfReader({
 
   async function finishNote(id: string, text: string) {
     const trimmed = text.trim();
-    if (!trimmed) {
-      if (!noteHadContentRef.current) {
-        await deleteNote(id);
-        return;
-      }
+    setEditingNoteId(null);
+    setTool("read");
+    setNoteMenuId(null);
 
-      await clearNoteText(id);
-      setNotes((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, note_text: "" } : n)),
-      );
-      setEditingNoteId(null);
-      setTool("read");
-      setNoteMenuId(null);
+    if (!trimmed) {
+      if (noteHadContentRef.current) {
+        await clearNoteText(id);
+        setNotes((prev) =>
+          prev.map((n) => (n.id === id ? { ...n, note_text: "" } : n)),
+        );
+      }
       return;
     }
 
@@ -1955,9 +1953,6 @@ export function PdfReader({
     setNotes((prev) =>
       prev.map((n) => (n.id === id ? { ...n, note_text: trimmed } : n)),
     );
-    setEditingNoteId(null);
-    setTool("read");
-    setNoteMenuId(null);
   }
 
   finishNoteRef.current = finishNote;
@@ -1977,10 +1972,21 @@ export function PdfReader({
   }
 
   async function moveNote(id: string, position: NotePosition) {
-    await moveNoteApi(id, position);
+    const previous = notes.find((entry) => entry.id === id)?.position ?? null;
     setNotes((prev) =>
       prev.map((n) => (n.id === id ? { ...n, position } : n)),
     );
+
+    try {
+      await moveNoteApi(id, position);
+    } catch (err) {
+      if (previous) {
+        setNotes((prev) =>
+          prev.map((n) => (n.id === id ? { ...n, position: previous } : n)),
+        );
+      }
+      setMessage(err instanceof Error ? err.message : "Could not move note.");
+    }
   }
 
   async function deleteNote(id: string) {
