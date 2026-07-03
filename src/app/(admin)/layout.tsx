@@ -9,6 +9,7 @@ export const metadata: Metadata = {
 const navLinks = [
   { href: "/admin", label: "Dashboard" },
   { href: "/admin#engagement", label: "Analytics" },
+  { href: "/admin#feedback", label: "Feedback" },
   { href: "/admin#users", label: "Users" },
   { href: "/admin/settings", label: "Settings" },
 ] as const;

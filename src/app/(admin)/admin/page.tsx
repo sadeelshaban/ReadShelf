@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { AdminStatCard } from "@/components/admin/AdminStatCard";
+import { AdminFeedbackPanel } from "@/components/admin/AdminFeedbackPanel";
 import { AdminUsersPanel } from "@/components/admin/AdminUsersPanel";
 import {
   getEngagementStats,
@@ -175,6 +176,8 @@ export default async function AdminDashboardPage() {
           />
         </div>
       </section>
+
+      <AdminFeedbackPanel />
 
       <AdminUsersPanel />
 
