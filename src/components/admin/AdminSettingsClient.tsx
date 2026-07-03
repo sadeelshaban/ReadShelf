@@ -13,7 +13,7 @@ export function AdminSettingsClient({ email }: AdminSettingsClientProps) {
 
   async function handleLogout() {
     const supabase = createClient();
-    await supabase.auth.signOut();
+    await supabase.auth.signOut({ scope: "global" });
     router.push("/login");
     router.refresh();
   }

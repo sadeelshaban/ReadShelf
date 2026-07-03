@@ -95,33 +95,13 @@ export async function listAdminUsers(): Promise<AdminUserRow[]> {
 }
 
 export async function signOutUserGlobally(userId: string) {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabase = createServiceClient();
+  const { error } = await supabase.rpc("revoke_user_sessions", {
+    target_user_id: userId,
+  });
 
-  if (!url || !key) {
-    throw new Error("SUPABASE_SERVICE_ROLE_KEY is not configured.");
-  }
-
-  const response = await fetch(
-    `${url}/auth/v1/admin/users/${userId}/logout?scope=global`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${key}`,
-        apikey: key,
-      },
-    },
-  );
-
-  if (!response.ok) {
-    let message = "Could not sign out user.";
-    try {
-      const body = (await response.json()) as { msg?: string };
-      message = body.msg ?? message;
-    } catch {
-      // ignore parse errors
-    }
-    throw new Error(message);
+  if (error) {
+    throw new Error(error.message || "Could not sign out user.");
   }
 }
 

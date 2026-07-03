@@ -236,6 +236,7 @@ export function PdfReader({
     scrollLeft: number;
     scrollTop: number;
   } | null>(null);
+  const resumeActionRef = useRef<"continue" | "start-over">("continue");
 
   const [page, setPage] = useState(initialPage);
   const [renderedPages, setRenderedPages] = useState<Set<number>>(
@@ -633,6 +634,38 @@ export function PdfReader({
       const viewer = viewerRef.current;
       if (!viewer) return;
 
+      if (resumeActionRef.current === "start-over") {
+        resumeActionRef.current = "continue";
+        programmaticScrollTargetRef.current = 1;
+        setPage(1);
+        setRenderedPages((prev) => mergeRenderedPages(prev, 1, maxPageRef.current));
+
+        const attemptScroll = (retriesLeft: number) => {
+          const pageWrap = pageWrapRefs.current.get(1);
+          if (pageWrap) {
+            scrollViewerToPage(viewer, pageWrap, behavior);
+            viewer.scrollTop = 0;
+            return;
+          }
+          if (retriesLeft > 0) {
+            requestAnimationFrame(() => attemptScroll(retriesLeft - 1));
+          }
+        };
+
+        requestAnimationFrame(() => attemptScroll(24));
+
+        void saveReadingProgress(bookId, 1, totalPages ?? pdfNumPages, {
+          scrollY: 0,
+          zoom: zoomMultiplierRef.current,
+        });
+
+        window.setTimeout(() => {
+          programmaticScrollTargetRef.current = null;
+          syncPageFromScroll({ force: true });
+        }, behavior === "smooth" ? PROGRAMMATIC_SCROLL_TIMEOUT_MS : 150);
+        return;
+      }
+
       programmaticScrollTargetRef.current = initialPage;
 
       if (restoreScrollPosition && initialScrollY != null && initialScrollY > 0) {
@@ -649,7 +682,15 @@ export function PdfReader({
         syncPageFromScroll({ force: true });
       }, behavior === "smooth" ? PROGRAMMATIC_SCROLL_TIMEOUT_MS : 150);
     },
-    [initialPage, initialScrollY, restoreScrollPosition, syncPageFromScroll],
+    [
+      bookId,
+      initialPage,
+      initialScrollY,
+      pdfNumPages,
+      restoreScrollPosition,
+      syncPageFromScroll,
+      totalPages,
+    ],
   );
 
   const jumpToBookmark = useCallback(
@@ -2130,13 +2171,14 @@ export function PdfReader({
             page={initialPage}
             zoomPercent={Math.round((initialZoom ?? zoomMultiplier) * 100)}
             onContinue={() => {
+              resumeActionRef.current = "continue";
               setShowResumeOverlay(false);
               setResumeReady(true);
             }}
             onStartOver={() => {
+              resumeActionRef.current = "start-over";
               setShowResumeOverlay(false);
               setResumeReady(true);
-              scrollToPage(1, "auto");
             }}
           />
         )}
