@@ -22,6 +22,8 @@ import {
 import { touchDistance } from "@/lib/reader/pdf-reader-dom";
 import { cn } from "@/lib/utils";
 
+const NOTE_PLACEHOLDER = "Write a message";
+
 export type PageNoteProps = {
   note: Note;
   editing: boolean;
@@ -79,6 +81,7 @@ export function PageNote({
   } | null>(null);
   const [text, setText] = useState(note.note_text);
   const textColor = liveTextColor ?? note.text_color ?? "black";
+  const displayText = note.note_text.trim();
 
   useEffect(() => {
     onFontSizeChangeRef.current = onFontSizeChange;
@@ -91,14 +94,11 @@ export function PageNote({
   }, [note.position, pageViewport, canvasRef]);
 
   useEffect(() => {
-    if (!editing) {
+    if (editing) {
       setText(note.note_text);
+      textareaRef.current?.focus();
     }
-  }, [note.note_text, editing]);
-
-  useEffect(() => {
-    if (editing) textareaRef.current?.focus();
-  }, [editing]);
+  }, [editing, note.id, note.note_text]);
 
   useEffect(() => {
     const root = noteRootRef.current;
@@ -198,7 +198,7 @@ export function PageNote({
 
   function handleTextChange(value: string) {
     setText(value);
-    if (editing) onDraftChange(note.id, value);
+    onDraftChange(note.id, value);
   }
 
   function handleFinish() {
@@ -224,6 +224,11 @@ export function PageNote({
   function handleTouchEnd() {
     pinchRef.current = null;
   }
+
+  const textStyle = {
+    color: noteTextCss(textColor),
+    fontSize,
+  };
 
   return (
     <div
@@ -274,35 +279,41 @@ export function PageNote({
         </div>
       )}
 
-      <textarea
-        ref={textareaRef}
-        className={cn(
-          "min-h-[72px] w-full resize-none bg-transparent outline-none leading-snug",
-          !editing && "cursor-grab select-none active:cursor-grabbing",
-        )}
-        style={{
-          color: noteTextCss(textColor),
-          fontSize,
-          touchAction: editing ? "none" : "auto",
-        }}
-        dir="auto"
-        placeholder="Write a message"
-        value={text}
-        readOnly={!editing}
-        onChange={(e) => {
-          if (editing) handleTextChange(e.target.value);
-        }}
-        onKeyDown={(e) => {
-          if (editing && e.key === "Enter" && !e.shiftKey) {
-            e.preventDefault();
-            handleFinish();
-          }
-        }}
-        onPointerDown={handleDragStart}
-        onPointerMove={handleDragMove}
-        onPointerUp={handleDragEnd}
-        onBlur={handleBlur}
-      />
+      {editing ? (
+        <textarea
+          ref={textareaRef}
+          className="min-h-[72px] w-full resize-none bg-transparent outline-none leading-snug"
+          style={{
+            ...textStyle,
+            touchAction: "none",
+          }}
+          dir="auto"
+          placeholder={text.trim() ? undefined : NOTE_PLACEHOLDER}
+          value={text}
+          onChange={(e) => handleTextChange(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              handleFinish();
+            }
+          }}
+          onBlur={handleBlur}
+        />
+      ) : (
+        <div
+          className={cn(
+            "min-h-[72px] w-full cursor-grab select-none whitespace-pre-wrap break-words leading-snug active:cursor-grabbing",
+            !displayText && "text-black/35",
+          )}
+          style={textStyle}
+          dir="auto"
+          onPointerDown={handleDragStart}
+          onPointerMove={handleDragMove}
+          onPointerUp={handleDragEnd}
+        >
+          {displayText || NOTE_PLACEHOLDER}
+        </div>
+      )}
     </div>
   );
 }

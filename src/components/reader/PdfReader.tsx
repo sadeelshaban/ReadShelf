@@ -1940,12 +1940,15 @@ export function PdfReader({
     setNoteMenuId(null);
 
     if (!trimmed) {
-      if (noteHadContentRef.current) {
-        await clearNoteText(id);
-        setNotes((prev) =>
-          prev.map((n) => (n.id === id ? { ...n, note_text: "" } : n)),
-        );
+      if (!noteHadContentRef.current) {
+        await deleteNote(id);
+        return;
       }
+
+      await clearNoteText(id);
+      setNotes((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, note_text: "" } : n)),
+      );
       return;
     }
 
@@ -2309,9 +2312,7 @@ export function PdfReader({
                         .filter((note) => note.page_number === pageNumber)
                         .map((note) => (
                           <PageNote
-                            key={
-                              editingNoteId === note.id ? `${note.id}:edit` : note.id
-                            }
+                            key={note.id}
                             note={note}
                             editing={editingNoteId === note.id}
                             showMenu={noteMenuId === note.id}
