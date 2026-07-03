@@ -1,31 +1,75 @@
 export type BookmarkColorId = "yellow" | "blue" | "red";
 
+export type BookmarkRibbonPalette = {
+  edge: string;
+  mid: string;
+  highlight: string;
+};
+
 export const BOOKMARK_COLORS: Array<{
   id: BookmarkColorId;
   name: string;
   value: string;
 }> = [
-  { id: "yellow", name: "Yellow", value: "#E8B923" },
-  { id: "blue", name: "Blue", value: "#2F7DD1" },
-  { id: "red", name: "Red", value: "#D64545" },
+  { id: "yellow", name: "Yellow", value: "#D48806" },
+  { id: "red", name: "Red", value: "#C62828" },
+  { id: "blue", name: "Blue", value: "#1E56C5" },
 ];
 
-const LEGACY_COLOR_MAP: Record<string, string> = {
-  gold: "#E8B923",
-  green: "#4CAF50",
-  yellow: "#E8B923",
-  red: "#D64545",
-  blue: "#2F7DD1",
-  black: "#3C2A21",
+const RIBBON_PALETTES: Record<BookmarkColorId, BookmarkRibbonPalette> = {
+  yellow: {
+    edge: "#8A5A05",
+    mid: "#C47A08",
+    highlight: "#F0B429",
+  },
+  red: {
+    edge: "#7A1020",
+    mid: "#B91C1C",
+    highlight: "#EF5350",
+  },
+  blue: {
+    edge: "#123985",
+    mid: "#1A4DA8",
+    highlight: "#4A7FE8",
+  },
+};
+
+const LEGACY_COLOR_MAP: Record<string, BookmarkColorId> = {
+  gold: "yellow",
+  green: "yellow",
+  yellow: "yellow",
+  red: "red",
+  blue: "blue",
+  black: "yellow",
 };
 
 export function bookmarkColorHex(colorId: string): string {
   const match = BOOKMARK_COLORS.find((entry) => entry.id === colorId);
   if (match) return match.value;
-  return LEGACY_COLOR_MAP[colorId] ?? BOOKMARK_COLORS[0].value;
+
+  const legacyId = LEGACY_COLOR_MAP[colorId];
+  if (legacyId) {
+    return BOOKMARK_COLORS.find((entry) => entry.id === legacyId)!.value;
+  }
+
+  return BOOKMARK_COLORS[0].value;
+}
+
+export function bookmarkRibbonPalette(colorId: string): BookmarkRibbonPalette {
+  const resolved =
+    BOOKMARK_COLORS.find((entry) => entry.id === colorId)?.id ??
+    LEGACY_COLOR_MAP[colorId] ??
+    "yellow";
+
+  return RIBBON_PALETTES[resolved];
 }
 
 export function normalizeBookmarkLabel(input: string): string {
   const word = input.trim().split(/\s+/)[0] ?? "";
   return word.slice(0, 24);
 }
+
+export const BOOKMARK_RIBBON_WIDTH = 20;
+export const BOOKMARK_RIBBON_HEIGHT = 152;
+export const BOOKMARK_RIBBON_GAP = 4;
+export const BOOKMARK_RIBBON_INSET = 10;
