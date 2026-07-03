@@ -120,6 +120,7 @@ upsertEnvVar("R2_ACCOUNT_ID", ACCOUNT_ID);
 upsertEnvVar("R2_ACCESS_KEY_ID", accessKeyId);
 upsertEnvVar("R2_SECRET_ACCESS_KEY", secretAccessKey);
 upsertEnvVar("R2_BUCKET_NAME", BUCKET_NAME);
+upsertEnvVar("STORAGE_PROVIDER", "r2");
 
 console.log("Saved R2 credentials to .env.local");
 console.log(`Access Key ID: ${accessKeyId}`);

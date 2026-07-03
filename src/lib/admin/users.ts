@@ -107,6 +107,7 @@ export async function signOutUserGlobally(userId: string) {
 
 async function removeUserStorage(userId: string) {
   const supabase = createServiceClient();
+  const { deleteBookFiles } = await import("@/lib/storage");
   const { data: books, error } = await supabase
     .from("books")
     .select("pdf_path, cover_path")
@@ -116,27 +117,12 @@ async function removeUserStorage(userId: string) {
     throw new Error(error.message);
   }
 
-  const pdfPaths = (books ?? []).map((b) => b.pdf_path).filter(Boolean);
-  const coverPaths = (books ?? [])
-    .map((b) => b.cover_path)
-    .filter((p): p is string => Boolean(p));
-
-  if (pdfPaths.length) {
-    const { error: pdfError } = await supabase.storage
-      .from("book-pdfs")
-      .remove(pdfPaths);
-    if (pdfError) {
-      throw new Error(pdfError.message);
-    }
-  }
-
-  if (coverPaths.length) {
-    const { error: coverError } = await supabase.storage
-      .from("book-covers")
-      .remove(coverPaths);
-    if (coverError) {
-      throw new Error(coverError.message);
-    }
+  for (const book of books ?? []) {
+    if (!book.pdf_path) continue;
+    await deleteBookFiles({
+      pdfPath: book.pdf_path,
+      coverPath: book.cover_path,
+    });
   }
 }
 

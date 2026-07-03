@@ -1,3 +1,8 @@
+import { isR2StorageEnabled } from "@/lib/storage/config";
+import {
+  getR2PlatformStorageBytes,
+  listR2UserStorageBytes,
+} from "@/lib/storage/r2-storage";
 import { createServiceClient } from "@/lib/supabase/service";
 
 export type UserStorageUsage = {
@@ -91,6 +96,16 @@ export async function getBookCountByUserId(): Promise<Map<string, number>> {
 export async function getStorageUsageByUserId(
   userIds: string[],
 ): Promise<Map<string, number>> {
+  if (isR2StorageEnabled()) {
+    const usage = new Map<string, number>();
+    await Promise.all(
+      userIds.map(async (userId) => {
+        usage.set(userId, await listR2UserStorageBytes(userId));
+      }),
+    );
+    return usage;
+  }
+
   const fromTable = await getStorageUsageFromObjectsTable();
   if (fromTable) {
     return fromTable;
@@ -123,6 +138,10 @@ export async function getUserStorageUsageMap(
 }
 
 export async function getPlatformStorageBytes(): Promise<number> {
+  if (isR2StorageEnabled()) {
+    return getR2PlatformStorageBytes();
+  }
+
   const fromTable = await getStorageUsageFromObjectsTable();
   if (fromTable) {
     let total = 0;

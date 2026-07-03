@@ -14,10 +14,16 @@
     "reset:data": "powershell -ExecutionPolicy Bypass -File ./scripts/reset-data.ps1",
     "deploy:vercel": "powershell -ExecutionPolicy Bypass -File ./scripts/deploy-vercel.ps1",
     "migrate:r2-to-supabase": "node scripts/migrate-r2-to-supabase.mjs",
+    "migrate:supabase-to-r2": "node scripts/migrate-supabase-to-r2.mjs",
+    "setup:r2": "powershell -ExecutionPolicy Bypass -File ./scripts/setup-r2.ps1",
+    "setup:r2:auto": "powershell -ExecutionPolicy Bypass -File ./scripts/setup-r2-auto.ps1",
+    "test:r2": "node scripts/test-r2.mjs",
     "create:admin": "node scripts/create-admin-user.mjs",
     "apply:supabase-auth": "node scripts/apply-supabase-auth.mjs"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1079.0",
+    "@aws-sdk/s3-request-presigner": "^3.1079.0",
     "@fontsource/noto-sans-arabic": "^5.2.10",
     "@pdf-lib/fontkit": "^1.1.1",
     "@supabase/ssr": "^0.12.0",
@@ -30,7 +36,6 @@
     "react-dom": "19.2.4"
   },
   "devDependencies": {
-    "@aws-sdk/client-s3": "^3.1068.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/nodemailer": "^8.0.1",

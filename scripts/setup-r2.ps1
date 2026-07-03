@@ -98,6 +98,7 @@ Set-EnvVar -Path $EnvFile -Name "R2_ACCOUNT_ID" -Value $accountId.Trim()
 Set-EnvVar -Path $EnvFile -Name "R2_ACCESS_KEY_ID" -Value $accessKeyId.Trim()
 Set-EnvVar -Path $EnvFile -Name "R2_SECRET_ACCESS_KEY" -Value $plainSecret.Trim()
 Set-EnvVar -Path $EnvFile -Name "R2_BUCKET_NAME" -Value $bucketName.Trim()
+Set-EnvVar -Path $EnvFile -Name "STORAGE_PROVIDER" -Value "r2"
 
 Write-Host ""
 Write-Host "Saved R2 settings to .env.local" -ForegroundColor Green
