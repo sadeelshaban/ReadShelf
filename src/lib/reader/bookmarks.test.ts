@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   bookmarkColorHex,
+  bookmarkRibbonPalette,
   normalizeBookmarkLabel,
 } from "@/lib/reader/bookmarks";
 
@@ -26,16 +27,24 @@ describe("normalizeBookmarkLabel", () => {
 
 describe("bookmarkColorHex", () => {
   it("resolves known color ids", () => {
-    expect(bookmarkColorHex("yellow")).toBe("#E8B923");
-    expect(bookmarkColorHex("blue")).toBe("#2F7DD1");
-    expect(bookmarkColorHex("red")).toBe("#D64545");
+    expect(bookmarkColorHex("yellow")).toBe("#D48806");
+    expect(bookmarkColorHex("red")).toBe("#7A1525");
+    expect(bookmarkColorHex("blue")).toBe("#1E56C5");
   });
 
   it("maps legacy color names", () => {
-    expect(bookmarkColorHex("gold")).toBe("#E8B923");
+    expect(bookmarkColorHex("gold")).toBe("#D48806");
   });
 
   it("falls back to yellow for unknown ids", () => {
-    expect(bookmarkColorHex("unknown")).toBe("#E8B923");
+    expect(bookmarkColorHex("unknown")).toBe("#D48806");
+  });
+});
+
+describe("bookmarkRibbonPalette", () => {
+  it("returns gradient stops for ribbon colors", () => {
+    expect(bookmarkRibbonPalette("red").mid).toBe("#7A1525");
+    expect(bookmarkRibbonPalette("yellow").highlight).toBe("#F0B429");
+    expect(bookmarkRibbonPalette("blue").highlight).toBe("#4A7FE8");
   });
 });

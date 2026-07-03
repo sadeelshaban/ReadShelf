@@ -1,7 +1,13 @@
 "use client";
 
-import { useRef, type CSSProperties } from "react";
-import { bookmarkColorHex } from "@/lib/reader/bookmarks";
+import { useId, useRef } from "react";
+import {
+  BOOKMARK_RIBBON_GAP,
+  BOOKMARK_RIBBON_HEIGHT,
+  BOOKMARK_RIBBON_INSET,
+  BOOKMARK_RIBBON_WIDTH,
+  bookmarkRibbonPalette,
+} from "@/lib/reader/bookmarks";
 import { cn } from "@/lib/utils";
 
 type PageBookmarkRibbonProps = {
@@ -12,18 +18,30 @@ type PageBookmarkRibbonProps = {
   onDoubleClick?: () => void;
 };
 
-function BookmarkMarkIcon() {
+const RIBBON_PATH = `M1.5,7 C1.5,3 ${BOOKMARK_RIBBON_WIDTH - 1.5},3 ${BOOKMARK_RIBBON_WIDTH - 1.5},7 L${BOOKMARK_RIBBON_WIDTH - 1.5},${BOOKMARK_RIBBON_HEIGHT - 21} L${BOOKMARK_RIBBON_WIDTH / 2},${BOOKMARK_RIBBON_HEIGHT - 1.5} L1.5,${BOOKMARK_RIBBON_HEIGHT - 21} Z`;
+
+function RibbonMarkIcon({ goldId }: { goldId: string }) {
   return (
-    <svg viewBox="0 0 20 20" className="h-4 w-4 text-[#3c2a21]/85" aria-hidden>
+    <g transform={`translate(${BOOKMARK_RIBBON_WIDTH / 2}, ${BOOKMARK_RIBBON_HEIGHT - 52})`}>
       <path
-        d="M13.8 3.2l3 3-9.2 9.2-3.8 1 1-3.8 9-8.4z"
-        fill="currentColor"
+        d="M-4.5 3.5 3.5 -4.5 5.5 -2.5 -2.5 5.5 Z"
+        fill={`url(#${goldId})`}
+        stroke="#8A6A12"
+        strokeWidth="0.35"
       />
       <path
-        d="M15.2 5.1l.35 1.05 1.05.35-1.05.35-.35 1.05-.35-1.05-1.05-.35 1.05-.35.35-1.05z"
-        fill="currentColor"
+        d="M4.5 -5.5 5.8 -3.8 7.2 -5.2 5.9 -6.9 Z"
+        fill={`url(#${goldId})`}
       />
-    </svg>
+      <path
+        d="M6.8 1.2 7.6 2.8 9.2 2 8.4 0.4 Z"
+        fill={`url(#${goldId})`}
+      />
+      <path
+        d="M8.6 -1.1 9.1 0.1 10.3 -0.4 9.8 -1.6 Z"
+        fill={`url(#${goldId})`}
+      />
+    </g>
   );
 }
 
@@ -34,7 +52,11 @@ export function PageBookmarkRibbon({
   onClick,
   onDoubleClick,
 }: PageBookmarkRibbonProps) {
-  const bookmarkColor = bookmarkColorHex(colorId);
+  const palette = bookmarkRibbonPalette(colorId);
+  const uid = useId().replace(/:/g, "");
+  const gradientId = `${uid}-ribbon`;
+  const goldId = `${uid}-gold`;
+  const shadowId = `${uid}-shadow`;
   const clickTimerRef = useRef<number | null>(null);
 
   return (
@@ -61,27 +83,49 @@ export function PageBookmarkRibbon({
         onDoubleClick?.();
       }}
       className={cn(
-        "group absolute top-0 z-10 flex w-7 flex-col items-center border-0 bg-transparent p-0",
+        "group absolute top-0 z-10 border-0 bg-transparent p-0",
         onClick || onDoubleClick ? "cursor-pointer" : "pointer-events-none",
       )}
-      style={{ left: 14 + offsetIndex * 28 }}
+      style={{
+        right: BOOKMARK_RIBBON_INSET + offsetIndex * (BOOKMARK_RIBBON_WIDTH + BOOKMARK_RIBBON_GAP),
+        width: BOOKMARK_RIBBON_WIDTH,
+        height: BOOKMARK_RIBBON_HEIGHT,
+      }}
     >
-      <span
-        className="relative flex h-[6rem] w-6 flex-col items-center shadow-[4px_5px_12px_rgba(0,0,0,0.24)]"
-        style={{ "--bookmarkColor": bookmarkColor } as CSSProperties}
+      <svg
+        width={BOOKMARK_RIBBON_WIDTH}
+        height={BOOKMARK_RIBBON_HEIGHT}
+        viewBox={`0 0 ${BOOKMARK_RIBBON_WIDTH} ${BOOKMARK_RIBBON_HEIGHT}`}
+        className="block transition-transform duration-150 group-hover:translate-y-[1px]"
+        aria-hidden
       >
-        <span
-          className="block h-full w-full"
-          style={{
-            background: `linear-gradient(180deg, color-mix(in srgb, var(--bookmarkColor) 92%, white) 0%, var(--bookmarkColor) 55%, color-mix(in srgb, var(--bookmarkColor) 78%, black) 100%)`,
-            clipPath:
-              "polygon(0 0, 100% 0, 100% calc(100% - 12px), 50% 100%, 0 calc(100% - 12px))",
-          }}
+        <defs>
+          <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor={palette.edge} />
+            <stop offset="34%" stopColor={palette.mid} />
+            <stop offset="50%" stopColor={palette.highlight} />
+            <stop offset="66%" stopColor={palette.mid} />
+            <stop offset="100%" stopColor={palette.edge} />
+          </linearGradient>
+          <linearGradient id={goldId} x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#F7E7A8" />
+            <stop offset="45%" stopColor="#E8C547" />
+            <stop offset="100%" stopColor="#B8891A" />
+          </linearGradient>
+          <filter id={shadowId} x="-40%" y="-8%" width="180%" height="130%">
+            <feDropShadow dx="0" dy="2.5" stdDeviation="2.2" floodColor="#000" floodOpacity="0.22" />
+          </filter>
+        </defs>
+        <path
+          d={RIBBON_PATH}
+          fill={`url(#${gradientId})`}
+          stroke="#FFFFFF"
+          strokeWidth="1.35"
+          strokeLinejoin="round"
+          filter={`url(#${shadowId})`}
         />
-        <span className="pointer-events-none absolute inset-x-0 bottom-[30%] flex justify-center">
-          <BookmarkMarkIcon />
-        </span>
-      </span>
+        <RibbonMarkIcon goldId={goldId} />
+      </svg>
     </button>
   );
 }
