@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useId, useState } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/Button";
 import { FEEDBACK_CATEGORIES, type FeedbackCategory } from "@/lib/feedback/categories";
 import { cn } from "@/lib/utils";
@@ -13,9 +14,17 @@ export function AppHeaderFeedbackButton() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
 
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
@@ -24,7 +33,10 @@ export function AppHeaderFeedbackButton() {
     }
 
     document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
   }, [open]);
 
   useEffect(() => {
@@ -87,18 +99,20 @@ export function AppHeaderFeedbackButton() {
         </svg>
       </button>
 
-      {open && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-[#24180f]/45 p-4 sm:items-center"
-          onClick={() => setOpen(false)}
-        >
+      {mounted &&
+        open &&
+        createPortal(
           <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={titleId}
-            className="glass-panel w-full max-w-lg rounded-3xl p-6 shadow-2xl"
-            onClick={(event) => event.stopPropagation()}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-[#24180f]/45 p-4"
+            onClick={() => setOpen(false)}
           >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby={titleId}
+              className="glass-panel max-h-[min(90vh,720px)] w-full max-w-lg overflow-y-auto rounded-3xl p-6 shadow-2xl"
+              onClick={(event) => event.stopPropagation()}
+            >
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 id={titleId} className="font-serif text-2xl font-semibold text-primary">
@@ -203,9 +217,10 @@ export function AppHeaderFeedbackButton() {
                 </div>
               </form>
             )}
-          </div>
-        </div>
-      )}
+            </div>
+          </div>,
+          document.body,
+        )}
     </>
   );
 }
