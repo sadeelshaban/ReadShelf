@@ -1,12 +1,11 @@
 import { redirect } from "next/navigation";
+import { AdminOverviewCard } from "@/components/admin/AdminOverviewCard";
 import { AdminStatCard } from "@/components/admin/AdminStatCard";
-import { AdminFeedbackPanel } from "@/components/admin/AdminFeedbackPanel";
-import { AdminUsersPanel } from "@/components/admin/AdminUsersPanel";
+import { getFeedbackCount, getRecentFeedbackCount } from "@/lib/admin/feedback";
 import {
   getEngagementStats,
   getPlatformStats,
   getPlatformTrends,
-  getReaderPreferenceStats,
 } from "@/lib/admin/stats";
 import { formatStorageBytes, getPlatformStorageBytes } from "@/lib/admin/storage-usage";
 import { isAdminUser } from "@/lib/admin";
@@ -33,23 +32,27 @@ export default async function AdminDashboardPage() {
 
   let stats;
   let engagement;
-  let readerPreferences;
   let trends;
   let totalStorageBytes = 0;
+  let feedbackCount = 0;
+  let recentFeedbackCount = 0;
   let setupError: string | null = null;
+
   try {
     stats = await getPlatformStats();
-    [engagement, readerPreferences, trends, totalStorageBytes] = await Promise.all([
-      getEngagementStats(stats),
-      getReaderPreferenceStats(stats.users),
-      getPlatformTrends(),
-      getPlatformStorageBytes(),
-    ]);
+    [engagement, trends, totalStorageBytes, feedbackCount, recentFeedbackCount] =
+      await Promise.all([
+        getEngagementStats(stats),
+        getPlatformTrends(),
+        getPlatformStorageBytes(),
+        getFeedbackCount(),
+        getRecentFeedbackCount(),
+      ]);
   } catch (err) {
     setupError = err instanceof Error ? err.message : "Unknown admin setup error";
   }
 
-  if (setupError || !stats || !engagement || !readerPreferences || !trends) {
+  if (setupError || !stats || !engagement || !trends) {
     const message = setupError ?? "Admin dashboard data could not be loaded.";
     const missingServiceKey = message.includes("SUPABASE_SERVICE_ROLE_KEY");
     return (
@@ -77,17 +80,36 @@ export default async function AdminDashboardPage() {
           Dashboard
         </h1>
         <p className="mt-2 text-sm text-text-muted">
-          Platform overview and user management.
+          Platform overview. Open Feedback or Users for full details.
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-        <AdminStatCard
-          value={stats.users}
-          label="Users"
-          hint="Total accounts"
-          trend={formatTrend(trends.newUsers30d, "this month")}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <AdminOverviewCard
+          href="/admin/feedback"
+          title="Feedback"
+          value={feedbackCount}
+          description={
+            recentFeedbackCount > 0
+              ? `${recentFeedbackCount} new submission${recentFeedbackCount === 1 ? "" : "s"} in the last 7 days.`
+              : "Private user notes with submitter email for follow-up."
+          }
+          actionLabel="View feedback"
         />
+        <AdminOverviewCard
+          href="/admin/users"
+          title="Users"
+          value={stats.users}
+          description={
+            trends.newUsers30d > 0
+              ? `${trends.newUsers30d} joined this month. Manage storage and account access.`
+              : "Manage storage, sign-out, and account access."
+          }
+          actionLabel="Manage users"
+        />
+      </div>
+
+      <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <AdminStatCard
           value={stats.books}
           label="Books uploaded"
@@ -109,6 +131,16 @@ export default async function AdminDashboardPage() {
           label="Highlights"
           hint="All highlights"
         />
+        <AdminStatCard
+          value={stats.bookmarks}
+          label="Bookmarks"
+          hint="Manual page bookmarks"
+        />
+        <AdminStatCard
+          value={engagement.activeReaders30d}
+          label="Monthly active readers"
+          hint="Opened a book in the last 30 days"
+        />
       </div>
 
       <section id="engagement" className="mt-12 scroll-mt-24">
@@ -116,7 +148,7 @@ export default async function AdminDashboardPage() {
           Reading engagement
         </h2>
         <p className="mt-1 text-sm text-text-muted">
-          Platform-wide metrics for completion and activity.
+          Completion, retention, annotations, and reader tool usage.
         </p>
         <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           <AdminStatCard
@@ -132,54 +164,47 @@ export default async function AdminDashboardPage() {
             percent={engagement.completionRate}
           />
           <AdminStatCard
-            value={engagement.activeReaders30d}
-            label="Active readers"
-            hint="Users who opened a book in the last 30 days"
-          />
-          <AdminStatCard
             value={engagement.booksOpened7d}
             label="Books opened"
             hint="Books opened in the last 7 days"
+          />
+          <AdminStatCard
+            value={engagement.dailyActiveReaders}
+            label="Daily active readers"
+            hint="Users who opened a book in the last 24 hours"
+          />
+          <AdminStatCard
+            value={engagement.totalReadCompletions}
+            label="Read completions"
+            hint="Total times books reached 100%"
+          />
+          <AdminStatCard
+            value={engagement.booksReadAgain}
+            label="Read again"
+            hint="Books finished at least twice"
           />
           <AdminStatCard
             value={engagement.avgAnnotationsPerBook}
             label="Annotations per book"
             hint="Average highlights + notes per uploaded book"
           />
-        </div>
-      </section>
-
-      <section id="reader-experience" className="mt-12 scroll-mt-24">
-        <h2 className="font-serif text-[2.125rem] font-semibold tracking-tight text-text">
-          Reader experience
-        </h2>
-        <p className="mt-1 text-sm text-text-muted">
-          Dark mode adoption syncs when users open the reader or toggle the theme.
-        </p>
-        <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           <AdminStatCard
-            value={readerPreferences.darkModeUsers}
-            label="Dark mode users"
-            hint="Accounts with reader dark mode currently enabled"
+            value={engagement.avgBookmarksPerBook}
+            label="Bookmarks per book"
+            hint="Average manual bookmarks per uploaded book"
           />
           <AdminStatCard
-            value={`${readerPreferences.darkModeAdoptionPercent}%`}
-            label="Dark mode adoption"
-            hint={`${readerPreferences.darkModeUsers} of ${stats.users} total users`}
-            percent={readerPreferences.darkModeAdoptionPercent}
-          />
-          <AdminStatCard
-            value={`${readerPreferences.darkModeAmongTrackedPercent}%`}
-            label="Dark mode (tracked readers)"
-            hint={`Among ${readerPreferences.trackedReaders} users who opened the reader since tracking`}
-            percent={readerPreferences.darkModeAmongTrackedPercent}
+            value={engagement.pdfExportsTotal}
+            label="PDF exports"
+            hint={
+              engagement.pdfExports7d > 0
+                ? `${engagement.pdfExports7d} annotated exports in the last 7 days`
+                : "Annotated PDF downloads tracked from now on"
+            }
+            trend={formatTrend(engagement.pdfExports7d, "this week")}
           />
         </div>
       </section>
-
-      <AdminFeedbackPanel />
-
-      <AdminUsersPanel />
 
       <p className="mt-8 text-center text-xs text-text-muted">
         Signed in as {user.email}

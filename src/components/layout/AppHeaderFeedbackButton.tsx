@@ -120,8 +120,7 @@ export function AppHeaderFeedbackButton() {
                 </h2>
                 <p className="mt-2 text-sm leading-6 text-text-muted">
                   Tell us about design, bugs, feature ideas, or anything else. Your feedback is{" "}
-                  <span className="font-medium text-text">totally anonymous</span> — other readers
-                  will never see it.
+                  <span className="font-medium text-text">totally anonymous</span>.
                 </p>
               </div>
               <button
@@ -146,9 +145,9 @@ export function AppHeaderFeedbackButton() {
 
             {success ? (
               <div className="mt-6 rounded-2xl border border-[#d9e8d2] bg-[#f4faf1] px-4 py-5 text-sm text-[#2f4d2a]">
-                <p className="font-medium">Thanks — your feedback was sent.</p>
+                <p className="font-medium">Thanks, your feedback was sent.</p>
                 <p className="mt-1 text-[#45633f]">
-                  We read every message privately. You can close this window or send another note.
+                  We read every message. Close this window or send another note.
                 </p>
                 <Button
                   type="button"

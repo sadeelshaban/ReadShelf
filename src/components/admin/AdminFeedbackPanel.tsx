@@ -15,7 +15,7 @@ function formatDate(value: string) {
   return new Date(value).toLocaleString();
 }
 
-export function AdminFeedbackPanel() {
+export function AdminFeedbackPanel({ embedded = false }: { embedded?: boolean }) {
   const [feedback, setFeedback] = useState<FeedbackRow[]>([]);
   const [initialLoading, setInitialLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -46,25 +46,40 @@ export function AdminFeedbackPanel() {
   }, [loadFeedback]);
 
   return (
-    <section id="feedback" className="mt-12 scroll-mt-24">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="font-serif text-[2.125rem] font-semibold tracking-tight text-text">
-            Feedback
-          </h2>
-          <p className="mt-1 text-sm text-text-muted">
-            Private user notes with the submitter&apos;s email for follow-up.
-          </p>
+    <section id="feedback" className={embedded ? undefined : "mt-12 scroll-mt-24"}>
+      {!embedded && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="font-serif text-[2.125rem] font-semibold tracking-tight text-text">
+              Feedback
+            </h2>
+            <p className="mt-1 text-sm text-text-muted">
+              Private user notes with the submitter&apos;s email for follow-up.
+            </p>
+          </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={refreshing}
+            onClick={() => void loadFeedback()}
+          >
+            {refreshing ? "Refreshing..." : "Refresh"}
+          </Button>
         </div>
-        <Button
-          variant="secondary"
-          size="sm"
-          disabled={refreshing}
-          onClick={() => void loadFeedback()}
-        >
-          {refreshing ? "Refreshing..." : "Refresh"}
-        </Button>
-      </div>
+      )}
+
+      {embedded && (
+        <div className="mb-4 flex justify-end">
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={refreshing}
+            onClick={() => void loadFeedback()}
+          >
+            {refreshing ? "Refreshing..." : "Refresh"}
+          </Button>
+        </div>
+      )}
 
       {error && (
         <p className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">

@@ -6,6 +6,7 @@ import {
   contentDispositionAttachment,
   safePdfFilename,
 } from "@/lib/pdf/export-annotated";
+import { logPdfExport } from "@/lib/admin/stats";
 import { createClient } from "@/lib/supabase/server";
 import { downloadBookPdf } from "@/lib/storage";
 import type { Highlight, Note } from "@/types";
@@ -73,6 +74,8 @@ async function exportAnnotatedPdf(bookId: string, payload?: ExportPayload) {
     );
 
     const filename = safePdfFilename(book.title);
+
+    void logPdfExport(user.id, book.id);
 
     return new NextResponse(Buffer.from(annotated), {
       headers: {

@@ -33,3 +33,31 @@ export async function listAdminFeedback(): Promise<AdminFeedbackRow[]> {
     };
   });
 }
+
+export async function getFeedbackCount(): Promise<number> {
+  const supabase = createServiceClient();
+  const { count, error } = await supabase
+    .from("feedback")
+    .select("*", { count: "exact", head: true });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return count ?? 0;
+}
+
+export async function getRecentFeedbackCount(days = 7): Promise<number> {
+  const supabase = createServiceClient();
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+  const { count, error } = await supabase
+    .from("feedback")
+    .select("*", { count: "exact", head: true })
+    .gte("created_at", since.toISOString());
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return count ?? 0;
+}

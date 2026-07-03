@@ -35,7 +35,7 @@ function formatDate(value: string | null) {
   return new Date(value).toLocaleString();
 }
 
-export function AdminUsersPanel() {
+export function AdminUsersPanel({ embedded = false }: { embedded?: boolean }) {
   const [users, setUsers] = useState<AdminUserRow[]>([]);
   const [initialLoading, setInitialLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -146,25 +146,40 @@ export function AdminUsersPanel() {
   }
 
   return (
-    <section id="users" className="mt-12 scroll-mt-24">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="font-serif text-[2.125rem] font-semibold tracking-tight text-text">
-            Users
-          </h2>
-          <p className="mt-1 text-sm text-text-muted">
-            Sorted by storage use. Send a storage notice when trial space is tight.
-          </p>
+    <section id="users" className={embedded ? undefined : "mt-12 scroll-mt-24"}>
+      {!embedded && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="font-serif text-[2.125rem] font-semibold tracking-tight text-text">
+              Users
+            </h2>
+            <p className="mt-1 text-sm text-text-muted">
+              Sorted by storage use. Send a storage notice when trial space is tight.
+            </p>
+          </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={refreshing}
+            onClick={() => void loadUsers()}
+          >
+            {refreshing ? "Refreshing..." : "Refresh"}
+          </Button>
         </div>
-        <Button
-          variant="secondary"
-          size="sm"
-          disabled={refreshing}
-          onClick={() => void loadUsers()}
-        >
-          {refreshing ? "Refreshing..." : "Refresh"}
-        </Button>
-      </div>
+      )}
+
+      {embedded && (
+        <div className="mb-4 flex justify-end">
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={refreshing}
+            onClick={() => void loadUsers()}
+          >
+            {refreshing ? "Refreshing..." : "Refresh"}
+          </Button>
+        </div>
+      )}
 
       {error && (
         <p className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
