@@ -114,9 +114,6 @@ function SignupForm() {
           <p className="text-sm leading-6 text-white/72">
             If you do not see it, check your Spam folder.
           </p>
-          <p className="text-xs leading-5 text-white/58">
-            Once you confirm from any device, this page will take you to log in.
-          </p>
         </div>
       ) : (
         <>
