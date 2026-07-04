@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, Suspense, useEffect, useState } from "react";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { Button } from "@/components/ui/Button";
@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/Input";
 import { PasswordInput } from "@/components/ui/PasswordInput";
 
 function SignupForm() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const prefilledEmail = searchParams.get("email") ?? "";
   const [email, setEmail] = useState(prefilledEmail);
@@ -23,6 +24,44 @@ function SignupForm() {
       setEmail(prefilledEmail);
     }
   }, [prefilledEmail]);
+
+  useEffect(() => {
+    if (!signupSuccess || !email) return;
+
+    let cancelled = false;
+    const startedAt = Date.now();
+    const maxWaitMs = 30 * 60 * 1000;
+
+    async function checkConfirmation() {
+      try {
+        const response = await fetch("/api/auth/confirmation-status", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        });
+        const body = (await response.json()) as { confirmed?: boolean };
+        if (!cancelled && body.confirmed) {
+          router.replace(`/login?confirmed=1&email=${encodeURIComponent(email)}`);
+        }
+      } catch {
+        // Keep polling — confirmation may happen on another device.
+      }
+    }
+
+    void checkConfirmation();
+    const interval = window.setInterval(() => {
+      if (Date.now() - startedAt > maxWaitMs) {
+        window.clearInterval(interval);
+        return;
+      }
+      void checkConfirmation();
+    }, 3000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [signupSuccess, email, router]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -74,6 +113,9 @@ function SignupForm() {
           </p>
           <p className="text-sm leading-6 text-white/72">
             If you do not see it, check your Spam folder.
+          </p>
+          <p className="text-xs leading-5 text-white/58">
+            Once you confirm from any device, this page will take you to log in.
           </p>
         </div>
       ) : (
