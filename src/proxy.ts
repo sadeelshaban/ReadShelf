@@ -3,7 +3,7 @@ import { updateSession } from "@/lib/supabase/middleware";
 
 export async function proxy(request: NextRequest) {
   if (request.nextUrl.pathname === "/favicon.ico") {
-    return NextResponse.rewrite(new URL("/logo.png", request.url));
+    return NextResponse.rewrite(new URL("/favicon.png", request.url));
   }
 
   return updateSession(request);
