@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 
 const WRONG_PASSWORD = "Incorrect password. Please try again.";
 const EMAIL_NOT_CONFIRMED =
-  "Please confirm your email before logging in. Check your inbox for the confirmation link. If you do not see it, check your Spam or Junk folder.";
+  "Confirm your email first. Check your inbox — or Spam if you do not see it.";
 
 export async function POST(request: Request) {
   let body: { email?: string; password?: string };

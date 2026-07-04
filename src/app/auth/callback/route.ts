@@ -26,5 +26,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
+  await supabase.auth.signOut();
+
+  if (safeNext === "/login") {
+    const loginUrl = new URL("/login", requestUrl.origin);
+    loginUrl.searchParams.set("confirmed", "1");
+    return NextResponse.redirect(loginUrl);
+  }
+
   return NextResponse.redirect(new URL(safeNext, requestUrl.origin));
 }

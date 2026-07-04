@@ -20,7 +20,7 @@ export async function createSignupLink(
   password: string,
 ): Promise<{ actionLink: string } | { error: "exists" | "other"; message: string }> {
   const supabase = createServiceClient();
-  const redirectTo = authCallbackUrl(request, "/auth/confirmed");
+  const redirectTo = authCallbackUrl(request, "/login");
 
   const { data, error } = await supabase.auth.admin.generateLink({
     type: "signup",
