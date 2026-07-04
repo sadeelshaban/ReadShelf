@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { BookWithCounts } from "@/types";
 import { getReadButtonLabel } from "@/lib/pdf";
 import { cn } from "@/lib/utils";
@@ -16,8 +17,17 @@ type BookCardProps = {
 const overlayBtn =
   "interactive-lift flex w-full items-center justify-center rounded-xl px-3 py-2 text-center text-[11px] font-semibold leading-tight transition-colors sm:text-xs";
 
+function isFinePointerDevice() {
+  if (typeof window === "undefined") return true;
+  return window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+}
+
 export function BookCard({ book, coverUrl, onCoverError }: BookCardProps) {
+  const router = useRouter();
   const retriedCoverRef = useRef(false);
+  const lastTapRef = useRef(0);
+  const tapTimeoutRef = useRef<number | null>(null);
+  const [mobileOverlay, setMobileOverlay] = useState(false);
   const readLabel = getReadButtonLabel(book);
   const progressLabel = book.total_pages
     ? `${book.progress_percent}% · ${book.last_page}/${book.total_pages}`
@@ -29,10 +39,67 @@ export function BookCard({ book, coverUrl, onCoverError }: BookCardProps) {
     retriedCoverRef.current = false;
   }, [coverUrl]);
 
+  useEffect(() => {
+    return () => {
+      if (tapTimeoutRef.current) window.clearTimeout(tapTimeoutRef.current);
+    };
+  }, []);
+
+  const closeMobileOverlay = useCallback(() => {
+    setMobileOverlay(false);
+  }, []);
+
+  useEffect(() => {
+    if (!mobileOverlay) return;
+
+    function handlePointerDown(event: PointerEvent) {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      if (target.closest(`[data-book-card="${book.id}"]`)) return;
+      closeMobileOverlay();
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [book.id, closeMobileOverlay, mobileOverlay]);
+
+  function handleCoverPointerUp() {
+    if (isFinePointerDevice()) return;
+
+    const now = Date.now();
+    const delta = now - lastTapRef.current;
+
+    if (delta > 0 && delta < 350) {
+      if (tapTimeoutRef.current) {
+        window.clearTimeout(tapTimeoutRef.current);
+        tapTimeoutRef.current = null;
+      }
+      lastTapRef.current = 0;
+      closeMobileOverlay();
+      router.push(`/book/${book.id}`);
+      return;
+    }
+
+    lastTapRef.current = now;
+    if (tapTimeoutRef.current) window.clearTimeout(tapTimeoutRef.current);
+    tapTimeoutRef.current = window.setTimeout(() => {
+      setMobileOverlay(true);
+      tapTimeoutRef.current = null;
+    }, 280);
+  }
+
   return (
-    <article className="group relative flex w-[140px] shrink-0 flex-col sm:w-[152px]">
+    <article
+      className="group relative flex w-[140px] shrink-0 flex-col sm:w-[152px]"
+      data-book-card={book.id}
+    >
       <div className="relative">
-        <div className="book-card-cover relative aspect-[2/3] w-full overflow-hidden rounded-2xl bg-background-elevated shadow-md ring-1 ring-black/5">
+        <button
+          type="button"
+          className="book-card-cover relative aspect-[2/3] w-full overflow-hidden rounded-2xl bg-background-elevated shadow-md ring-1 ring-black/5"
+          aria-label={`Open ${book.title}`}
+          onPointerUp={handleCoverPointerUp}
+        >
           {coverUrl ? (
             <Image
               src={coverUrl}
@@ -52,15 +119,21 @@ export function BookCard({ book, coverUrl, onCoverError }: BookCardProps) {
               No cover
             </div>
           )}
-        </div>
+        </button>
 
-        <div className="book-card-overlay absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 rounded-2xl p-2.5 opacity-0 pointer-events-none transition-opacity duration-200">
+        <div
+          className={cn(
+            "book-card-overlay absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 rounded-2xl p-2.5 opacity-0 pointer-events-none transition-opacity duration-200",
+            mobileOverlay && "opacity-100 pointer-events-auto",
+          )}
+        >
           <Link
             href={`/book/${book.id}/read`}
             className={cn(
               overlayBtn,
               "bg-primary text-white shadow-md shadow-primary/20 hover:bg-primary-light",
             )}
+            onClick={closeMobileOverlay}
           >
             {readLabel}
           </Link>
@@ -70,6 +143,7 @@ export function BookCard({ book, coverUrl, onCoverError }: BookCardProps) {
               overlayBtn,
               "border border-white/70 bg-white/60 text-text shadow-sm hover:bg-white/85",
             )}
+            onClick={closeMobileOverlay}
           >
             Details
           </Link>

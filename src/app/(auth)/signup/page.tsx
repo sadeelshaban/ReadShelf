@@ -66,16 +66,25 @@ function SignupForm() {
       {signupSuccess ? (
         <div className="mt-8 space-y-4">
           <h1 className="font-serif text-4xl font-semibold tracking-tight text-white">
-            Check your email
+            Confirm your email
           </h1>
           <p className="text-sm leading-6 text-white/82 sm:text-base">
-            We sent a confirmation link to <strong className="text-white">{email}</strong>.
+            Your account was created. Before you can log in, confirm your email address using
+            the link we sent to <strong className="text-white">{email}</strong>.
           </p>
-          <p className="rounded-2xl border border-[#d9c7a7]/26 bg-[#f6eedf]/88 px-4 py-3 text-sm text-[#5b4028]">
-            Check your inbox for the confirmation email. If you do not see it, check your
-            spam.
-          </p>
-          <Link href={`/login?email=${encodeURIComponent(email)}`}>
+          <div className="space-y-2 rounded-2xl border border-[#d9c7a7]/26 bg-[#f6eedf]/88 px-4 py-3 text-sm text-[#5b4028]">
+            <p className="font-medium">Check your inbox</p>
+            <p className="mt-1 leading-6">
+              Open the confirmation email and click the link to verify your account.
+            </p>
+            <p className="mt-2 leading-6">
+              If you do not see it within a few minutes, check your <strong>Spam</strong> or{" "}
+              <strong>Junk</strong> folder.
+            </p>
+          </div>
+          <Link
+            href={`/login?verify=pending&email=${encodeURIComponent(email)}`}
+          >
             <Button className="mt-2 w-full">Go to log in</Button>
           </Link>
         </div>

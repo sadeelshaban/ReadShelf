@@ -15,6 +15,7 @@ function LoginForm() {
   const redirectParam = searchParams.get("redirect");
   const welcome = searchParams.get("welcome") === "1";
   const confirmed = searchParams.get("confirmed") === "1";
+  const verifyPending = searchParams.get("verify") === "pending";
   const reset = searchParams.get("reset") === "1";
   const prefilledEmail = searchParams.get("email") ?? "";
   const [email, setEmail] = useState(prefilledEmail);
@@ -107,6 +108,25 @@ function LoginForm() {
               ? "Your password was updated. Log in with your new password."
               : "Log in to return to your shelf, continue reading, and pick up where you left off."}
       </p>
+
+      {verifyPending && (
+        <div className="mt-6 rounded-2xl border border-[#d9c7a7]/26 bg-[#f6eedf]/88 px-4 py-3 text-sm leading-6 text-[#5b4028]">
+          <p className="font-medium">Confirm your email before logging in</p>
+          <p className="mt-1">
+            We sent a confirmation link{prefilledEmail ? (
+              <>
+                {" "}
+                to <strong>{prefilledEmail}</strong>
+              </>
+            ) : null}
+            . Open your inbox and click the link to verify your account.
+          </p>
+          <p className="mt-2">
+            If you do not see it, check your <strong>Spam</strong> or <strong>Junk</strong>{" "}
+            folder.
+          </p>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="mt-8 space-y-4">
         <Input

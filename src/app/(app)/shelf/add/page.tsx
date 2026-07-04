@@ -75,6 +75,37 @@ function UserIcon() {
   );
 }
 
+function PdfFileIcon({ className = "h-5 w-5" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M14 2v6h6" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M10 12h4" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M10 16h4" />
+    </svg>
+  );
+}
+
+function UploadPdfIcon({ className = "h-6 w-6" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 16V8" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="m8 12 4-4 4 4" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+    </svg>
+  );
+}
+
+function CoverImageIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <circle cx="8.5" cy="8.5" r="1.5" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21 15l-5-5L5 21" />
+    </svg>
+  );
+}
+
 function PdfDropZone({
   file,
   error,
@@ -116,10 +147,7 @@ function PdfDropZone({
         <div className="flex items-center justify-between gap-3 rounded-xl border border-primary/25 bg-[#fff8f1] px-4 py-3 shadow-sm">
           <div className="flex min-w-0 items-center gap-3">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6Z" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M14 2v6h6" />
-              </svg>
+              <PdfFileIcon />
             </span>
             <div className="min-w-0">
               <p className="truncate text-sm font-medium text-[#3c2a21]">{file.name}</p>
@@ -156,11 +184,7 @@ function PdfDropZone({
           )}
         >
           <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-            <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 13V7m0 0 3-3m-3 3 3 3" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M20 16.5A4.5 4.5 0 0 0 16.5 6H16a6 6 0 1 0-11.31 2.86" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 20h16" />
-            </svg>
+            <UploadPdfIcon />
           </span>
           <p className="mt-4 text-sm font-medium text-[#3c2a21]">Drag &amp; drop PDF here</p>
           <p className="mt-1 text-xs text-[#8a7968]">or</p>
@@ -219,11 +243,7 @@ function CoverField({
           htmlFor={inputId}
           className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-lg border border-[#eadbc8]/70 bg-white/60 px-3 py-2 text-sm font-medium text-[#8a7968] transition hover:border-[#d4c4ae] hover:bg-white"
         >
-          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
-            <rect x="3" y="5" width="18" height="14" rx="2" />
-            <circle cx="8.5" cy="10.5" r="1.5" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="m21 16-5.5-5.5a2 2 0 0 0-3 0L5 21" />
-          </svg>
+          <CoverImageIcon />
           Choose cover
         </label>
       )}
