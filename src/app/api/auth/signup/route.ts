@@ -1,8 +1,5 @@
 import { NextResponse } from "next/server";
-import { createSignupLink } from "@/lib/email/auth-links";
-import { getSiteUrl, isEmailConfigured } from "@/lib/email/config";
-import { sendEmail } from "@/lib/email/send";
-import { confirmationEmailHtml } from "@/lib/email/templates";
+import { createUserAccount } from "@/lib/email/auth-links";
 
 export async function POST(request: Request) {
   let body: { email?: string; password?: string };
@@ -27,18 +24,8 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!isEmailConfigured()) {
-    return NextResponse.json(
-      {
-        error:
-          "Email sending is not configured. Add SMTP_HOST, SMTP_USER, and SMTP_PASS.",
-      },
-      { status: 503 },
-    );
-  }
-
   try {
-    const result = await createSignupLink(request, email, password);
+    const result = await createUserAccount(email, password);
 
     if ("error" in result) {
       if (result.error === "exists") {
@@ -49,13 +36,6 @@ export async function POST(request: Request) {
       }
       return NextResponse.json({ error: result.message }, { status: 400 });
     }
-
-    const siteUrl = getSiteUrl(request);
-    await sendEmail({
-      to: email,
-      subject: "Confirm your ReadShelf account",
-      html: confirmationEmailHtml(siteUrl, result.actionLink),
-    });
 
     return NextResponse.json({ ok: true });
   } catch (error) {

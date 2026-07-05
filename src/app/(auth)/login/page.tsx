@@ -96,11 +96,11 @@ function LoginForm() {
   return (
     <AuthShell eyebrow="Sign in">
       <h1 className="mt-8 font-serif text-4xl font-semibold tracking-tight text-white">
-        {welcome ? "Welcome to ReadShelf" : confirmed ? "You're all set" : "Welcome back"}
+        {welcome ? "Account created" : confirmed ? "You're all set" : "Welcome back"}
       </h1>
       <p className="mt-3 text-sm leading-6 text-white/78 sm:text-base">
         {welcome
-          ? "Your account is ready. Log in with your email and password to open your shelf."
+          ? "Your account was created successfully. Log in with your email and password to open your shelf."
           : confirmed
             ? "Your email is confirmed. Log in to open your shelf."
             : reset
