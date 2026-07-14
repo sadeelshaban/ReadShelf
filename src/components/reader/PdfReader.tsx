@@ -228,6 +228,10 @@ export function PdfReader({
     pageNumber: number;
   } | null>(null);
   const zoomMultiplierRef = useRef(initialZoom ?? DEFAULT_ZOOM);
+  const pageSlotSizeRef = useRef<{ width: number; height: number } | null>(null);
+  const zoomWheelDeltaRef = useRef(0);
+  const zoomWheelAnchorRef = useRef<{ clientX: number; clientY: number } | null>(null);
+  const zoomWheelFrameRef = useRef<number | null>(null);
   const lastRenderedZoomRef = useRef<Map<number, number>>(new Map());
   const panRef = useRef<{
     pointerId: number;
@@ -301,6 +305,7 @@ export function PdfReader({
   pageRef.current = page;
   eraserStrokeWidthRef.current = eraserStrokeWidth;
   zoomMultiplierRef.current = zoomMultiplier;
+  pageSlotSizeRef.current = pageSlotSize;
 
   const maxPage = pdfNumPages ?? totalPages ?? page;
   maxPageRef.current = maxPage;
@@ -451,6 +456,9 @@ export function PdfReader({
 
       const ratio = clamped / current;
 
+      // Keep ref in sync immediately so rapid wheel/button zooms don't skip steps.
+      zoomMultiplierRef.current = clamped;
+
       if (anchor) {
         const rect = viewer.getBoundingClientRect();
         const contentX = anchor.clientX - rect.left + viewer.scrollLeft;
@@ -468,9 +476,40 @@ export function PdfReader({
         };
       }
 
+      // Grow/shrink page slots immediately so scroll anchoring lands on the right place
+      // before the async PDF re-render finishes.
+      const slot = pageSlotSizeRef.current;
+      if (slot) {
+        const nextSlot = {
+          width: slot.width * ratio,
+          height: slot.height * ratio,
+        };
+        pageSlotSizeRef.current = nextSlot;
+        setPageSlotSize(nextSlot);
+      }
+
+      for (const canvas of canvasRefs.current.values()) {
+        const rect = canvas.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+          canvas.style.width = `${rect.width * ratio}px`;
+          canvas.style.height = `${rect.height * ratio}px`;
+        }
+      }
+      for (const drawLayer of drawLayerRefs.current.values()) {
+        const rect = drawLayer.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+          drawLayer.style.width = `${rect.width * ratio}px`;
+          drawLayer.style.height = `${rect.height * ratio}px`;
+        }
+      }
+
+      requestAnimationFrame(() => {
+        restorePendingZoomScroll();
+      });
+
       setZoomMultiplier(clamped);
     },
-    [],
+    [restorePendingZoomScroll],
   );
 
   const zoomIn = useCallback(() => {
@@ -512,18 +551,37 @@ export function PdfReader({
     const viewer = viewerRef.current;
     if (!viewer) return;
 
+    function flushWheelZoom() {
+      zoomWheelFrameRef.current = null;
+      const steps = zoomWheelDeltaRef.current;
+      const anchor = zoomWheelAnchorRef.current;
+      zoomWheelDeltaRef.current = 0;
+      zoomWheelAnchorRef.current = null;
+      if (!steps || !anchor) return;
+
+      // One zoom step per frame max keeps PDF renders from stacking.
+      const direction = steps > 0 ? 1 : -1;
+      changeZoom((current) => current + direction * ZOOM_STEP, anchor);
+    }
+
     function onWheel(e: WheelEvent) {
       if (!e.ctrlKey && !e.metaKey) return;
       e.preventDefault();
-      const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
-      changeZoom((current) => current + delta, {
-        clientX: e.clientX,
-        clientY: e.clientY,
-      });
+      zoomWheelDeltaRef.current += e.deltaY > 0 ? -1 : 1;
+      zoomWheelAnchorRef.current = { clientX: e.clientX, clientY: e.clientY };
+      if (zoomWheelFrameRef.current == null) {
+        zoomWheelFrameRef.current = requestAnimationFrame(flushWheelZoom);
+      }
     }
 
     viewer.addEventListener("wheel", onWheel, { passive: false });
-    return () => viewer.removeEventListener("wheel", onWheel);
+    return () => {
+      viewer.removeEventListener("wheel", onWheel);
+      if (zoomWheelFrameRef.current != null) {
+        cancelAnimationFrame(zoomWheelFrameRef.current);
+        zoomWheelFrameRef.current = null;
+      }
+    };
   }, [changeZoom]);
 
   useEffect(() => {
@@ -757,9 +815,22 @@ export function PdfReader({
     const drawLayer = drawLayerRefs.current.get(pageNumber);
     if (!pdf || !canvas || !drawLayer) return;
 
+    const generation = (renderGenRef.current.get(pageNumber) ?? 0) + 1;
+    renderGenRef.current.set(pageNumber, generation);
+    renderTasksRef.current.get(pageNumber)?.cancel();
+
     const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
     const renderScale = zoom * dpr;
-    const pdfPage = await pdf.getPage(pageNumber);
+
+    let pdfPage;
+    try {
+      pdfPage = await pdf.getPage(pageNumber);
+    } catch (err) {
+      if (generation !== renderGenRef.current.get(pageNumber)) return;
+      throw err;
+    }
+    if (generation !== renderGenRef.current.get(pageNumber)) return;
+
     const viewport = pdfPage.getViewport({ scale: renderScale });
     const pixelWidth = viewport.width;
     const pixelHeight = viewport.height;
@@ -772,12 +843,11 @@ export function PdfReader({
       canvas.height === pixelHeight;
     if (alreadyRendered) return;
 
-    const generation = (renderGenRef.current.get(pageNumber) ?? 0) + 1;
-    renderGenRef.current.set(pageNumber, generation);
-
-    renderTasksRef.current.get(pageNumber)?.cancel();
-
-    if (generation !== renderGenRef.current.get(pageNumber)) return;
+    // Apply CSS size immediately so layout stays correct while PDF paints.
+    canvas.style.width = `${cssWidth}px`;
+    canvas.style.height = `${cssHeight}px`;
+    drawLayer.style.width = `${cssWidth}px`;
+    drawLayer.style.height = `${cssHeight}px`;
 
     const needsResize =
       canvas.width !== pixelWidth || canvas.height !== pixelHeight;
@@ -798,7 +868,13 @@ export function PdfReader({
       await renderTask.promise;
     } catch (err) {
       const name = err instanceof Error ? err.name : "";
-      if (name === "RenderingCancelledException") return;
+      if (
+        name === "RenderingCancelledException" ||
+        name === "AbortException" ||
+        generation !== renderGenRef.current.get(pageNumber)
+      ) {
+        return;
+      }
       throw err;
     } finally {
       if (renderTasksRef.current.get(pageNumber) === renderTask) {
@@ -814,8 +890,6 @@ export function PdfReader({
     if (needsResize) {
       canvas.width = pixelWidth;
       canvas.height = pixelHeight;
-      canvas.style.width = `${cssWidth}px`;
-      canvas.style.height = `${cssHeight}px`;
 
       if (
         drawLayer.width !== pixelWidth ||
@@ -823,26 +897,32 @@ export function PdfReader({
       ) {
         drawLayer.width = pixelWidth;
         drawLayer.height = pixelHeight;
-        drawLayer.style.width = `${cssWidth}px`;
-        drawLayer.style.height = `${cssHeight}px`;
       }
     }
+
+    // Re-assert CSS after bitmap resize (setting width/height can reset style in some browsers).
+    canvas.style.width = `${cssWidth}px`;
+    canvas.style.height = `${cssHeight}px`;
+    drawLayer.style.width = `${cssWidth}px`;
+    drawLayer.style.height = `${cssHeight}px`;
 
     context.drawImage(scratch, 0, 0);
 
     lastRenderedZoomRef.current.set(pageNumber, zoom);
 
-    setPageSlotSize((prev) => {
-      if (
-        prev &&
-        Math.abs(prev.width - cssWidth) < 0.5 &&
-        Math.abs(prev.height - cssHeight) < 0.5
-      ) {
-        return prev;
-      }
-      return { width: cssWidth, height: cssHeight };
-    });
     if (pageNumber === pageRef.current) {
+      setPageSlotSize((prev) => {
+        if (
+          prev &&
+          Math.abs(prev.width - cssWidth) < 0.5 &&
+          Math.abs(prev.height - cssHeight) < 0.5
+        ) {
+          return prev;
+        }
+        const next = { width: cssWidth, height: cssHeight };
+        pageSlotSizeRef.current = next;
+        return next;
+      });
       setPageViewport((prev) => {
         if (prev.width === pixelWidth && prev.height === pixelHeight) {
           return prev;
@@ -920,13 +1000,32 @@ export function PdfReader({
   useEffect(() => {
     if (!pdfRef.current || loading || !fitScaleReady) return;
     const zoom = fitScale * zoomMultiplier;
-    for (const pageNumber of renderedPages) {
+    const currentPage = pageRef.current;
+    const pages = [...renderedPages].sort((a, b) => {
+      if (a === currentPage) return -1;
+      if (b === currentPage) return 1;
+      return Math.abs(a - currentPage) - Math.abs(b - currentPage);
+    });
+
+    let cancelled = false;
+    for (const pageNumber of pages) {
       renderPage(pageNumber, zoom)
-        .then(() => setError(null))
+        .then(() => {
+          if (!cancelled) setError(null);
+        })
         .catch((err) => {
+          if (cancelled) return;
+          const name = err instanceof Error ? err.name : "";
+          if (name === "RenderingCancelledException" || name === "AbortException") {
+            return;
+          }
           setError(err instanceof Error ? err.message : "Failed to render page");
         });
     }
+
+    return () => {
+      cancelled = true;
+    };
   }, [renderedPages, fitScale, fitScaleReady, zoomMultiplier, renderPage, loading]);
 
   useEffect(() => {
@@ -934,30 +1033,10 @@ export function PdfReader({
 
     const timer = window.setTimeout(() => {
       restorePendingZoomScroll();
-    }, 120);
+    }, 80);
 
     return () => window.clearTimeout(timer);
   }, [zoomMultiplier, fitScale, pageSlotSize, fitScaleReady, loading, restorePendingZoomScroll]);
-
-  useEffect(() => {
-    lastRenderedZoomRef.current.clear();
-  }, [fitScale, zoomMultiplier]);
-
-  // After zoom/viewport settles, force a highlight redraw so ink never stays blank
-  // if a render race cleared the draw canvas.
-  useEffect(() => {
-    if (loading || !fitScaleReady || isDrawingRef.current || isErasingRef.current) {
-      return;
-    }
-    const timer = window.setTimeout(() => {
-      for (const pageNumber of renderedPages) {
-        redrawPageHighlights(pageNumber, highlightsRef.current);
-      }
-    }, 0);
-    return () => window.clearTimeout(timer);
-    // redrawPageHighlights is stable via refs; intentionally depend on zoom/viewport.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [zoomMultiplier, fitScale, pageViewport, renderedPages, loading, fitScaleReady]);
 
   useEffect(() => {
     if (isDrawingRef.current || isErasingRef.current) return;
