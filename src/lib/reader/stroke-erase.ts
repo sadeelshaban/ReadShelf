@@ -1,5 +1,6 @@
 import type { Highlight, HighlightStroke } from "@/types";
-import { shapeHitByEraser, shapeKindFromHighlight } from "@/lib/reader/shapes";
+import { scaleStroke } from "@/lib/reader/coordinates";
+import { scaleShape, shapeHitByEraser, shapeKindFromHighlight } from "@/lib/reader/shapes";
 
 type Point = { x: number; y: number };
 
@@ -108,7 +109,7 @@ export function eraseStrokeByPath(
   eraserWidth: number,
 ): HighlightStroke[] {
   const radius = eraserBrushRadius(eraserWidth);
-  const eraser = densifyPath(eraserPoints, Math.min(3, radius / 2));
+  const eraser = densifyPath(eraserPoints, Math.min(3, Math.max(0.5, radius / 2)));
   if (eraser.length === 0) {
     return stroke.points.length >= 2 ? [stroke] : [];
   }
@@ -140,13 +141,21 @@ export function eraseStrokeByPath(
   return segments;
 }
 
+/**
+ * Erase in the current canvas coordinate space.
+ * Strokes/shapes are scaled from their saved viewport → current canvas,
+ * erased, then scaled back so thickness changes only affect brush size.
+ */
 export function computeEraserChanges(
   highlights: Highlight[],
   pageNumber: number,
   eraserPoints: Point[],
   eraserWidth: number,
+  canvasWidth: number,
+  canvasHeight: number,
 ): EraserHighlightChange[] {
   if (eraserPoints.length === 0) return [];
+  if (canvasWidth <= 0 || canvasHeight <= 0) return [];
 
   const changes: EraserHighlightChange[] = [];
   const pageHighlights = highlights.filter(
@@ -154,18 +163,37 @@ export function computeEraserChanges(
   );
 
   for (const highlight of pageHighlights) {
+    const refW = highlight.position?.viewportWidth ?? canvasWidth;
+    const refH = highlight.position?.viewportHeight ?? canvasHeight;
     const shapeKind = shapeKindFromHighlight(highlight);
+
     if (shapeKind && highlight.position?.shape) {
-      if (shapeHitByEraser(highlight.position.shape, shapeKind, eraserPoints, eraserWidth)) {
+      const scaledShape = scaleShape(
+        highlight.position.shape,
+        refW,
+        refH,
+        canvasWidth,
+        canvasHeight,
+      );
+      if (shapeHitByEraser(scaledShape, shapeKind, eraserPoints, eraserWidth)) {
         changes.push({ before: highlight, after: null });
       }
       continue;
     }
 
     const oldStrokes = highlight.position?.strokes ?? [];
-    const newStrokes = oldStrokes.flatMap((stroke) =>
+    const scaledStrokes = oldStrokes.map((stroke) =>
+      scaleStroke(stroke, refW, refH, canvasWidth, canvasHeight),
+    );
+    const erasedScaled = scaledStrokes.flatMap((stroke) =>
       eraseStrokeByPath(stroke, eraserPoints, eraserWidth),
     );
+
+    // Scale remaining segments back into the highlight's saved viewport.
+    const newStrokes = erasedScaled.map((stroke) =>
+      scaleStroke(stroke, canvasWidth, canvasHeight, refW, refH),
+    );
+
     if (strokesEqual(oldStrokes, newStrokes)) continue;
 
     if (newStrokes.length === 0) {
@@ -178,8 +206,8 @@ export function computeEraserChanges(
           position: {
             ...highlight.position,
             strokes: newStrokes,
-            viewportWidth: highlight.position?.viewportWidth,
-            viewportHeight: highlight.position?.viewportHeight,
+            viewportWidth: highlight.position?.viewportWidth ?? canvasWidth,
+            viewportHeight: highlight.position?.viewportHeight ?? canvasHeight,
           },
         },
       });

@@ -33,7 +33,9 @@ export function drawStroke(
   ctx.lineWidth = stroke.width;
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
-  ctx.globalCompositeOperation = "multiply";
+  // source-over keeps strokes stable across zoom redraws and overlapping
+  // same-color marks (multiply on a transparent layer vanishes / darkens).
+  ctx.globalCompositeOperation = "source-over";
   ctx.beginPath();
   ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
   for (let i = 1; i < stroke.points.length; i++) {
@@ -119,7 +121,7 @@ export function paintDraftOverlay(
       ctx.globalCompositeOperation = "source-over";
     } else {
       ctx.fillStyle = hexToRgba(draft.color, HIGHLIGHT_DRAW_ALPHA);
-      ctx.globalCompositeOperation = "multiply";
+      ctx.globalCompositeOperation = "source-over";
     }
     ctx.beginPath();
     ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);

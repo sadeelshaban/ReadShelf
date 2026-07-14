@@ -474,11 +474,29 @@ export function PdfReader({
   );
 
   const zoomIn = useCallback(() => {
-    changeZoom((current) => current + ZOOM_STEP);
+    const viewer = viewerRef.current;
+    if (!viewer) {
+      changeZoom((current) => current + ZOOM_STEP);
+      return;
+    }
+    const rect = viewer.getBoundingClientRect();
+    changeZoom((current) => current + ZOOM_STEP, {
+      clientX: rect.left + rect.width / 2,
+      clientY: rect.top + rect.height / 2,
+    });
   }, [changeZoom]);
 
   const zoomOut = useCallback(() => {
-    changeZoom((current) => current - ZOOM_STEP);
+    const viewer = viewerRef.current;
+    if (!viewer) {
+      changeZoom((current) => current - ZOOM_STEP);
+      return;
+    }
+    const rect = viewer.getBoundingClientRect();
+    changeZoom((current) => current - ZOOM_STEP, {
+      clientX: rect.left + rect.width / 2,
+      clientY: rect.top + rect.height / 2,
+    });
   }, [changeZoom]);
 
   function canNavigatePages() {
@@ -925,6 +943,22 @@ export function PdfReader({
     lastRenderedZoomRef.current.clear();
   }, [fitScale, zoomMultiplier]);
 
+  // After zoom/viewport settles, force a highlight redraw so ink never stays blank
+  // if a render race cleared the draw canvas.
+  useEffect(() => {
+    if (loading || !fitScaleReady || isDrawingRef.current || isErasingRef.current) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      for (const pageNumber of renderedPages) {
+        redrawPageHighlights(pageNumber, highlightsRef.current);
+      }
+    }, 0);
+    return () => window.clearTimeout(timer);
+    // redrawPageHighlights is stable via refs; intentionally depend on zoom/viewport.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [zoomMultiplier, fitScale, pageViewport, renderedPages, loading, fitScaleReady]);
+
   useEffect(() => {
     if (isDrawingRef.current || isErasingRef.current) return;
 
@@ -1088,11 +1122,16 @@ export function PdfReader({
     const session = eraserSessionRef.current;
     if (!session || session.pageNumber !== pageNumber) return;
 
+    const drawLayer = drawLayerRefs.current.get(pageNumber);
+    if (!drawLayer) return;
+
     const changes = computeEraserChanges(
       session.baseline,
       pageNumber,
       eraserPath,
       eraserStrokeWidthRef.current,
+      drawLayer.width,
+      drawLayer.height,
     );
     const next = applyEraserChanges(session.baseline, changes);
     highlightsRef.current = next;
@@ -1118,11 +1157,20 @@ export function PdfReader({
       return;
     }
 
+    const drawLayer = drawLayerRefs.current.get(pageNumber);
+    if (!drawLayer) {
+      highlightsRef.current = session.baseline;
+      commitHighlights(session.baseline, [pageNumber]);
+      return;
+    }
+
     const changes = computeEraserChanges(
       session.baseline,
       pageNumber,
       eraserPath,
       eraserStrokeWidthRef.current,
+      drawLayer.width,
+      drawLayer.height,
     );
     if (changes.length === 0) {
       highlightsRef.current = session.baseline;
@@ -1317,6 +1365,7 @@ export function PdfReader({
   }
 
   function setEraserStrokeWidthAndSave(width: number) {
+    eraserStrokeWidthRef.current = width;
     setEraserStrokeWidth(width);
     saveEraserStrokeWidth(width);
     if (eraserOverlay) {
@@ -1336,6 +1385,17 @@ export function PdfReader({
           ...eraserOverlay,
           diameter: effectiveStrokeWidth(width) * scale,
         });
+        const point = canvasPointFromClient(
+          eraserOverlay.x,
+          eraserOverlay.y,
+          pageCanvas,
+        );
+        for (const [pageNumber, canvas] of drawLayerRefs.current.entries()) {
+          if (canvas === pageCanvas) {
+            scheduleDrawLayerPaint(pageNumber, eraserPreviewAt(point));
+            break;
+          }
+        }
       }
     }
   }
@@ -1935,27 +1995,43 @@ export function PdfReader({
 
   async function finishNote(id: string, text: string) {
     const trimmed = text.trim();
-    setEditingNoteId(null);
-    setTool("read");
     setNoteMenuId(null);
 
     if (!trimmed) {
+      setEditingNoteId(null);
+      setTool("read");
       if (!noteHadContentRef.current) {
         await deleteNote(id);
         return;
       }
 
-      await clearNoteText(id);
       setNotes((prev) =>
         prev.map((n) => (n.id === id ? { ...n, note_text: "" } : n)),
       );
+      editingDraftRef.current = "";
+      try {
+        await clearNoteText(id);
+      } catch (err) {
+        setMessage(err instanceof Error ? err.message : "Could not clear note");
+      }
       return;
     }
 
-    await updateNoteText(id, trimmed);
+    // Commit text in state before leaving edit mode so the UI never flashes
+    // the placeholder or an older value.
     setNotes((prev) =>
       prev.map((n) => (n.id === id ? { ...n, note_text: trimmed } : n)),
     );
+    editingDraftRef.current = trimmed;
+    noteHadContentRef.current = true;
+    setEditingNoteId(null);
+    setTool("read");
+
+    try {
+      await updateNoteText(id, trimmed);
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Could not save note");
+    }
   }
 
   finishNoteRef.current = finishNote;

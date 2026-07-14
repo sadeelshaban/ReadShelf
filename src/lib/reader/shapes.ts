@@ -43,24 +43,24 @@ export function scaleShape(
 
 function drawArrowHead(
   ctx: CanvasRenderingContext2D,
-  x1: number,
-  y1: number,
-  x2: number,
-  y2: number,
+  fromX: number,
+  fromY: number,
+  tipX: number,
+  tipY: number,
   strokeWidth: number,
 ) {
-  const angle = Math.atan2(y2 - y1, x2 - x1);
+  const angle = Math.atan2(tipY - fromY, tipX - fromX);
   const headLength = Math.max(8, strokeWidth * 3);
   ctx.beginPath();
-  ctx.moveTo(x2, y2);
+  ctx.moveTo(tipX, tipY);
   ctx.lineTo(
-    x2 - headLength * Math.cos(angle - Math.PI / 7),
-    y2 - headLength * Math.sin(angle - Math.PI / 7),
+    tipX - headLength * Math.cos(angle - Math.PI / 7),
+    tipY - headLength * Math.sin(angle - Math.PI / 7),
   );
-  ctx.moveTo(x2, y2);
+  ctx.moveTo(tipX, tipY);
   ctx.lineTo(
-    x2 - headLength * Math.cos(angle + Math.PI / 7),
-    y2 - headLength * Math.sin(angle + Math.PI / 7),
+    tipX - headLength * Math.cos(angle + Math.PI / 7),
+    tipY - headLength * Math.sin(angle + Math.PI / 7),
   );
   ctx.stroke();
 }
@@ -100,7 +100,9 @@ export function drawShape(
     ctx.lineTo(x2, y2);
     ctx.stroke();
     if (kind === "arrow") {
+      // Double-headed arrow: tips at both ends.
       drawArrowHead(ctx, x1, y1, x2, y2, strokeWidth);
+      drawArrowHead(ctx, x2, y2, x1, y1, strokeWidth);
     }
   }
 

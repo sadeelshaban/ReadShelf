@@ -435,7 +435,7 @@ export function LeftToolbar({
                   { kind: "rect" as const, label: "Rectangle", icon: <ShapeRectIcon /> },
                   { kind: "ellipse" as const, label: "Circle", icon: <ShapeCircleIcon /> },
                   { kind: "line" as const, label: "Line", icon: <ShapeLineIcon /> },
-                  { kind: "arrow" as const, label: "Arrow", icon: <ShapeArrowIcon /> },
+                  { kind: "arrow" as const, label: "Double arrow", icon: <ShapeArrowIcon /> },
                 ] as const
               ).map((option) => {
                 const selected = shapeKind === option.kind;
