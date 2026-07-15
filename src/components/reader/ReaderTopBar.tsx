@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { BookmarkFilledIcon, FocusIcon, HomeIcon, MoonIcon, SunIcon } from "@/components/reader/ReaderIcons";
+import { BookmarkFilledIcon, BookmarkIcon, FocusIcon, HomeIcon, MoonIcon, SunIcon } from "@/components/reader/ReaderIcons";
 import { READER_TOOL_ICONS, ReaderToolIcon } from "@/components/reader/ReaderToolIcon";
 import { ReaderTooltip } from "@/components/reader/ReaderTooltip";
 import { cn } from "@/lib/utils";
@@ -67,16 +67,12 @@ export function ReaderTopBar({
               data-active={pageBookmarked}
               onClick={onBookmark}
               className={cn(
-                "reader-topbar-btn reader-topbar-btn-lg",
-                pageBookmarked && "text-[#f5d78e]",
+                "reader-topbar-btn reader-topbar-btn-lg reader-topbar-btn-bookmark",
+                pageBookmarked && "text-[#e8b84a]",
                 bookmarkPulse && "reader-topbar-btn-bookmark-pulse",
               )}
             >
-              {pageBookmarked ? (
-                <BookmarkFilledIcon />
-              ) : (
-                <ReaderToolIcon src={READER_TOOL_ICONS.bookmark} alt="Bookmark" />
-              )}
+              {pageBookmarked ? <BookmarkFilledIcon /> : <BookmarkIcon />}
             </button>
           </ReaderTooltip>
 

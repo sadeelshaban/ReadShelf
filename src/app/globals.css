@@ -325,6 +325,15 @@ html {
   background: rgba(201, 149, 42, 0.22);
 }
 
+.reader-topbar-btn-bookmark[data-active="true"] {
+  color: #e8b84a;
+  background: transparent;
+}
+
+.reader-topbar-btn-bookmark[data-active="true"]:hover {
+  background: var(--reader-btn-hover-bg);
+}
+
 .acrobat-topbar-btn-bookmark-pulse,
 .reader-topbar-btn-bookmark-pulse {
   animation: reader-bookmark-pulse 0.55s ease-out;
