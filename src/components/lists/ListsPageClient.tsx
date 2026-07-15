@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { LibraryTabs } from "@/components/layout/LibraryTabs";
 import { ReadingListCard } from "@/components/lists/ReadingListCard";
 import { ShelfControls } from "@/components/shelf/ShelfControls";
 import { Button } from "@/components/ui/Button";
@@ -198,12 +199,14 @@ export function ListsPageClient() {
       <header className="space-y-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-text-muted">
-            Organize
+            Library
           </p>
           <h1 className="mt-1 font-serif text-3xl font-semibold tracking-tight text-text sm:text-4xl">
             Reading Lists
           </h1>
         </div>
+
+        <LibraryTabs />
 
         {!loading && lists.length > 0 && (
           <div className="flex flex-wrap gap-2">

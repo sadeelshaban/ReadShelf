@@ -38,8 +38,21 @@ export function canNavigatePages(params: {
 }
 
 export function isNoteTextTarget(target: EventTarget | null) {
-  return (
-    target instanceof HTMLTextAreaElement &&
-    Boolean(target.closest(".note-root"))
-  );
+  if (!(target instanceof Element)) return false;
+  if (target instanceof HTMLTextAreaElement && target.closest(".note-root")) {
+    return true;
+  }
+  // Don't steal undo/redo from chrome inputs (page #, zoom %, etc.).
+  if (
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    (target as HTMLElement).isContentEditable
+  ) {
+    return true;
+  }
+  return Boolean(target.closest("#reader-status-bar"));
+}
+
+export function isEditableChromeTarget(target: EventTarget | null) {
+  return isNoteTextTarget(target);
 }

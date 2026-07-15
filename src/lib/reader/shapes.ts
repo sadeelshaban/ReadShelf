@@ -12,7 +12,13 @@ export function shapeHighlightType(kind: ShapeKind) {
 export function shapeKindFromHighlight(highlight: Highlight): ShapeKind | null {
   if (!highlight.highlight_type.startsWith("shape_")) return null;
   const kind = highlight.highlight_type.slice("shape_".length) as ShapeKind;
-  if (kind === "rect" || kind === "ellipse" || kind === "line" || kind === "arrow") {
+  if (
+    kind === "rect" ||
+    kind === "ellipse" ||
+    kind === "line" ||
+    kind === "arrow" ||
+    kind === "double_arrow"
+  ) {
     return kind;
   }
   return null;
@@ -100,7 +106,9 @@ export function drawShape(
     ctx.lineTo(x2, y2);
     ctx.stroke();
     if (kind === "arrow") {
-      // Double-headed arrow: tips at both ends.
+      // Single-headed: tip at end (x2, y2).
+      drawArrowHead(ctx, x1, y1, x2, y2, strokeWidth);
+    } else if (kind === "double_arrow") {
       drawArrowHead(ctx, x1, y1, x2, y2, strokeWidth);
       drawArrowHead(ctx, x2, y2, x1, y1, strokeWidth);
     }
@@ -130,7 +138,7 @@ function shapeOutlineSamples(shape: HighlightShape, kind: ShapeKind): Point[] {
   const width = Math.abs(x2 - x1);
   const height = Math.abs(y2 - y1);
 
-  if (kind === "line" || kind === "arrow") {
+  if (kind === "line" || kind === "arrow" || kind === "double_arrow") {
     return sampleSegment({ x: x1, y: y1 }, { x: x2, y: y2 });
   }
 
@@ -210,4 +218,33 @@ export function shapeHitByEraser(
   }
 
   return false;
+}
+
+/** Hit-test a shape in current canvas coordinates (point already in canvas space). */
+export function shapeContainsPoint(
+  shape: HighlightShape,
+  kind: ShapeKind,
+  point: Point,
+  threshold = 10,
+) {
+  if (shape.filled && pointInsideShape(shape, kind, point)) return true;
+
+  const outline = shapeOutlineSamples(shape, kind);
+  const hitRadius = threshold + shape.strokeWidth / 2;
+  for (const sample of outline) {
+    if (Math.hypot(sample.x - point.x, sample.y - point.y) <= hitRadius) {
+      return true;
+    }
+  }
+  return false;
+}
+
+export function translateShape(shape: HighlightShape, dx: number, dy: number): HighlightShape {
+  return {
+    ...shape,
+    x1: shape.x1 + dx,
+    y1: shape.y1 + dy,
+    x2: shape.x2 + dx,
+    y2: shape.y2 + dy,
+  };
 }

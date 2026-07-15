@@ -1,4 +1,10 @@
 import type { Highlight, Note } from "@/types";
+import {
+  isShapeHighlight,
+  scaleShape,
+  shapeContainsPoint,
+  shapeKindFromHighlight,
+} from "@/lib/reader/shapes";
 
 function distanceToSegment(
   px: number,
@@ -61,6 +67,38 @@ export function findHighlightAtPoint(
           return highlight;
         }
       }
+    }
+  }
+
+  return null;
+}
+
+export function findShapeAtPoint(
+  highlights: Highlight[],
+  pageNumber: number,
+  point: { x: number; y: number },
+  canvas: HTMLCanvasElement,
+  threshold = 12,
+): Highlight | null {
+  const pageShapes = highlights.filter(
+    (h) => h.page_number === pageNumber && isShapeHighlight(h) && h.position?.shape,
+  );
+
+  for (let i = pageShapes.length - 1; i >= 0; i -= 1) {
+    const highlight = pageShapes[i];
+    const kind = shapeKindFromHighlight(highlight);
+    const rawShape = highlight.position?.shape;
+    if (!kind || !rawShape) continue;
+
+    const refW = highlight.position?.viewportWidth ?? canvas.width;
+    const refH = highlight.position?.viewportHeight ?? canvas.height;
+    const shape =
+      refW === canvas.width && refH === canvas.height
+        ? rawShape
+        : scaleShape(rawShape, refW, refH, canvas.width, canvas.height);
+
+    if (shapeContainsPoint(shape, kind, point, threshold)) {
+      return highlight;
     }
   }
 

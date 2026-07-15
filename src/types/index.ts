@@ -102,7 +102,7 @@ export type ReaderTool =
   | "bookmark"
   | "shape";
 
-export type ShapeKind = "rect" | "ellipse" | "line" | "arrow";
+export type ShapeKind = "rect" | "ellipse" | "line" | "arrow" | "double_arrow";
 
 export type Bookmark = {
   id: string;

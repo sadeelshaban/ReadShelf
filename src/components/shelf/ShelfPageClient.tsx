@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ReadingListsPromoCard } from "@/components/shelf/ReadingListsPromoCard";
+import { LibraryTabs } from "@/components/layout/LibraryTabs";
 import { ShelfGrid } from "@/components/shelf/ShelfGrid";
 import { ShelfStats } from "@/components/shelf/ShelfStats";
 import { LoadingState } from "@/components/ui/LoadingState";
@@ -122,12 +122,9 @@ export function ShelfPageClient() {
           </h1>
         </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0 flex-1">
-            {books.length > 0 && <ShelfStats books={books} />}
-          </div>
-          <ReadingListsPromoCard />
-        </div>
+        <LibraryTabs />
+
+        {books.length > 0 && <ShelfStats books={books} />}
       </header>
 
       {offline && (

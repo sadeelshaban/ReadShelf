@@ -13,6 +13,7 @@ type ReaderStatusBarProps = {
   onGoToPage: (page: number) => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
+  onZoomPercentChange: (percent: number) => void;
   activitySignal: number;
 };
 
@@ -113,6 +114,76 @@ function PageNumberField({
   );
 }
 
+function ZoomPercentField({
+  zoomPercent,
+  onZoomPercentChange,
+}: {
+  zoomPercent: number;
+  onZoomPercentChange: (percent: number) => void;
+}) {
+  const [draft, setDraft] = useState(String(zoomPercent));
+  const [focused, setFocused] = useState(false);
+
+  useEffect(() => {
+    if (!focused) {
+      setDraft(String(zoomPercent));
+    }
+  }, [zoomPercent, focused]);
+
+  function commit() {
+    const trimmed = draft.trim().replace(/%/g, "");
+    if (!trimmed) {
+      setDraft(String(zoomPercent));
+      return;
+    }
+
+    const parsed = Number.parseFloat(trimmed);
+    if (Number.isNaN(parsed)) {
+      setDraft(String(zoomPercent));
+      return;
+    }
+
+    const clamped = Math.min(400, Math.max(25, Math.round(parsed)));
+    setDraft(String(clamped));
+    onZoomPercentChange(clamped);
+  }
+
+  return (
+    <label className="reader-status-page-field flex cursor-text items-center rounded-md px-1.5 py-0.5">
+      <input
+        type="text"
+        inputMode="decimal"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value.replace(/[^\d.]/g, ""))}
+        onFocus={(e) => {
+          setFocused(true);
+          e.target.select();
+        }}
+        onBlur={() => {
+          setFocused(false);
+          commit();
+        }}
+        onKeyDown={(e) => {
+          e.stopPropagation();
+          if (e.key === "Enter") {
+            e.preventDefault();
+            commit();
+            e.currentTarget.blur();
+          }
+          if (e.key === "Escape") {
+            setDraft(String(zoomPercent));
+            e.currentTarget.blur();
+          }
+        }}
+        aria-label="Zoom percent"
+        title="Type a zoom percent (e.g. 34 or 83)"
+        className="reader-status-page-input w-8 bg-transparent text-center font-semibold tabular-nums outline-none"
+      />
+      <span className="select-none text-[11px] font-semibold">%</span>
+    </label>
+  );
+}
+
 export function ReaderStatusBar({
   page,
   maxPage,
@@ -120,6 +191,7 @@ export function ReaderStatusBar({
   onGoToPage,
   onZoomIn,
   onZoomOut,
+  onZoomPercentChange,
   activitySignal,
 }: ReaderStatusBarProps) {
   const [visible, setVisible] = useState(true);
@@ -157,7 +229,10 @@ export function ReaderStatusBar({
       <span className="reader-status-divider h-5 w-px shrink-0" aria-hidden />
 
       <div className="flex items-center gap-1.5">
-        <span className="reader-status-info px-1.5 py-0.5 font-semibold tabular-nums">{zoomPercent}%</span>
+        <ZoomPercentField
+          zoomPercent={zoomPercent}
+          onZoomPercentChange={onZoomPercentChange}
+        />
         <button
           type="button"
           aria-label="Zoom out"

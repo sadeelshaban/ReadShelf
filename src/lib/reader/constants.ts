@@ -230,7 +230,7 @@ export function saveEraserStrokeWidth(width: number) {
   localStorage.setItem(ERASER_STROKE_WIDTH_KEY, String(clampStrokeWidth(width, DEFAULT_ERASER_STROKE_WIDTH)));
 }
 
-const SHAPE_KINDS: ShapeKind[] = ["rect", "ellipse", "line", "arrow"];
+const SHAPE_KINDS: ShapeKind[] = ["rect", "ellipse", "line", "arrow", "double_arrow"];
 
 export function loadShapeKind(): ShapeKind {
   if (typeof window === "undefined") return "rect";

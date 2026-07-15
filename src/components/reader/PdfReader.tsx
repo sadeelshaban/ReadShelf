@@ -40,7 +40,11 @@ import {
   saveShapeFilled,
   saveShapeKind,
 } from "@/lib/reader/constants";
-import { shapeHighlightType } from "@/lib/reader/shapes";
+import {
+  scaleShape,
+  shapeHighlightType,
+  translateShape,
+} from "@/lib/reader/shapes";
 import { redrawHighlightLayer, compositeHighlightLayer, syncHighlightBackup } from "@/lib/reader/pdf-reader-canvas";
 import {
   DEFAULT_ZOOM,
@@ -60,6 +64,8 @@ import {
 import {
   type HighlightChange,
   type HistoryAction,
+  applyHistoryRedo,
+  applyHistoryUndo,
   mergeHighlightChanges,
 } from "@/lib/reader/pdf-reader-history";
 import {
@@ -73,7 +79,7 @@ import {
   isInteractiveDrawLayer,
   isNoteTextTarget,
 } from "@/lib/reader/pdf-reader-tools";
-import { findNoteAtPoint } from "@/lib/reader/hit-test";
+import { findNoteAtPoint, findShapeAtPoint } from "@/lib/reader/hit-test";
 import {
   applyEraserChanges,
   computeEraserChanges,
@@ -197,6 +203,15 @@ export function PdfReader({
   const undoStackRef = useRef<HistoryAction[]>([]);
   const redoStackRef = useRef<HistoryAction[]>([]);
   const applyingHistoryRef = useRef(false);
+  const historyChainRef = useRef<Promise<void>>(Promise.resolve());
+  const shapeDragRef = useRef<{
+    pageNumber: number;
+    highlightId: string;
+    startPoint: { x: number; y: number };
+    originShape: HighlightShape;
+    before: Highlight;
+    moved: boolean;
+  } | null>(null);
   const eraserStrokeWidthRef = useRef(loadEraserStrokeWidth());
   const skipHighlightRedrawRef = useRef<Set<number>>(new Set());
   const drawDraftRef = useRef<{
@@ -217,6 +232,7 @@ export function PdfReader({
     { x: number; y: number; diameter: number } | undefined
   >(undefined);
   const highlightsRef = useRef(initialHighlights);
+  const notesRef = useRef(initialNotes);
   const editingDraftRef = useRef<{ title: string; body: string }>({
     title: "",
     body: "",
@@ -317,6 +333,7 @@ export function PdfReader({
   });
 
   highlightsRef.current = highlights;
+  notesRef.current = notes;
   toolRef.current = tool;
   editingNoteIdRef.current = editingNoteId;
   pageRef.current = page;
@@ -506,17 +523,19 @@ export function PdfReader({
       }
 
       for (const canvas of canvasRefs.current.values()) {
-        const rect = canvas.getBoundingClientRect();
-        if (rect.width > 0 && rect.height > 0) {
-          canvas.style.width = `${rect.width * ratio}px`;
-          canvas.style.height = `${rect.height * ratio}px`;
+        const w = Number.parseFloat(canvas.style.width);
+        const h = Number.parseFloat(canvas.style.height);
+        if (w > 0 && h > 0) {
+          canvas.style.width = `${w * ratio}px`;
+          canvas.style.height = `${h * ratio}px`;
         }
       }
       for (const drawLayer of drawLayerRefs.current.values()) {
-        const rect = drawLayer.getBoundingClientRect();
-        if (rect.width > 0 && rect.height > 0) {
-          drawLayer.style.width = `${rect.width * ratio}px`;
-          drawLayer.style.height = `${rect.height * ratio}px`;
+        const w = Number.parseFloat(drawLayer.style.width);
+        const h = Number.parseFloat(drawLayer.style.height);
+        if (w > 0 && h > 0) {
+          drawLayer.style.width = `${w * ratio}px`;
+          drawLayer.style.height = `${h * ratio}px`;
         }
       }
 
@@ -555,6 +574,23 @@ export function PdfReader({
     });
   }, [changeZoom]);
 
+  const setZoomPercent = useCallback(
+    (percent: number) => {
+      const viewer = viewerRef.current;
+      const target = percent / 100;
+      if (!viewer) {
+        changeZoom(target);
+        return;
+      }
+      const rect = viewer.getBoundingClientRect();
+      changeZoom(target, {
+        clientX: rect.left + rect.width / 2,
+        clientY: rect.top + rect.height / 2,
+      });
+    },
+    [changeZoom],
+  );
+
   function canNavigatePages() {
     return canNavigatePagesCheck({
       editingNoteId: editingNoteIdRef.current,
@@ -576,15 +612,18 @@ export function PdfReader({
       zoomWheelAnchorRef.current = null;
       if (!steps || !anchor) return;
 
-      // One zoom step per frame max keeps PDF renders from stacking.
-      const direction = steps > 0 ? 1 : -1;
-      changeZoom((current) => current + direction * ZOOM_STEP, anchor);
+      // Apply the full accumulated delta in one frame for smooth trackpad zooms.
+      changeZoom((current) => current + steps * ZOOM_STEP, anchor);
     }
 
     function onWheel(e: WheelEvent) {
       if (!e.ctrlKey && !e.metaKey) return;
       e.preventDefault();
-      zoomWheelDeltaRef.current += e.deltaY > 0 ? -1 : 1;
+      // Pixel/line deltas: normalize so fast gestures zoom further without layout thrash.
+      const unit =
+        e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 80 : 1;
+      const normalized = e.deltaY * unit;
+      zoomWheelDeltaRef.current += normalized > 0 ? -0.35 : 0.35;
       zoomWheelAnchorRef.current = { clientX: e.clientX, clientY: e.clientY };
       if (zoomWheelFrameRef.current == null) {
         zoomWheelFrameRef.current = requestAnimationFrame(flushWheelZoom);
@@ -1565,137 +1604,158 @@ export function PdfReader({
     }
   }
 
-  async function performUndo() {
-    const action = undoStackRef.current.pop();
-    if (!action) return;
+  function enqueueHistoryOp(op: () => Promise<void>) {
+    historyChainRef.current = historyChainRef.current
+      .then(op)
+      .catch(() => undefined);
+    return historyChainRef.current;
+  }
 
-    applyingHistoryRef.current = true;
-    try {
-      if (action.type === "add_highlight") {
-        const next = highlightsRef.current.filter(
-          (entry) => entry.id !== action.highlight.id,
-        );
-        commitHighlights(next, [action.highlight.page_number]);
-        scheduleAnnotationSync();
-        void deleteHighlightApi(action.highlight.id).catch((err) => {
-          setMessage(err instanceof Error ? err.message : "Could not undo");
-        });
-      } else if (action.type === "delete_highlight") {
-        const next = [...highlightsRef.current, action.highlight];
-        commitHighlights(next, [action.highlight.page_number]);
-        scheduleAnnotationSync();
-        void upsertHighlight(action.highlight).catch((err) => {
-          setMessage(err instanceof Error ? err.message : "Could not undo");
-        });
-      } else if (action.type === "batch_highlight") {
-        let next = [...highlightsRef.current];
-        for (const change of action.changes) {
-          if (change.after === null) {
-            if (!next.some((entry) => entry.id === change.before.id)) {
-              next.push(change.before);
-            }
-          } else {
-            const index = next.findIndex((entry) => entry.id === change.before.id);
-            if (index >= 0) next[index] = change.before;
-          }
-        }
-        const pages = [...new Set(action.changes.map((change) => change.before.page_number))];
-        commitHighlights(next, pages);
-        scheduleAnnotationSync();
-        void Promise.all(
+  async function persistHistoryAction(action: HistoryAction, direction: "undo" | "redo") {
+    if (action.type === "add_highlight") {
+      if (direction === "undo") await deleteHighlightApi(action.highlight.id);
+      else await upsertHighlight(action.highlight);
+      return;
+    }
+    if (action.type === "delete_highlight") {
+      if (direction === "undo") await upsertHighlight(action.highlight);
+      else await deleteHighlightApi(action.highlight.id);
+      return;
+    }
+    if (action.type === "update_highlight") {
+      const target = direction === "undo" ? action.before : action.after;
+      if (target.position) await updateHighlight(target.id, target.position);
+      return;
+    }
+    if (action.type === "batch_highlight") {
+      if (direction === "undo") {
+        await Promise.all(
           action.changes.map((change) =>
             change.after === null
               ? upsertHighlight(change.before)
               : updateHighlight(change.before.id, change.before.position!),
           ),
-        ).catch((err) => {
-          setMessage(err instanceof Error ? err.message : "Could not undo");
-        });
-      } else if (action.type === "add_note") {
-        setNotes((prev) => prev.filter((entry) => entry.id !== action.note.id));
-        scheduleAnnotationSync();
-        void deleteNoteApi(action.note.id).catch((err) => {
-          setMessage(err instanceof Error ? err.message : "Could not undo");
-        });
-      } else if (action.type === "delete_note") {
-        setNotes((prev) => [...prev, action.note]);
-        scheduleAnnotationSync();
-        void upsertNote(action.note).catch((err) => {
-          setMessage(err instanceof Error ? err.message : "Could not undo");
-        });
-      }
-
-      redoStackRef.current.push(action);
-    } catch (err) {
-      undoStackRef.current.push(action);
-      setMessage(err instanceof Error ? err.message : "Could not undo");
-    } finally {
-      applyingHistoryRef.current = false;
-    }
-  }
-
-  async function performRedo() {
-    const action = redoStackRef.current.pop();
-    if (!action) return;
-
-    applyingHistoryRef.current = true;
-    try {
-      if (action.type === "add_highlight") {
-        if (!highlightsRef.current.some((entry) => entry.id === action.highlight.id)) {
-          const next = [...highlightsRef.current, action.highlight];
-          commitHighlights(next, [action.highlight.page_number]);
-        }
-        scheduleAnnotationSync();
-        void upsertHighlight(action.highlight).catch((err) => {
-          setMessage(err instanceof Error ? err.message : "Could not redo");
-        });
-      } else if (action.type === "delete_highlight") {
-        const next = highlightsRef.current.filter(
-          (entry) => entry.id !== action.highlight.id,
         );
-        commitHighlights(next, [action.highlight.page_number]);
-        scheduleAnnotationSync();
-        void deleteHighlightApi(action.highlight.id).catch((err) => {
-          setMessage(err instanceof Error ? err.message : "Could not redo");
-        });
-      } else if (action.type === "batch_highlight") {
-        const next = mergeHighlightChanges(highlightsRef.current, action.changes);
-        const pages = [...new Set(action.changes.map((change) => change.before.page_number))];
-        commitHighlights(next, pages);
-        scheduleAnnotationSync();
-        void Promise.all(
+      } else {
+        await Promise.all(
           action.changes.map((change) =>
             change.after === null
               ? deleteHighlightApi(change.before.id)
               : updateHighlight(change.after.id, change.after.position!),
           ),
-        ).catch((err) => {
-          setMessage(err instanceof Error ? err.message : "Could not redo");
-        });
-      } else if (action.type === "add_note") {
-        setNotes((prev) => {
-          if (prev.some((entry) => entry.id === action.note.id)) return prev;
-          return [...prev, action.note];
-        });
-        scheduleAnnotationSync();
-        void upsertNote(action.note).catch((err) => {
-          setMessage(err instanceof Error ? err.message : "Could not redo");
-        });
-      } else if (action.type === "delete_note") {
-        setNotes((prev) => prev.filter((entry) => entry.id !== action.note.id));
-        scheduleAnnotationSync();
-        void deleteNoteApi(action.note.id).catch((err) => {
-          setMessage(err instanceof Error ? err.message : "Could not redo");
-        });
+        );
       }
-
-      undoStackRef.current.push(action);
-    } catch (err) {
-      redoStackRef.current.push(action);
-      setMessage(err instanceof Error ? err.message : "Could not redo");
-    } finally {
-      applyingHistoryRef.current = false;
+      return;
     }
+    if (action.type === "add_note") {
+      if (direction === "undo") await deleteNoteApi(action.note.id);
+      else await upsertNote(action.note);
+      return;
+    }
+    if (action.type === "delete_note") {
+      if (direction === "undo") await upsertNote(action.note);
+      else await deleteNoteApi(action.note.id);
+    }
+  }
+
+  function performUndo() {
+    return enqueueHistoryOp(async () => {
+      const action = undoStackRef.current.pop();
+      if (!action) return;
+
+      applyingHistoryRef.current = true;
+      try {
+        const applied = applyHistoryUndo(
+          highlightsRef.current,
+          notesRef.current,
+          action,
+        );
+        const highlightPages = [
+          ...new Set(
+            [
+              action.type === "add_highlight" || action.type === "delete_highlight"
+                ? action.highlight.page_number
+                : null,
+              action.type === "update_highlight" ? action.before.page_number : null,
+              ...(action.type === "batch_highlight"
+                ? action.changes.map((change) => change.before.page_number)
+                : []),
+            ].filter((page): page is number => typeof page === "number"),
+          ),
+        ];
+        if (
+          action.type === "add_highlight" ||
+          action.type === "delete_highlight" ||
+          action.type === "update_highlight" ||
+          action.type === "batch_highlight"
+        ) {
+          commitHighlights(applied.highlights, highlightPages);
+        }
+        if (action.type === "add_note" || action.type === "delete_note") {
+          notesRef.current = applied.notes;
+          setNotes(applied.notes);
+        }
+        scheduleAnnotationSync();
+        redoStackRef.current.push(action);
+        await persistHistoryAction(action, "undo");
+      } catch (err) {
+        undoStackRef.current.push(action);
+        redoStackRef.current = redoStackRef.current.filter((entry) => entry !== action);
+        setMessage(err instanceof Error ? err.message : "Could not undo");
+      } finally {
+        applyingHistoryRef.current = false;
+      }
+    });
+  }
+
+  function performRedo() {
+    return enqueueHistoryOp(async () => {
+      const action = redoStackRef.current.pop();
+      if (!action) return;
+
+      applyingHistoryRef.current = true;
+      try {
+        const applied = applyHistoryRedo(
+          highlightsRef.current,
+          notesRef.current,
+          action,
+        );
+        const highlightPages = [
+          ...new Set(
+            [
+              action.type === "add_highlight" || action.type === "delete_highlight"
+                ? action.highlight.page_number
+                : null,
+              action.type === "update_highlight" ? action.after.page_number : null,
+              ...(action.type === "batch_highlight"
+                ? action.changes.map((change) => change.before.page_number)
+                : []),
+            ].filter((page): page is number => typeof page === "number"),
+          ),
+        ];
+        if (
+          action.type === "add_highlight" ||
+          action.type === "delete_highlight" ||
+          action.type === "update_highlight" ||
+          action.type === "batch_highlight"
+        ) {
+          commitHighlights(applied.highlights, highlightPages);
+        }
+        if (action.type === "add_note" || action.type === "delete_note") {
+          notesRef.current = applied.notes;
+          setNotes(applied.notes);
+        }
+        scheduleAnnotationSync();
+        undoStackRef.current.push(action);
+        await persistHistoryAction(action, "redo");
+      } catch (err) {
+        redoStackRef.current.push(action);
+        undoStackRef.current = undoStackRef.current.filter((entry) => entry !== action);
+        setMessage(err instanceof Error ? err.message : "Could not redo");
+      } finally {
+        applyingHistoryRef.current = false;
+      }
+    });
   }
 
   keyboardHandlerRef.current = (event: KeyboardEvent) => {
@@ -1855,6 +1915,41 @@ export function PdfReader({
     const point = getCanvasPoint(e);
 
     if (tool === "shape") {
+      const hit = findShapeAtPoint(
+        highlightsRef.current,
+        pageNumber,
+        point,
+        e.currentTarget,
+      );
+      if (hit?.position?.shape) {
+        const refW = hit.position.viewportWidth ?? e.currentTarget.width;
+        const refH = hit.position.viewportHeight ?? e.currentTarget.height;
+        const originShape =
+          refW === e.currentTarget.width && refH === e.currentTarget.height
+            ? { ...hit.position.shape }
+            : scaleShape(
+                hit.position.shape,
+                refW,
+                refH,
+                e.currentTarget.width,
+                e.currentTarget.height,
+              );
+        shapeDragRef.current = {
+          pageNumber,
+          highlightId: hit.id,
+          startPoint: point,
+          originShape,
+          before: hit,
+          moved: false,
+        };
+        isDrawingRef.current = true;
+        drawBackupFrozenRef.current = true;
+        currentDrawPageRef.current = pageNumber;
+        syncDrawBackup(pageNumber, highlightsRef.current, true);
+        e.currentTarget.setPointerCapture(e.pointerId);
+        return;
+      }
+
       const width = effectiveStrokeWidth(penStrokeWidth);
       currentShapeRef.current = {
         x1: point.x,
@@ -1865,6 +1960,7 @@ export function PdfReader({
         strokeWidth: width,
       };
       currentStrokeRef.current = null;
+      shapeDragRef.current = null;
       drawDraftRef.current = {
         pageNumber,
         draft: {
@@ -1921,6 +2017,29 @@ export function PdfReader({
     const point = getCanvasPoint(e);
 
     if (tool === "shape") {
+      const drag = shapeDragRef.current;
+      if (drag && drag.pageNumber === pageNumber) {
+        const dx = point.x - drag.startPoint.x;
+        const dy = point.y - drag.startPoint.y;
+        if (Math.hypot(dx, dy) >= 2) drag.moved = true;
+        const movedShape = translateShape(drag.originShape, dx, dy);
+        const next = highlightsRef.current.map((entry) => {
+          if (entry.id !== drag.highlightId || !entry.position) return entry;
+          return {
+            ...entry,
+            position: {
+              ...entry.position,
+              shape: movedShape,
+              viewportWidth: e.currentTarget.width,
+              viewportHeight: e.currentTarget.height,
+            },
+          };
+        });
+        highlightsRef.current = next;
+        paintDrawLayer(pageNumber, next);
+        return;
+      }
+
       const shape = currentShapeRef.current;
       if (!shape) return;
       shape.x2 = point.x;
@@ -1988,9 +2107,33 @@ export function PdfReader({
     }
 
     if (tool === "shape") {
+      const drag = shapeDragRef.current;
       const shape = currentShapeRef.current;
+      shapeDragRef.current = null;
       currentShapeRef.current = null;
       clearDrawDraft(pageNumber);
+
+      if (drag) {
+        const after = highlightsRef.current.find((entry) => entry.id === drag.highlightId);
+        if (drag.moved && after?.position?.shape) {
+          commitHighlights(highlightsRef.current, [pageNumber]);
+          pushHistory({ type: "update_highlight", before: drag.before, after });
+          void updateHighlight(after.id, after.position)
+            .then(() => scheduleAnnotationSync())
+            .catch((err) => {
+              setMessage(err instanceof Error ? err.message : "Could not move shape");
+            });
+        } else if (drawPage != null) {
+          const restored = highlightsRef.current.map((entry) =>
+            entry.id === drag.highlightId ? drag.before : entry,
+          );
+          highlightsRef.current = restored;
+          syncDrawBackup(drawPage, restored, true);
+          paintDrawLayer(drawPage, restored);
+        }
+        return;
+      }
+
       if (
         shape &&
         (Math.abs(shape.x2 - shape.x1) >= 4 || Math.abs(shape.y2 - shape.y1) >= 4)
@@ -2602,6 +2745,7 @@ export function PdfReader({
           onGoToPage={scrollToPage}
           onZoomIn={zoomIn}
           onZoomOut={zoomOut}
+          onZoomPercentChange={setZoomPercent}
           activitySignal={statusActivity}
         />
       </div>

@@ -22,6 +22,7 @@ import {
   CommentIcon,
   PaletteIcon,
   ShapeArrowIcon,
+  ShapeSingleArrowIcon,
   ShapeCircleIcon,
   ShapeLineIcon,
   ShapeRectIcon,
@@ -425,6 +426,8 @@ export function LeftToolbar({
             ) : shapeKind === "line" ? (
               <ShapeLineIcon />
             ) : shapeKind === "arrow" ? (
+              <ShapeSingleArrowIcon />
+            ) : shapeKind === "double_arrow" ? (
               <ShapeArrowIcon />
             ) : (
               <ShapesIcon />
@@ -439,7 +442,8 @@ export function LeftToolbar({
                   { kind: "rect" as const, label: "Rectangle", icon: <ShapeRectIcon /> },
                   { kind: "ellipse" as const, label: "Circle", icon: <ShapeCircleIcon /> },
                   { kind: "line" as const, label: "Line", icon: <ShapeLineIcon /> },
-                  { kind: "arrow" as const, label: "Double arrow", icon: <ShapeArrowIcon /> },
+                  { kind: "arrow" as const, label: "Arrow", icon: <ShapeSingleArrowIcon /> },
+                  { kind: "double_arrow" as const, label: "Double arrow", icon: <ShapeArrowIcon /> },
                 ] as const
               ).map((option) => {
                 const selected = shapeKind === option.kind;

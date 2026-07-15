@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { Highlight } from "@/types";
-import { mergeHighlightChanges } from "@/lib/reader/pdf-reader-history";
+import type { Highlight, Note } from "@/types";
+import {
+  applyHistoryRedo,
+  applyHistoryUndo,
+  mergeHighlightChanges,
+} from "@/lib/reader/pdf-reader-history";
 
 const baseHighlight = (id: string, page = 1): Highlight => ({
   id,
@@ -12,6 +16,19 @@ const baseHighlight = (id: string, page = 1): Highlight => ({
   highlight_type: "freeform",
   position: { strokes: [], viewportWidth: 800, viewportHeight: 1100 },
   created_at: "2026-01-01T00:00:00Z",
+});
+
+const baseNote = (id: string): Note => ({
+  id,
+  book_id: "book-1",
+  user_id: "user-1",
+  page_number: 1,
+  note_text: "hello",
+  highlight_id: null,
+  text_color: "yellow",
+  position: { x: 10, y: 10, width: 100, height: 80 },
+  created_at: "2026-01-01T00:00:00Z",
+  updated_at: "2026-01-01T00:00:00Z",
 });
 
 describe("mergeHighlightChanges", () => {
@@ -41,5 +58,55 @@ describe("mergeHighlightChanges", () => {
       { before: h2, after: updatedH2 },
     ]);
     expect(result).toEqual([updatedH2, h3]);
+  });
+});
+
+describe("applyHistoryUndo / applyHistoryRedo", () => {
+  it("round-trips add_highlight", () => {
+    const highlight = baseHighlight("h1");
+    const action = { type: "add_highlight" as const, highlight };
+    const afterAdd = applyHistoryRedo([], [], action);
+    expect(afterAdd.highlights).toEqual([highlight]);
+    const afterUndo = applyHistoryUndo(afterAdd.highlights, [], action);
+    expect(afterUndo.highlights).toEqual([]);
+    const afterRedo = applyHistoryRedo(afterUndo.highlights, [], action);
+    expect(afterRedo.highlights).toEqual([highlight]);
+  });
+
+  it("round-trips update_highlight for shape moves", () => {
+    const before = baseHighlight("shape-1");
+    before.highlight_type = "shape_arrow";
+    before.position = {
+      shape: { x1: 10, y1: 10, x2: 40, y2: 40, filled: false, strokeWidth: 2 },
+      viewportWidth: 800,
+      viewportHeight: 1100,
+    };
+    const after = {
+      ...before,
+      position: {
+        ...before.position!,
+        shape: { x1: 30, y1: 40, x2: 60, y2: 70, filled: false, strokeWidth: 2 },
+      },
+    };
+    const action = { type: "update_highlight" as const, before, after };
+    const moved = applyHistoryRedo([before], [], action);
+    expect(moved.highlights[0]?.position?.shape?.x1).toBe(30);
+    const undone = applyHistoryUndo(moved.highlights, [], action);
+    expect(undone.highlights[0]?.position?.shape?.x1).toBe(10);
+  });
+
+  it("round-trips add_note / delete_note", () => {
+    const note = baseNote("n1");
+    const add = { type: "add_note" as const, note };
+    const withNote = applyHistoryRedo([], [], add);
+    expect(withNote.notes).toEqual([note]);
+    const without = applyHistoryUndo(withNote.highlights, withNote.notes, add);
+    expect(without.notes).toEqual([]);
+
+    const del = { type: "delete_note" as const, note };
+    const deleted = applyHistoryRedo([baseHighlight("h")], [note], del);
+    expect(deleted.notes).toEqual([]);
+    const restored = applyHistoryUndo(deleted.highlights, deleted.notes, del);
+    expect(restored.notes).toEqual([note]);
   });
 });
