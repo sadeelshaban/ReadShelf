@@ -238,7 +238,7 @@ export function ListsPageClient() {
       )}
 
       {loading ? (
-        <LoadingState label="Loading lists..." />
+        <LoadingState />
       ) : lists.length === 0 ? (
         <div className="space-y-4">
           <ShelfControls
