@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { BookCard } from "@/components/shelf/BookCard";
 import { EmptyShelf } from "@/components/shelf/EmptyShelf";
 import { ShelfControls } from "@/components/shelf/ShelfControls";
@@ -11,9 +11,18 @@ type ShelfGridProps = {
   coverUrls: Record<string, string | null>;
   loading?: boolean;
   onCoverError?: (bookId: string) => void;
+  emptyState?: ReactNode;
+  emptySearchLabel?: string;
 };
 
-export function ShelfGrid({ books, coverUrls, loading = false, onCoverError }: ShelfGridProps) {
+export function ShelfGrid({
+  books,
+  coverUrls,
+  loading = false,
+  onCoverError,
+  emptyState,
+  emptySearchLabel = "No books match your search.",
+}: ShelfGridProps) {
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortOption>("recent");
 
@@ -42,7 +51,7 @@ export function ShelfGrid({ books, coverUrls, loading = false, onCoverError }: S
 
   if (books.length === 0) {
     if (loading) return null;
-    return <EmptyShelf />;
+    return <>{emptyState ?? <EmptyShelf />}</>;
   }
 
   return (
@@ -56,9 +65,7 @@ export function ShelfGrid({ books, coverUrls, loading = false, onCoverError }: S
 
       <div>
         {filtered.length === 0 ? (
-          <p className="py-10 text-center text-text-muted">
-            No books match your search.
-          </p>
+          <p className="py-10 text-center text-text-muted">{emptySearchLabel}</p>
         ) : (
           <div className="flex flex-wrap gap-x-7 gap-y-5">
             {filtered.map((book) => (

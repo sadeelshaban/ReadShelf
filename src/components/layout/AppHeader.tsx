@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/server";
 import { AppHeaderFeedbackButton } from "@/components/layout/AppHeaderFeedbackButton";
+import { AppHeaderListsLink } from "@/components/layout/AppHeaderListsLink";
 import { AppHeaderSettingsLink } from "@/components/layout/AppHeaderSettingsLink";
 
 function getDisplayName(email: string | undefined, metadata: Record<string, unknown>) {
@@ -50,6 +51,7 @@ export async function AppHeader() {
         </Link>
 
         <nav className="flex shrink-0 items-center gap-0.5">
+          <AppHeaderListsLink />
           <AppHeaderFeedbackButton />
           <AppHeaderSettingsLink />
         </nav>

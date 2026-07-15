@@ -49,6 +49,7 @@ export async function updateSession(request: NextRequest) {
   const isProtected =
     path.startsWith("/shelf") ||
     path.startsWith("/book") ||
+    path.startsWith("/lists") ||
     path.startsWith("/settings") ||
     path.startsWith("/admin");
 
@@ -74,6 +75,7 @@ export async function updateSession(request: NextRequest) {
   const isUserAppRoute =
     path.startsWith("/shelf") ||
     path.startsWith("/book") ||
+    path.startsWith("/lists") ||
     path.startsWith("/settings");
 
   if (user && isAdminEmail(user.email) && isUserAppRoute) {
