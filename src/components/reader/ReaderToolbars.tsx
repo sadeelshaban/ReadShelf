@@ -19,6 +19,7 @@ import {
   CheckIcon,
   CursorIcon,
   LineThicknessIcon,
+  NoteIcon,
   PaletteIcon,
   ShapeArrowIcon,
   ShapeCircleIcon,
@@ -341,7 +342,7 @@ export function LeftToolbar({
   const showHighlightThickness = tool === "highlight";
   const showPenThickness = tool === "pen" || tool === "shape";
   const showEraserControls = tool === "eraser";
-  const showNoteColors = tool === "note" || editingNote;
+  const showNoteColors = tool === "note" || (editingNote && tool !== "comment");
 
   useEffect(() => {
     if (openGroup !== "shapes") return;
@@ -391,6 +392,9 @@ export function LeftToolbar({
 
           <ToolButton active={tool === "note"} label="Sticky note" onClick={() => onSelectTool("note")}>
             <ReaderToolIcon src={READER_TOOL_ICONS.note} alt="Sticky note" />
+          </ToolButton>
+          <ToolButton active={tool === "comment"} label="Comment" onClick={() => onSelectTool("comment")}>
+            <NoteIcon />
           </ToolButton>
 
           <ToolButton active={tool === "eraser"} label="Eraser" onClick={() => onSelectTool("eraser")}>

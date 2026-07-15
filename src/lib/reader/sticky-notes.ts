@@ -118,7 +118,34 @@ export function noteHasContent(note: Note | null | undefined): boolean {
   return noteTitle(note).length > 0 || noteBody(note).length > 0;
 }
 
+export function noteKind(note: Note | NotePosition | null | undefined): "sticky" | "comment" {
+  if (!note) return "sticky";
+  const kind =
+    "position" in note ? note.position?.kind : (note as NotePosition).kind;
+  return kind === "comment" ? "comment" : "sticky";
+}
+
+export function isStickyNote(note: Note | null | undefined) {
+  return noteKind(note) === "sticky";
+}
+
+export function isCommentNote(note: Note | null | undefined) {
+  return noteKind(note) === "comment";
+}
+
+export function noteKindLabel(note: Note): string {
+  return isCommentNote(note) ? "تعليق" : "ملاحظة لاصقة";
+}
+
 export function notePreviewLabel(note: Note): string {
+  if (isCommentNote(note)) {
+    const body = noteBody(note);
+    if (body) {
+      const firstLine = body.split(/\r?\n/)[0]?.trim() ?? "";
+      return firstLine.slice(0, 64) || "تعليق";
+    }
+    return "تعليق";
+  }
   const title = noteTitle(note);
   if (title) return title;
   const body = noteBody(note);
@@ -136,6 +163,11 @@ export function detectTextDirection(text: string): "rtl" | "ltr" {
 export function stickyNoteFontStack() {
   return '"Noto Sans Arabic", "Segoe UI", Tahoma, Arial, sans-serif';
 }
+
+export const DEFAULT_COMMENT_WIDTH = 200;
+export const DEFAULT_COMMENT_HEIGHT = 72;
+export const MIN_COMMENT_WIDTH = 140;
+export const MIN_COMMENT_HEIGHT = 48;
 
 export function clampStickySize(width: number, height: number) {
   return {

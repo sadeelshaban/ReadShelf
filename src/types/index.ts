@@ -35,6 +35,8 @@ export type NotePosition = {
   fontSize?: number;
   title?: string;
   rotation?: number;
+  /** sticky = paper note; comment = light text annotation */
+  kind?: "sticky" | "comment";
   viewportWidth?: number;
   viewportHeight?: number;
 };
@@ -95,6 +97,7 @@ export type ReaderTool =
   | "highlight"
   | "pen"
   | "note"
+  | "comment"
   | "eraser"
   | "bookmark"
   | "shape";

@@ -25,6 +25,7 @@ export function canNavigatePages(params: {
   if (params.editingNoteId || params.isDrawing || params.isErasing) return false;
   if (
     params.activeTool === "note" ||
+    params.activeTool === "comment" ||
     params.activeTool === "highlight" ||
     params.activeTool === "pen" ||
     params.activeTool === "shape" ||

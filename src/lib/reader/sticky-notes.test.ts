@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 import type { Note } from "@/types";
 import {
   detectTextDirection,
+  isCommentNote,
+  isStickyNote,
   normalizeStickyColor,
   noteHasContent,
+  noteKindLabel,
   notePreviewLabel,
   noteTitle,
   stickyPaperPalette,
@@ -73,5 +76,23 @@ describe("sticky note content helpers", () => {
   it("returns paper palette for bookmark colors", () => {
     expect(stickyPaperPalette("yellow").paper).toContain("rgba");
     expect(stickyPaperPalette("blue").id).toBe("blue");
+  });
+
+  it("distinguishes sticky notes from comments", () => {
+    const sticky = makeNote();
+    const comment = makeNote({
+      note_text: "تعليق قصير",
+      position: {
+        x: 0,
+        y: 0,
+        width: 160,
+        height: 60,
+        kind: "comment",
+      },
+    });
+    expect(isStickyNote(sticky)).toBe(true);
+    expect(isCommentNote(comment)).toBe(true);
+    expect(noteKindLabel(comment)).toBe("تعليق");
+    expect(notePreviewLabel(comment)).toBe("تعليق قصير");
   });
 });

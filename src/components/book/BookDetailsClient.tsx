@@ -12,10 +12,15 @@ import { rememberCoverUrl } from "@/lib/books/cover-url-cache";
 import { bookmarkColorHex } from "@/lib/reader/bookmarks";
 import {
   HIGHLIGHT_PRESETS,
-  NOTE_TEXT_COLORS,
   normalizeHex,
-  noteTextCss,
 } from "@/lib/reader/constants";
+import {
+  isCommentNote,
+  noteHasContent,
+  noteKindLabel,
+  notePreviewLabel,
+  stickyPaperPalette,
+} from "@/lib/reader/sticky-notes";
 import { flushSyncQueue, loadBookAnnotations, loadBookBookmarks } from "@/lib/offline/reader-api";
 import { cacheBook } from "@/lib/offline/books-store";
 import { purgeBookFromLocalCache } from "@/lib/offline/purge-book-cache";
@@ -49,8 +54,7 @@ type PageHighlightGroup = {
 
 type PageNoteGroup = {
   pageNumber: number;
-  colors: string[];
-  noteIds: string[];
+  notes: Note[];
 };
 
 function groupHighlightsByPage(highlights: Highlight[]): PageHighlightGroup[] {
@@ -76,24 +80,20 @@ function groupHighlightsByPage(highlights: Highlight[]): PageHighlightGroup[] {
 }
 
 function groupNotesByPage(notes: Note[]): PageNoteGroup[] {
-  const map = new Map<number, { colors: Set<string>; ids: string[] }>();
+  const map = new Map<number, Note[]>();
 
   for (const note of notes) {
-    const entry = map.get(note.page_number) ?? {
-      colors: new Set<string>(),
-      ids: [],
-    };
-    entry.colors.add(noteTextCss(note.text_color ?? "yellow"));
-    entry.ids.push(note.id);
-    map.set(note.page_number, entry);
+    if (!noteHasContent(note)) continue;
+    const list = map.get(note.page_number) ?? [];
+    list.push(note);
+    map.set(note.page_number, list);
   }
 
   return Array.from(map.entries())
     .sort(([a], [b]) => a - b)
-    .map(([pageNumber, { colors, ids }]) => ({
+    .map(([pageNumber, pageNotes]) => ({
       pageNumber,
-      colors: Array.from(colors),
-      noteIds: ids,
+      notes: pageNotes,
     }));
 }
 
@@ -111,9 +111,47 @@ function highlightColorLabel(color: string) {
   return preset ? `${preset.name} highlight` : "Highlight";
 }
 
-function noteColorLabel(cssColor: string) {
-  const match = NOTE_TEXT_COLORS.find((c) => c.css.toLowerCase() === cssColor.toLowerCase());
-  return match ? `${match.name} note` : "Note";
+function NoteAnnotationCard({
+  href,
+  pageNumber,
+  note,
+}: {
+  href: string;
+  pageNumber: number;
+  note: Note;
+}) {
+  const palette = stickyPaperPalette(note.text_color);
+  const preview = notePreviewLabel(note);
+  const kind = noteKindLabel(note);
+
+  return (
+    <Link
+      href={href}
+      className="flex items-start justify-between gap-4 rounded-xl border border-[#eadbc8]/70 bg-[#fff8f1] px-4 py-3.5 transition duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:bg-[#fffdf9] hover:shadow-[0_8px_20px_rgba(31,22,16,0.08)]"
+    >
+      <div className="min-w-0 flex-1">
+        <span className="flex items-center gap-2 text-sm font-semibold text-[#3c2a21]">
+          <PageIcon />
+          Page {pageNumber}
+          <span className="rounded-full bg-[#eadbc8]/60 px-2 py-0.5 text-[10px] font-medium text-[#6f4528]">
+            {kind}
+          </span>
+        </span>
+        <p
+          className="mt-1.5 pl-6 text-sm leading-snug text-[#5b4028]"
+          dir="auto"
+          style={{ fontFamily: '"Noto Sans Arabic", "Segoe UI", Tahoma, Arial, sans-serif' }}
+        >
+          {preview}
+        </p>
+      </div>
+      <span
+        className="mt-1 h-3.5 w-3.5 shrink-0 rounded-sm border border-[#eadbc8]/90 shadow-sm"
+        style={{ backgroundColor: isCommentNote(note) ? "#c9952a" : palette.brand }}
+        title={kind}
+      />
+    </Link>
+  );
 }
 
 function PageIcon({ className }: { className?: string }) {
@@ -270,6 +308,7 @@ export function BookDetailsClient({
     ),
   );
   const noteGroups = groupNotesByPage(displayNotes);
+  const noteCount = noteGroups.reduce((sum, group) => sum + group.notes.length, 0);
   const readLabel = getReadButtonLabel(book);
   const isUnread = !book.last_opened_at;
   const isCompleted = book.progress_percent >= 100;
@@ -585,7 +624,7 @@ export function BookDetailsClient({
             [
               { id: "bookmarks" as const, label: "Bookmarks", count: displayBookmarks.length },
               { id: "highlights" as const, label: "Highlights", count: highlightGroups.length },
-              { id: "notes" as const, label: "Notes", count: noteGroups.length },
+              { id: "notes" as const, label: "Notes", count: noteCount },
             ] as const
           ).map((item) => (
             <button
@@ -639,25 +678,21 @@ export function BookDetailsClient({
             ))}
 
           {tab === "notes" &&
-            (noteGroups.length === 0 ? (
+            (noteCount === 0 ? (
               <BookTabEmptyState variant="notes" bookId={book.id} />
             ) : (
               <ul className="space-y-3 p-4 sm:p-6">
-                {noteGroups.map((group) => (
-                  <li key={group.pageNumber}>
-                    <AnnotationCard
-                      href={`/book/${book.id}/read?page=${group.pageNumber}`}
-                      pageNumber={group.pageNumber}
-                      subtitle={
-                        group.noteIds.length > 1
-                          ? `${group.noteIds.length} notes`
-                          : undefined
-                      }
-                      colors={group.colors}
-                      colorLabel={noteColorLabel}
-                    />
-                  </li>
-                ))}
+                {noteGroups.flatMap((group) =>
+                  group.notes.map((note) => (
+                    <li key={note.id}>
+                      <NoteAnnotationCard
+                        href={`/book/${book.id}/read?page=${group.pageNumber}`}
+                        pageNumber={group.pageNumber}
+                        note={note}
+                      />
+                    </li>
+                  )),
+                )}
               </ul>
             ))}
 

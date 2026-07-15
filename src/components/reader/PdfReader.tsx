@@ -114,10 +114,15 @@ import {
 } from "@/components/reader/BookmarkAddPanel";
 import { ContinueReadingPrompt } from "@/components/reader/ContinueReadingPrompt";
 import { PageNote, type StickyNoteDraft } from "@/components/reader/PageNote";
+import { PageComment } from "@/components/reader/PageComment";
 import {
+  DEFAULT_COMMENT_HEIGHT,
+  DEFAULT_COMMENT_WIDTH,
   DEFAULT_STICKY_COLOR,
   DEFAULT_STICKY_HEIGHT,
   DEFAULT_STICKY_WIDTH,
+  isCommentNote,
+  isStickyNote,
   noteHasContent,
   noteTitle,
   normalizeStickyColor,
@@ -2027,17 +2032,19 @@ export function PdfReader({
       return;
     }
 
-    if (tool !== "note" || editingNoteId) return;
+    if ((tool !== "note" && tool !== "comment") || editingNoteId) return;
 
     const point = canvasPointFromClient(e.clientX, e.clientY, canvas);
+    const isComment = tool === "comment";
     const position: NotePosition = {
       x: Math.max(8, point.x - 20),
       y: Math.max(8, point.y - 20),
-      width: DEFAULT_STICKY_WIDTH,
-      height: DEFAULT_STICKY_HEIGHT,
+      width: isComment ? DEFAULT_COMMENT_WIDTH : DEFAULT_STICKY_WIDTH,
+      height: isComment ? DEFAULT_COMMENT_HEIGHT : DEFAULT_STICKY_HEIGHT,
       fontSize: noteFontSize,
       title: "",
       rotation: 0,
+      kind: isComment ? "comment" : "sticky",
       viewportWidth: canvas.width,
       viewportHeight: canvas.height,
     };
@@ -2048,7 +2055,7 @@ export function PdfReader({
         userId,
         pageNumber,
         position,
-        textColor: normalizeStickyColor(noteTextColor),
+        textColor: isComment ? "yellow" : normalizeStickyColor(noteTextColor),
       });
       setNotes((prev) => [...prev, data]);
       pushHistory({ type: "add_note", note: data });
@@ -2080,7 +2087,7 @@ export function PdfReader({
       return;
     }
 
-    if (tool === "note" && !editingNoteId) {
+    if ((tool === "note" || tool === "comment") && !editingNoteId) {
       void handlePageClick(e, pageNumber);
       return;
     }
@@ -2101,8 +2108,10 @@ export function PdfReader({
         y: 0,
         width: DEFAULT_STICKY_WIDTH,
         height: DEFAULT_STICKY_HEIGHT,
+        kind: "sticky",
       }),
       title,
+      kind: existing?.position?.kind ?? "sticky",
     };
 
     if (!hasText) {
@@ -2349,7 +2358,10 @@ export function PdfReader({
           onPenColorChange={setPenColor}
           noteTextColor={noteTextColor}
           noteFontSize={noteFontSize}
-          editingNote={Boolean(editingNoteId)}
+          editingNote={Boolean(
+            editingNoteId &&
+              notes.some((n) => n.id === editingNoteId && isStickyNote(n)),
+          )}
           onPickNoteColor={pickNoteColor}
           onAdjustNoteFontSize={adjustNoteFontSize}
           highlightStrokeWidth={highlightStrokeWidth}
@@ -2482,7 +2494,9 @@ export function PdfReader({
                   className={cn(
                     "reader-page-surface relative w-fit",
                     focusMode && pageNumber === page && "reader-focus-page z-[1]",
-                    tool === "note" && !editingNoteId && "cursor-crosshair",
+                    (tool === "note" || tool === "comment") &&
+                      !editingNoteId &&
+                      "cursor-crosshair",
                     tool === "eraser" && !editingNoteId && "cursor-none",
                   )}
                   onPointerDown={(e) => handleContainerPointerDown(e, pageNumber)}
@@ -2525,30 +2539,49 @@ export function PdfReader({
                       />
                       {notes
                         .filter((note) => note.page_number === pageNumber)
-                        .map((note) => (
-                          <PageNote
-                            key={note.id}
-                            note={note}
-                            editing={editingNoteId === note.id}
-                            liveFontSize={
-                              editingNoteId === note.id ? noteFontSize : undefined
-                            }
-                            livePaperColor={
-                              editingNoteId === note.id ? noteTextColor : undefined
-                            }
-                            onFinish={finishNote}
-                            onDelete={deleteNote}
-                            onMove={moveNote}
-                            onStartEdit={startEditingNote}
-                            onDraftChange={syncNoteDraft}
-                            onRotate={rotateNote}
-                            canvasRef={canvasRefForPage(canvasRefs, pageNumber)}
-                            canvasDisplayWidth={
-                              pageNumber === page ? canvasDisplayWidth : slotWidth
-                            }
-                            pageViewport={pageViewport}
-                          />
-                        ))}
+                        .map((note) =>
+                          isCommentNote(note) ? (
+                            <PageComment
+                              key={note.id}
+                              note={note}
+                              editing={editingNoteId === note.id}
+                              onFinish={(id, text) =>
+                                finishNote(id, { title: "", body: text })
+                              }
+                              onDelete={deleteNote}
+                              onMove={moveNote}
+                              onStartEdit={startEditingNote}
+                              onDraftChange={(id, text) =>
+                                syncNoteDraft(id, { title: "", body: text })
+                              }
+                              canvasRef={canvasRefForPage(canvasRefs, pageNumber)}
+                              pageViewport={pageViewport}
+                            />
+                          ) : (
+                            <PageNote
+                              key={note.id}
+                              note={note}
+                              editing={editingNoteId === note.id}
+                              liveFontSize={
+                                editingNoteId === note.id ? noteFontSize : undefined
+                              }
+                              livePaperColor={
+                                editingNoteId === note.id ? noteTextColor : undefined
+                              }
+                              onFinish={finishNote}
+                              onDelete={deleteNote}
+                              onMove={moveNote}
+                              onStartEdit={startEditingNote}
+                              onDraftChange={syncNoteDraft}
+                              onRotate={rotateNote}
+                              canvasRef={canvasRefForPage(canvasRefs, pageNumber)}
+                              canvasDisplayWidth={
+                                pageNumber === page ? canvasDisplayWidth : slotWidth
+                              }
+                              pageViewport={pageViewport}
+                            />
+                          ),
+                        )}
                     </>
                   ) : (
                     <div

@@ -62,6 +62,7 @@ export function pagePositionFromDisplay(
         : undefined,
     title: previous?.title,
     rotation: previous?.rotation,
+    kind: previous?.kind,
     viewportWidth: canvas.width,
     viewportHeight: canvas.height,
   };
