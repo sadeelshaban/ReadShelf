@@ -1,4 +1,6 @@
 @import "tailwindcss";
+@import "@fontsource/noto-sans-arabic/400.css";
+@import "@fontsource/noto-sans-arabic/600.css";
 
 :root {
   --background: #f3ece3;

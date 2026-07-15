@@ -33,6 +33,8 @@ export type NotePosition = {
   width: number;
   height: number;
   fontSize?: number;
+  title?: string;
+  rotation?: number;
   viewportWidth?: number;
   viewportHeight?: number;
 };

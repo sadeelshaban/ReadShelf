@@ -167,8 +167,9 @@ export function hexToRgba(hex: string, alpha = HIGHLIGHT_DRAW_ALPHA) {
 }
 
 export const NOTE_TEXT_COLORS = [
-  { name: "Black", value: "black", css: "#1a120b" },
-  { name: "Red", value: "red", css: "#dc2626" },
+  { name: "Yellow", value: "yellow", css: "rgba(247, 231, 161, 0.42)" },
+  { name: "Red", value: "red", css: "rgba(243, 197, 204, 0.42)" },
+  { name: "Blue", value: "blue", css: "rgba(197, 216, 247, 0.42)" },
 ] as const;
 
 export const DEFAULT_NOTE_FONT_SIZE = 14;
@@ -258,5 +259,9 @@ export function eraserCursorDataUri(size = 28) {
 }
 
 export function noteTextCss(color: string) {
-  return NOTE_TEXT_COLORS.find((c) => c.value === color)?.css ?? "#1a120b";
+  const match = NOTE_TEXT_COLORS.find((c) => c.value === color);
+  if (match) return match.css;
+  // Legacy ink colors → sticky paper defaults
+  if (color === "black") return NOTE_TEXT_COLORS[0].css;
+  return NOTE_TEXT_COLORS[0].css;
 }

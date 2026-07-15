@@ -48,16 +48,20 @@ export function pagePositionFromDisplay(
   previous?: NotePosition | null,
 ): NotePosition {
   const rect = canvas.getBoundingClientRect();
-  const refW = previous?.viewportWidth ?? canvas.width;
-  const refH = previous?.viewportHeight ?? canvas.height;
-  const sx = refW / rect.width;
-  const sy = refH / rect.height;
+  const sx = canvas.width / Math.max(rect.width, 1);
+  const sy = canvas.height / Math.max(rect.height, 1);
   return {
     x: display.x * sx,
     y: display.y * sy,
     width: display.width * sx,
     height: display.height * sy,
-    fontSize: display.fontSize ? display.fontSize * sx : previous?.fontSize,
+    fontSize: display.fontSize
+      ? display.fontSize * sx
+      : previous?.fontSize != null
+        ? previous.fontSize * (canvas.width / (previous.viewportWidth ?? canvas.width))
+        : undefined,
+    title: previous?.title,
+    rotation: previous?.rotation,
     viewportWidth: canvas.width,
     viewportHeight: canvas.height,
   };

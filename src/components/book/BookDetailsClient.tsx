@@ -83,7 +83,7 @@ function groupNotesByPage(notes: Note[]): PageNoteGroup[] {
       colors: new Set<string>(),
       ids: [],
     };
-    entry.colors.add(noteTextCss(note.text_color ?? "black"));
+    entry.colors.add(noteTextCss(note.text_color ?? "yellow"));
     entry.ids.push(note.id);
     map.set(note.page_number, entry);
   }

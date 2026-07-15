@@ -113,7 +113,15 @@ import {
   BookmarkDeleteConfirm,
 } from "@/components/reader/BookmarkAddPanel";
 import { ContinueReadingPrompt } from "@/components/reader/ContinueReadingPrompt";
-import { PageNote } from "@/components/reader/PageNote";
+import { PageNote, type StickyNoteDraft } from "@/components/reader/PageNote";
+import {
+  DEFAULT_STICKY_COLOR,
+  DEFAULT_STICKY_HEIGHT,
+  DEFAULT_STICKY_WIDTH,
+  noteHasContent,
+  noteTitle,
+  normalizeStickyColor,
+} from "@/lib/reader/sticky-notes";
 import { ReadAgainPrompt } from "@/components/reader/ReadAgainPrompt";
 import type { BookmarkColorId } from "@/lib/reader/bookmarks";
 import { normalizeBookmarkLabel } from "@/lib/reader/bookmarks";
@@ -204,9 +212,14 @@ export function PdfReader({
     { x: number; y: number; diameter: number } | undefined
   >(undefined);
   const highlightsRef = useRef(initialHighlights);
-  const editingDraftRef = useRef("");
+  const editingDraftRef = useRef<{ title: string; body: string }>({
+    title: "",
+    body: "",
+  });
   const noteHadContentRef = useRef(false);
-  const finishNoteRef = useRef<(id: string, text: string) => void>(() => {});
+  const finishNoteRef = useRef<(id: string, draft: { title: string; body: string }) => void>(
+    () => {},
+  );
   const toolRef = useRef<ReaderTool>("read");
   const editingNoteIdRef = useRef<string | null>(null);
   const maxPageRef = useRef(initialPage);
@@ -272,8 +285,7 @@ export function PdfReader({
   const [showReadAgainOverlay, setShowReadAgainOverlay] = useState(showReadAgainPrompt);
   const [message, setMessage] = useState<string | null>(null);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
-  const [noteMenuId, setNoteMenuId] = useState<string | null>(null);
-  const [noteTextColor, setNoteTextColor] = useState("black");
+  const [noteTextColor, setNoteTextColor] = useState(DEFAULT_STICKY_COLOR);
   const [noteFontSize, setNoteFontSize] = useState(DEFAULT_NOTE_FONT_SIZE);
   const [highlightColor, setHighlightColor] = useState(loadLastHighlightColor);
   const [penColor, setPenColor] = useState(loadLastPenColor);
@@ -1482,32 +1494,36 @@ export function PdfReader({
   function startEditingNote(id: string) {
     const note = notes.find((entry) => entry.id === id);
     if (note) {
-      setNoteTextColor(note.text_color ?? "black");
+      setNoteTextColor(normalizeStickyColor(note.text_color));
       setNoteFontSize(note.position?.fontSize ?? DEFAULT_NOTE_FONT_SIZE);
-      editingDraftRef.current = note.note_text;
-      noteHadContentRef.current = note.note_text.trim().length > 0;
+      editingDraftRef.current = {
+        title: noteTitle(note),
+        body: note.note_text,
+      };
+      noteHadContentRef.current = noteHasContent(note);
     }
     setEditingNoteId(id);
   }
 
-  function syncNoteDraft(id: string, text: string) {
+  function syncNoteDraft(id: string, draft: StickyNoteDraft) {
     if (editingNoteId === id) {
-      editingDraftRef.current = text;
-      if (text.trim().length > 0) {
+      editingDraftRef.current = draft;
+      if (draft.title.trim().length > 0 || draft.body.trim().length > 0) {
         noteHadContentRef.current = true;
       }
     }
   }
 
   function pickNoteColor(color: string) {
-    setNoteTextColor(color);
+    const next = normalizeStickyColor(color);
+    setNoteTextColor(next);
     if (editingNoteId) {
       setNotes((prev) =>
         prev.map((n) =>
-          n.id === editingNoteId ? { ...n, text_color: color } : n,
+          n.id === editingNoteId ? { ...n, text_color: next } : n,
         ),
       );
-      void updateNoteColor(editingNoteId, color);
+      void updateNoteColor(editingNoteId, next);
     }
   }
 
@@ -2017,9 +2033,11 @@ export function PdfReader({
     const position: NotePosition = {
       x: Math.max(8, point.x - 20),
       y: Math.max(8, point.y - 20),
-      width: 220,
-      height: 120,
+      width: DEFAULT_STICKY_WIDTH,
+      height: DEFAULT_STICKY_HEIGHT,
       fontSize: noteFontSize,
+      title: "",
+      rotation: 0,
       viewportWidth: canvas.width,
       viewportHeight: canvas.height,
     };
@@ -2030,11 +2048,11 @@ export function PdfReader({
         userId,
         pageNumber,
         position,
-        textColor: noteTextColor,
+        textColor: normalizeStickyColor(noteTextColor),
       });
       setNotes((prev) => [...prev, data]);
       pushHistory({ type: "add_note", note: data });
-      editingDraftRef.current = "";
+      editingDraftRef.current = { title: "", body: "" };
       noteHadContentRef.current = false;
       setEditingNoteId(data.id);
     } catch (err) {
@@ -2072,11 +2090,22 @@ export function PdfReader({
     }
   }
 
-  async function finishNote(id: string, text: string) {
-    const trimmed = text.trim();
-    setNoteMenuId(null);
+  async function finishNote(id: string, draft: StickyNoteDraft) {
+    const title = draft.title.trim();
+    const body = draft.body.trim();
+    const hasText = title.length > 0 || body.length > 0;
+    const existing = notes.find((entry) => entry.id === id);
+    const nextPosition: NotePosition = {
+      ...(existing?.position ?? {
+        x: 0,
+        y: 0,
+        width: DEFAULT_STICKY_WIDTH,
+        height: DEFAULT_STICKY_HEIGHT,
+      }),
+      title,
+    };
 
-    if (!trimmed) {
+    if (!hasText) {
       setEditingNoteId(null);
       setTool("read");
       if (!noteHadContentRef.current) {
@@ -2085,35 +2114,67 @@ export function PdfReader({
       }
 
       setNotes((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, note_text: "" } : n)),
+        prev.map((n) =>
+          n.id === id
+            ? {
+                ...n,
+                note_text: "",
+                position: n.position ? { ...n.position, title: "" } : n.position,
+              }
+            : n,
+        ),
       );
-      editingDraftRef.current = "";
+      editingDraftRef.current = { title: "", body: "" };
       try {
         await clearNoteText(id);
+        if (existing?.position) {
+          await updateNoteFontSizeApi(id, { ...existing.position, title: "" });
+        }
       } catch (err) {
         setMessage(err instanceof Error ? err.message : "Could not clear note");
       }
       return;
     }
 
-    // Commit text in state before leaving edit mode so the UI never flashes
-    // the placeholder or an older value.
     setNotes((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, note_text: trimmed } : n)),
+      prev.map((n) =>
+        n.id === id
+          ? {
+              ...n,
+              note_text: body,
+              position: n.position ? { ...n.position, title } : nextPosition,
+            }
+          : n,
+      ),
     );
-    editingDraftRef.current = trimmed;
+    editingDraftRef.current = { title, body };
     noteHadContentRef.current = true;
     setEditingNoteId(null);
     setTool("read");
 
     try {
-      await updateNoteText(id, trimmed);
+      await updateNoteText(id, body);
+      await updateNoteFontSizeApi(id, nextPosition);
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Could not save note");
     }
   }
 
   finishNoteRef.current = finishNote;
+
+  async function rotateNote(id: string, rotation: number) {
+    const existing = notes.find((entry) => entry.id === id);
+    if (!existing?.position) return;
+    const position = { ...existing.position, rotation };
+    setNotes((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, position } : n)),
+    );
+    try {
+      await updateNoteFontSizeApi(id, position);
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Could not rotate note");
+    }
+  }
 
   async function updateNoteColor(id: string, color: string) {
     await updateNoteColorApi(id, color);
@@ -2155,7 +2216,6 @@ export function PdfReader({
     await deleteNoteApi(id);
     setNotes((prev) => prev.filter((n) => n.id !== id));
     if (editingNoteId === id) setEditingNoteId(null);
-    setNoteMenuId((current) => (current === id ? null : current));
     setTool("read");
   }
 
@@ -2470,21 +2530,18 @@ export function PdfReader({
                             key={note.id}
                             note={note}
                             editing={editingNoteId === note.id}
-                            showMenu={noteMenuId === note.id}
-                            isTouch={isTouch}
                             liveFontSize={
                               editingNoteId === note.id ? noteFontSize : undefined
                             }
-                            liveTextColor={
+                            livePaperColor={
                               editingNoteId === note.id ? noteTextColor : undefined
                             }
                             onFinish={finishNote}
                             onDelete={deleteNote}
                             onMove={moveNote}
                             onStartEdit={startEditingNote}
-                            onShowMenu={setNoteMenuId}
-                            onFontSizeChange={applyNoteFontSize}
                             onDraftChange={syncNoteDraft}
+                            onRotate={rotateNote}
                             canvasRef={canvasRefForPage(canvasRefs, pageNumber)}
                             canvasDisplayWidth={
                               pageNumber === page ? canvasDisplayWidth : slotWidth

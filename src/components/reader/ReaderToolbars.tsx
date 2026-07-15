@@ -9,8 +9,8 @@ import {
   MAX_NOTE_FONT_SIZE,
   MIN_NOTE_FONT_SIZE,
   MIN_STROKE_WIDTH,
-  NOTE_TEXT_COLORS,
 } from "@/lib/reader/constants";
+import { STICKY_NOTE_COLORS } from "@/lib/reader/sticky-notes";
 import { cn } from "@/lib/utils";
 import { DraggableToolbar } from "@/components/reader/DraggableToolbar";
 import { READER_TOOL_ICONS, ReaderToolIcon } from "@/components/reader/ReaderToolIcon";
@@ -389,8 +389,8 @@ export function LeftToolbar({
             <ReaderToolIcon src={READER_TOOL_ICONS.pen} alt="Pen" accentColor={penColor} />
           </ToolButton>
 
-          <ToolButton active={tool === "note"} label="Comment" onClick={() => onSelectTool("note")}>
-            <ReaderToolIcon src={READER_TOOL_ICONS.note} alt="Note" />
+          <ToolButton active={tool === "note"} label="Sticky note" onClick={() => onSelectTool("note")}>
+            <ReaderToolIcon src={READER_TOOL_ICONS.note} alt="Sticky note" />
           </ToolButton>
 
           <ToolButton active={tool === "eraser"} label="Eraser" onClick={() => onSelectTool("eraser")}>
@@ -543,18 +543,18 @@ export function LeftToolbar({
           className="reader-toolbar-section"
           onMouseDown={(e) => e.preventDefault()}
         >
-          {NOTE_TEXT_COLORS.map((c) => (
+          {STICKY_NOTE_COLORS.map((c) => (
             <button
               key={c.value}
               type="button"
               title={c.name}
               className={cn(
-                "h-3.5 w-3.5 rounded-full border transition hover:scale-110",
+                "h-3.5 w-3.5 rounded-sm border transition hover:scale-110",
                 noteTextColor === c.value
                   ? "border-white ring-1 ring-[#0a84ff]"
                   : "border-white/25",
               )}
-              style={{ backgroundColor: c.css }}
+              style={{ backgroundColor: c.swatch }}
               onClick={() => onPickNoteColor(c.value)}
             />
           ))}

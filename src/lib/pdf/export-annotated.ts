@@ -14,8 +14,13 @@ import type { Highlight, HighlightStroke, Note } from "@/types";
 import {
   DEFAULT_NOTE_FONT_SIZE,
   HIGHLIGHT_DRAW_ALPHA,
-  NOTE_TEXT_COLORS,
 } from "@/lib/reader/constants";
+import {
+  noteBody,
+  noteHasContent,
+  noteTitle,
+  stickyPaperPalette,
+} from "@/lib/reader/sticky-notes";
 
 const DEFAULT_RENDER_SCALE = 1.35;
 const NOTE_FONT_TTF_PATH = path.join(
@@ -52,10 +57,7 @@ function parseHexColor(hex: string): RGB {
 }
 
 function noteColorToRgb(textColor: string): RGB {
-  const css =
-    NOTE_TEXT_COLORS.find((c) => c.value === textColor)?.css ?? "#1a120b";
-  if (css === "#dc2626") return rgb(0.86, 0.15, 0.15);
-  return rgb(0.1, 0.07, 0.04);
+  return parseHexColor(stickyPaperPalette(textColor).ink);
 }
 
 function fallbackViewport(page: PDFPage) {
@@ -168,9 +170,12 @@ function drawNotesOnPage(
   const { width } = page.getSize();
 
   for (const note of pageNotes) {
-    if (!note.position || !note.note_text.trim()) continue;
+    if (!note.position || !noteHasContent(note)) continue;
 
     const viewport = resolveNoteViewport(note, pageFallback);
+    const title = noteTitle(note);
+    const body = noteBody(note);
+    const text = [title, body].filter(Boolean).join("\n");
     const anchor = toPdfPoint(
       note.position.x,
       note.position.y + note.position.height - 12,
@@ -182,12 +187,12 @@ function drawNotesOnPage(
     const size = (fontSize / viewport.width) * width;
 
     try {
-      page.drawText(note.note_text.trim(), {
+      page.drawText(text, {
         x: anchor.x,
         y: anchor.y,
         size,
         font: noteFont,
-        color: noteColorToRgb(note.text_color ?? "black"),
+        color: noteColorToRgb(note.text_color ?? "yellow"),
         maxWidth,
         lineHeight: size * 1.25,
       });
@@ -198,7 +203,7 @@ function drawNotesOnPage(
 }
 
 async function loadNoteFont(pdfDoc: PDFDocument, notes: Note[]): Promise<PDFFont> {
-  const hasNoteText = notes.some((note) => note.note_text.trim().length > 0);
+  const hasNoteText = notes.some((note) => noteHasContent(note));
   if (!hasNoteText) {
     return pdfDoc.embedFont(StandardFonts.Helvetica);
   }

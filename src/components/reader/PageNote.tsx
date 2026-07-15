@@ -13,31 +13,37 @@ import {
   pagePositionFromDisplay,
   type ViewportSize,
 } from "@/lib/reader/coordinates";
+import { DEFAULT_NOTE_FONT_SIZE } from "@/lib/reader/constants";
 import {
-  DEFAULT_NOTE_FONT_SIZE,
-  MAX_NOTE_FONT_SIZE,
-  MIN_NOTE_FONT_SIZE,
-  noteTextCss,
-} from "@/lib/reader/constants";
-import { touchDistance } from "@/lib/reader/pdf-reader-dom";
+  clampStickySize,
+  detectTextDirection,
+  noteBody,
+  notePreviewLabel,
+  noteRotation,
+  noteTitle,
+  normalizeRotation,
+  stickyNoteFontStack,
+  stickyPaperPalette,
+  STICKY_ROTATION_STEP,
+} from "@/lib/reader/sticky-notes";
 import { cn } from "@/lib/utils";
 
-const NOTE_PLACEHOLDER = "Write a message";
+export type StickyNoteDraft = {
+  title: string;
+  body: string;
+};
 
 export type PageNoteProps = {
   note: Note;
   editing: boolean;
-  showMenu: boolean;
-  isTouch: boolean;
   liveFontSize?: number;
-  liveTextColor?: string;
-  onFinish: (id: string, text: string) => void;
+  livePaperColor?: string;
+  onFinish: (id: string, draft: StickyNoteDraft) => void;
   onDelete: (id: string) => void;
   onMove: (id: string, position: NotePosition) => void;
   onStartEdit: (id: string) => void;
-  onShowMenu: (id: string | null) => void;
-  onFontSizeChange: (size: number) => void;
-  onDraftChange: (id: string, text: string) => void;
+  onDraftChange: (id: string, draft: StickyNoteDraft) => void;
+  onRotate: (id: string, rotation: number) => void;
   canvasRef: { current: HTMLCanvasElement | null };
   canvasDisplayWidth: number;
   pageViewport: ViewportSize;
@@ -46,17 +52,14 @@ export type PageNoteProps = {
 export function PageNote({
   note,
   editing,
-  showMenu: _showMenu,
-  isTouch: _isTouch,
   liveFontSize,
-  liveTextColor,
+  livePaperColor,
   onFinish,
   onDelete,
   onMove,
   onStartEdit,
-  onShowMenu,
-  onFontSizeChange,
   onDraftChange,
+  onRotate,
   canvasRef,
   canvasDisplayWidth,
   pageViewport,
@@ -67,11 +70,16 @@ export function PageNote({
     origin: { x: number; y: number; width: number; height: number; fontSize: number };
     dragging: boolean;
   } | null>(null);
+  const resizeRef = useRef<{
+    startX: number;
+    startY: number;
+    origin: { x: number; y: number; width: number; height: number; fontSize: number };
+  } | null>(null);
   const isDraggingRef = useRef(false);
-  const pinchRef = useRef<{ distance: number; fontSize: number } | null>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  const bodyInputRef = useRef<HTMLTextAreaElement>(null);
   const noteRootRef = useRef<HTMLDivElement>(null);
-  const onFontSizeChangeRef = useRef(onFontSizeChange);
+
   const [localPos, setLocalPos] = useState<{
     x: number;
     y: number;
@@ -79,58 +87,43 @@ export function PageNote({
     height: number;
     fontSize: number;
   } | null>(null);
-  const [text, setText] = useState(note.note_text);
-  const textColor = liveTextColor ?? note.text_color ?? "black";
-  const displayText = note.note_text.trim();
+  const [title, setTitle] = useState(noteTitle(note));
+  const [body, setBody] = useState(note.note_text);
+  const [rotation, setRotation] = useState(noteRotation(note));
 
-  useEffect(() => {
-    onFontSizeChangeRef.current = onFontSizeChange;
-  }, [onFontSizeChange]);
+  const palette = stickyPaperPalette(livePaperColor ?? note.text_color);
+  const preview = notePreviewLabel(note);
+  const dir = detectTextDirection(`${title}\n${body}` || note.note_text || noteTitle(note));
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !note.position || dragRef.current || isDraggingRef.current) return;
+    if (!canvas || !note.position || dragRef.current || resizeRef.current || isDraggingRef.current) {
+      return;
+    }
     setLocalPos(displayRectFromPagePosition(note.position, canvas));
   }, [note.position, pageViewport, canvasRef]);
 
-  // Only seed local text when entering edit for this note — never while typing.
+  useEffect(() => {
+    setRotation(noteRotation(note));
+  }, [note.id, note.position?.rotation]);
+
   useEffect(() => {
     if (!editing) return;
-    setText(note.note_text);
-    const frame = requestAnimationFrame(() => textareaRef.current?.focus());
+    setTitle(noteTitle(note));
+    setBody(note.note_text);
+    const frame = requestAnimationFrame(() => {
+      titleInputRef.current?.focus();
+      titleInputRef.current?.select();
+    });
     return () => cancelAnimationFrame(frame);
-    // intentionally ignore note.note_text while editing
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editing, note.id]);
 
   useEffect(() => {
     if (editing) return;
-    setText(note.note_text);
-  }, [editing, note.note_text]);
-
-  useEffect(() => {
-    const root = noteRootRef.current;
-    if (!root || !editing) return;
-
-    function onTouchMove(e: TouchEvent) {
-      if (!pinchRef.current || e.touches.length !== 2) return;
-      e.preventDefault();
-      const distance = touchDistance(e.touches);
-      if (distance <= 0 || pinchRef.current.distance <= 0) return;
-      const scale = distance / pinchRef.current.distance;
-      const next = Math.min(
-        MAX_NOTE_FONT_SIZE,
-        Math.max(
-          MIN_NOTE_FONT_SIZE,
-          Math.round(pinchRef.current.fontSize * scale),
-        ),
-      );
-      onFontSizeChangeRef.current(next);
-    }
-
-    root.addEventListener("touchmove", onTouchMove, { passive: false });
-    return () => root.removeEventListener("touchmove", onTouchMove);
-  }, [editing]);
+    setTitle(noteTitle(note));
+    setBody(note.note_text);
+  }, [editing, note.note_text, note.position?.title, note.id]);
 
   const fontSize =
     editing && liveFontSize != null && canvasDisplayWidth > 0
@@ -144,8 +137,40 @@ export function PageNote({
 
   if (!localPos || !note.position) return null;
 
+  function emitDraft(nextTitle: string, nextBody: string) {
+    onDraftChange(note.id, { title: nextTitle, body: nextBody });
+  }
+
+  function persistPosition(display: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    fontSize: number;
+  }) {
+    const canvas = canvasRef.current;
+    if (!canvas || !note.position) return;
+    const clamped = clampStickySize(display.width, display.height);
+    const nextDisplay = { ...display, ...clamped };
+    setLocalPos(nextDisplay);
+    onMove(
+      note.id,
+      pagePositionFromDisplay(
+        {
+          ...nextDisplay,
+          fontSize: display.fontSize,
+        },
+        canvas,
+        {
+          ...note.position,
+          title: note.position.title,
+          rotation,
+        },
+      ),
+    );
+  }
+
   function handleDragStart(e: ReactPointerEvent<HTMLElement>) {
-    if (editing) return;
     e.stopPropagation();
     e.preventDefault();
     dragRef.current = {
@@ -179,181 +204,334 @@ export function PageNote({
     if (!dragRef.current) return;
     e.stopPropagation();
     const drag = dragRef.current;
-    const canvas = canvasRef.current;
-
-    if (drag.dragging && canvas) {
+    if (drag.dragging) {
       const dx = e.clientX - drag.startX;
       const dy = e.clientY - drag.startY;
-      const finalDisplay = {
+      persistPosition({
+        ...drag.origin,
         x: drag.origin.x + dx,
         y: drag.origin.y + dy,
-        width: drag.origin.width,
-        height: drag.origin.height,
-        fontSize: drag.origin.fontSize,
-      };
-      setLocalPos(finalDisplay);
-      onMove(
-        note.id,
-        pagePositionFromDisplay(finalDisplay, canvas, note.position),
-      );
+      });
     }
-
     dragRef.current = null;
-    isDraggingRef.current = false;
+    window.setTimeout(() => {
+      isDraggingRef.current = false;
+    }, 0);
     if (e.currentTarget.hasPointerCapture(e.pointerId)) {
       e.currentTarget.releasePointerCapture(e.pointerId);
     }
   }
 
-  function handleTextChange(value: string) {
-    setText(value);
-    onDraftChange(note.id, value);
+  function handleResizeStart(e: ReactPointerEvent<HTMLElement>) {
+    e.stopPropagation();
+    e.preventDefault();
+    resizeRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      origin: localPos!,
+    };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+
+  function handleResizeMove(e: ReactPointerEvent<HTMLElement>) {
+    if (!resizeRef.current) return;
+    e.stopPropagation();
+    e.preventDefault();
+    const dx = e.clientX - resizeRef.current.startX;
+    const dy = e.clientY - resizeRef.current.startY;
+    const next = clampStickySize(
+      resizeRef.current.origin.width + dx,
+      resizeRef.current.origin.height + dy,
+    );
+    setLocalPos({
+      ...resizeRef.current.origin,
+      width: next.width,
+      height: next.height,
+    });
+  }
+
+  function handleResizeEnd(e: ReactPointerEvent<HTMLElement>) {
+    if (!resizeRef.current) return;
+    e.stopPropagation();
+    const origin = resizeRef.current.origin;
+    const dx = e.clientX - resizeRef.current.startX;
+    const dy = e.clientY - resizeRef.current.startY;
+    const next = clampStickySize(origin.width + dx, origin.height + dy);
+    persistPosition({
+      ...origin,
+      width: next.width,
+      height: next.height,
+    });
+    resizeRef.current = null;
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
   }
 
   function handleFinish() {
-    onFinish(note.id, text);
+    onFinish(note.id, { title, body });
   }
 
-  function handleBlur(e: React.FocusEvent<HTMLTextAreaElement>) {
+  function handleBlur(e: React.FocusEvent<HTMLElement>) {
     if (!editing) return;
     const related = e.relatedTarget as Element | null;
     if (related?.closest("#note-toolbar")) return;
     if (related && noteRootRef.current?.contains(related)) return;
-    // On desktop, blur saves; on touch, same — click-outside in parent still works.
     handleFinish();
   }
 
-  function handleTouchStart(e: React.TouchEvent<HTMLDivElement>) {
-    if (!editing || e.touches.length !== 2) return;
-    pinchRef.current = {
-      distance: touchDistance(e.nativeEvent.touches),
-      fontSize: liveFontSize ?? note.position?.fontSize ?? DEFAULT_NOTE_FONT_SIZE,
-    };
+  function bumpRotation(delta: number) {
+    const next = normalizeRotation(rotation + delta);
+    setRotation(next);
+    onRotate(note.id, next);
   }
 
-  function handleTouchEnd() {
-    pinchRef.current = null;
-  }
-
-  const textStyle = {
-    color: noteTextCss(textColor),
-    fontSize,
-  };
+  const fontFamily = stickyNoteFontStack();
 
   return (
     <div
       ref={noteRootRef}
       data-note-id={note.id}
-      className="note-root absolute z-10 min-w-[180px] rounded-md bg-transparent p-1"
+      className="note-root absolute z-20"
       style={{
         left: localPos.x,
         top: localPos.y,
         width: localPos.width,
-        minHeight: localPos.height,
+        minHeight: editing ? localPos.height : undefined,
+        height: editing ? undefined : localPos.height,
+        transform: `rotate(${rotation}deg)`,
+        transformOrigin: "center center",
+        fontFamily,
       }}
       onPointerDown={(e) => e.stopPropagation()}
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
+      dir={dir}
     >
-      {!editing && (
-        <div className="mb-1 flex items-center gap-1">
+      <div
+        className={cn(
+          "relative flex h-full min-h-full flex-col overflow-hidden rounded-sm shadow-[0_6px_18px_rgba(40,24,8,0.16)] backdrop-blur-[2px]",
+          editing ? "min-h-[150px]" : "h-full",
+        )}
+        style={{
+          background: `linear-gradient(160deg, ${palette.header} 0%, ${palette.paper} 48%, ${palette.paper} 100%)`,
+          color: palette.ink,
+          border: `1px solid ${palette.fold}`,
+        }}
+      >
+        {/* Folded corner */}
+        <div
+          className="pointer-events-none absolute right-0 top-0 h-7 w-7"
+          style={{
+            background: `linear-gradient(225deg, transparent 48%, ${palette.fold} 50%)`,
+            boxShadow: `-1px 1px 2px rgba(0,0,0,0.12)`,
+          }}
+          aria-hidden
+        />
+
+        {/* Drag / chrome bar */}
+        <div
+          className="flex items-center gap-1 border-b px-1.5 py-1"
+          style={{
+            borderColor: "rgba(0,0,0,0.06)",
+            background: palette.header,
+          }}
+          onPointerDown={handleDragStart}
+          onPointerMove={handleDragMove}
+          onPointerUp={handleDragEnd}
+          onPointerCancel={handleDragEnd}
+        >
+          <span
+            className="flex h-5 w-5 cursor-grab items-center justify-center rounded text-[10px] opacity-70 active:cursor-grabbing"
+            aria-hidden
+          >
+            <svg viewBox="0 0 16 16" className="h-3 w-3">
+              <circle cx="5" cy="4" r="1.1" fill="currentColor" />
+              <circle cx="11" cy="4" r="1.1" fill="currentColor" />
+              <circle cx="5" cy="8" r="1.1" fill="currentColor" />
+              <circle cx="11" cy="8" r="1.1" fill="currentColor" />
+              <circle cx="5" cy="12" r="1.1" fill="currentColor" />
+              <circle cx="11" cy="12" r="1.1" fill="currentColor" />
+            </svg>
+          </span>
+          <span className="flex-1 truncate text-[10px] font-semibold tracking-wide opacity-70">
+            ملاحظة
+          </span>
           <button
             type="button"
-            aria-label="Move note"
-            title="Drag to move"
-            className="flex h-6 w-6 cursor-grab items-center justify-center rounded bg-card/90 text-[var(--reader-text-muted)] shadow-sm active:cursor-grabbing"
-            onPointerDown={handleDragStart}
-            onPointerMove={handleDragMove}
-            onPointerUp={handleDragEnd}
-            onPointerCancel={handleDragEnd}
+            title="Rotate left"
+            aria-label="Rotate left"
+            className="flex h-5 w-5 items-center justify-center rounded opacity-70 hover:bg-black/5 hover:opacity-100"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              bumpRotation(-STICKY_ROTATION_STEP);
+            }}
           >
-            <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" aria-hidden>
-              <circle cx="5" cy="4" r="1.15" fill="currentColor" />
-              <circle cx="11" cy="4" r="1.15" fill="currentColor" />
-              <circle cx="5" cy="8" r="1.15" fill="currentColor" />
-              <circle cx="11" cy="8" r="1.15" fill="currentColor" />
-              <circle cx="5" cy="12" r="1.15" fill="currentColor" />
-              <circle cx="11" cy="12" r="1.15" fill="currentColor" />
+            <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none" aria-hidden>
+              <path
+                d="M3.5 7.5a4.5 4.5 0 1 1 1.2 3.1"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              />
+              <path d="M3 5.2v2.6h2.6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
           <button
             type="button"
-            aria-label="Edit note"
-            title="Edit"
-            className="rounded bg-card/90 px-2 py-0.5 text-[11px] text-primary shadow-sm"
+            title="Rotate right"
+            aria-label="Rotate right"
+            className="flex h-5 w-5 items-center justify-center rounded opacity-70 hover:bg-black/5 hover:opacity-100"
+            onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation();
-              onShowMenu(null);
-              onStartEdit(note.id);
+              bumpRotation(STICKY_ROTATION_STEP);
             }}
           >
-            Edit
+            <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none" aria-hidden>
+              <path
+                d="M12.5 7.5a4.5 4.5 0 1 0-1.2 3.1"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              />
+              <path d="M13 5.2v2.6h-2.6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
           </button>
           <button
             type="button"
-            aria-label="Delete note"
             title="Delete"
-            className="rounded bg-card/90 px-2 py-0.5 text-[11px] text-red-600 shadow-sm"
+            aria-label="Delete sticky note"
+            className="flex h-5 w-5 items-center justify-center rounded opacity-70 hover:bg-black/5 hover:opacity-100"
+            onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation();
-              onShowMenu(null);
               onDelete(note.id);
             }}
           >
-            Delete
+            <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none" aria-hidden>
+              <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+            </svg>
           </button>
         </div>
-      )}
 
-      {editing ? (
-        <textarea
-          ref={textareaRef}
-          className="min-h-[72px] w-full resize-none bg-transparent outline-none leading-snug"
-          style={{
-            ...textStyle,
-            touchAction: "none",
-          }}
-          dir="auto"
-          placeholder={NOTE_PLACEHOLDER}
-          value={text}
-          onChange={(e) => handleTextChange(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              handleFinish();
-            }
-            if (e.key === "Escape") {
-              e.preventDefault();
-              handleFinish();
-            }
-          }}
-          onBlur={handleBlur}
-        />
-      ) : (
-        <div
-          className={cn(
-            "min-h-[72px] w-full select-none whitespace-pre-wrap break-words leading-snug",
-            !displayText && "text-black/35",
-          )}
-          style={textStyle}
-          dir="auto"
-          role="button"
-          tabIndex={0}
-          onClick={(e) => {
-            e.stopPropagation();
-            if (isDraggingRef.current) return;
-            onStartEdit(note.id);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
+        {editing ? (
+          <div className="flex min-h-0 flex-1 flex-col gap-1 p-2.5 pt-2" onBlur={handleBlur}>
+            <input
+              ref={titleInputRef}
+              className="w-full bg-transparent text-[13px] font-semibold outline-none placeholder:opacity-45"
+              style={{ color: palette.ink, fontSize: Math.max(12, fontSize) }}
+              dir="auto"
+              placeholder="العنوان"
+              value={title}
+              onChange={(e) => {
+                const value = e.target.value;
+                setTitle(value);
+                emitDraft(value, body);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  bodyInputRef.current?.focus();
+                }
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  handleFinish();
+                }
+              }}
+            />
+            <div className="h-px w-full opacity-20" style={{ background: palette.ink }} />
+            <textarea
+              ref={bodyInputRef}
+              className="min-h-[72px] w-full flex-1 resize-none bg-transparent text-[12px] leading-snug outline-none placeholder:opacity-45"
+              style={{
+                color: palette.ink,
+                fontSize: Math.max(11, fontSize - 1),
+                touchAction: "manipulation",
+              }}
+              dir="auto"
+              placeholder="اكتب ملاحظتك..."
+              value={body}
+              onChange={(e) => {
+                const value = e.target.value;
+                setBody(value);
+                emitDraft(title, value);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  handleFinish();
+                }
+              }}
+            />
+          </div>
+        ) : (
+          <button
+            type="button"
+            className="flex min-h-0 flex-1 flex-col items-stretch gap-1.5 p-3 pt-2.5 text-start"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (isDraggingRef.current) return;
               onStartEdit(note.id);
-            }
+            }}
+          >
+            <div className="flex items-start gap-2">
+              <span
+                className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-sm"
+                style={{ background: "rgba(255,255,255,0.35)" }}
+                aria-hidden
+              >
+                <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none">
+                  <path
+                    d="M7 4.5h8.5A1.5 1.5 0 0 1 17 6v12.2l-2.4-1.7L12 18.2l-2.6-1.7L7 18.2V6A1.5 1.5 0 0 1 8.5 4.5H7z"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinejoin="round"
+                  />
+                  <path d="M9.5 9h5M9.5 12h3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+                </svg>
+              </span>
+              <div className="min-w-0 flex-1">
+                <p
+                  className="truncate text-[13px] font-semibold leading-snug"
+                  style={{ fontSize: Math.max(12, fontSize) }}
+                  dir="auto"
+                >
+                  {preview}
+                </p>
+                {noteBody(note) && noteTitle(note) ? (
+                  <p
+                    className="mt-1 line-clamp-3 text-[11px] leading-snug opacity-80"
+                    style={{ fontSize: Math.max(10, fontSize - 2) }}
+                    dir="auto"
+                  >
+                    {noteBody(note)}
+                  </p>
+                ) : null}
+                {!noteTitle(note) && !noteBody(note) ? (
+                  <p className="mt-1 text-[11px] opacity-50" dir="rtl">
+                    اضغط للكتابة
+                  </p>
+                ) : null}
+              </div>
+            </div>
+          </button>
+        )}
+
+        {/* Resize handle */}
+        <button
+          type="button"
+          aria-label="Resize sticky note"
+          title="Resize"
+          className="absolute bottom-0 right-0 h-4 w-4 cursor-se-resize opacity-50 hover:opacity-100"
+          style={{
+            background: `linear-gradient(135deg, transparent 50%, ${palette.fold} 50%)`,
           }}
-        >
-          {displayText || NOTE_PLACEHOLDER}
-        </div>
-      )}
+          onPointerDown={handleResizeStart}
+          onPointerMove={handleResizeMove}
+          onPointerUp={handleResizeEnd}
+          onPointerCancel={handleResizeEnd}
+        />
+      </div>
     </div>
   );
 }
