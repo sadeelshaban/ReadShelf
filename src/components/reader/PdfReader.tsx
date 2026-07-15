@@ -134,6 +134,7 @@ import {
   normalizeStickyColor,
 } from "@/lib/reader/sticky-notes";
 import { ReadAgainPrompt } from "@/components/reader/ReadAgainPrompt";
+import { LoadingState } from "@/components/ui/LoadingState";
 import type { BookmarkColorId } from "@/lib/reader/bookmarks";
 import { normalizeBookmarkLabel } from "@/lib/reader/bookmarks";
 import {
@@ -2608,9 +2609,7 @@ export function PdfReader({
           }}
         >
           {loading && (
-            <p className="flex h-full items-center justify-center text-sm text-[var(--reader-text-muted)]">
-              Loading PDF...
-            </p>
+            <LoadingState className="h-full min-h-[50vh] py-0" />
           )}
           {error && (
             <p className="flex h-full items-center justify-center px-6 text-center text-sm text-red-300">
