@@ -226,9 +226,9 @@ export function BookmarkIcon({ className }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={cn("h-[18px] w-[18px]", className)} aria-hidden>
       <path
-        d="M7 3.75h10a1.25 1.25 0 0 1 1.25 1.25v15.2L12 16.6 5.75 20.2V5A1.25 1.25 0 0 1 7 3.75z"
+        d="M8 4.5h8a1 1 0 0 1 1 1v12.8l-3.2-2.2-2.8 2.2-2.8-2.2L7 18.3V5.5a1 1 0 0 1 1-1z"
         stroke="currentColor"
-        strokeWidth="1.7"
+        strokeWidth="1.6"
         strokeLinejoin="round"
       />
     </svg>
@@ -239,8 +239,11 @@ export function BookmarkFilledIcon({ className }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" className={cn("h-[18px] w-[18px]", className)} aria-hidden>
       <path
-        d="M7 3.75h10a1.25 1.25 0 0 1 1.25 1.25v15.2L12 16.6 5.75 20.2V5A1.25 1.25 0 0 1 7 3.75z"
+        d="M8 4.5h8a1 1 0 0 1 1 1v12.8l-3.2-2.2-2.8 2.2-2.8-2.2L7 18.3V5.5a1 1 0 0 1 1-1z"
         fill="currentColor"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        strokeLinejoin="round"
       />
     </svg>
   );

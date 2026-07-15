@@ -325,13 +325,15 @@ html {
   background: rgba(201, 149, 42, 0.22);
 }
 
-.reader-topbar-btn-bookmark[data-active="true"] {
-  color: #e8b84a;
+/* Same outline bookmark icon — only tinted when the page is bookmarked */
+.reader-topbar-btn-bookmarked {
+  color: #f5d78e;
   background: transparent;
 }
 
-.reader-topbar-btn-bookmark[data-active="true"]:hover {
-  background: var(--reader-btn-hover-bg);
+.reader-topbar-btn-bookmarked .reader-tool-icon-img {
+  filter: brightness(0) saturate(100%) invert(86%) sepia(28%) saturate(650%)
+    hue-rotate(359deg) brightness(103%) contrast(96%);
 }
 
 .acrobat-topbar-btn-bookmark-pulse,

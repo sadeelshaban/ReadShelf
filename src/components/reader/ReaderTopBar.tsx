@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { BookmarkFilledIcon, BookmarkIcon, FocusIcon, HomeIcon, MoonIcon, SunIcon } from "@/components/reader/ReaderIcons";
+import { FocusIcon, HomeIcon, MoonIcon, SunIcon } from "@/components/reader/ReaderIcons";
 import { READER_TOOL_ICONS, ReaderToolIcon } from "@/components/reader/ReaderToolIcon";
 import { ReaderTooltip } from "@/components/reader/ReaderTooltip";
 import { cn } from "@/lib/utils";
@@ -64,15 +64,14 @@ export function ReaderTopBar({
               type="button"
               aria-label={pageBookmarked ? "This page is bookmarked" : "Add bookmark"}
               aria-pressed={pageBookmarked}
-              data-active={pageBookmarked}
               onClick={onBookmark}
               className={cn(
-                "reader-topbar-btn reader-topbar-btn-lg reader-topbar-btn-bookmark",
-                pageBookmarked && "text-[#e8b84a]",
+                "reader-topbar-btn reader-topbar-btn-lg",
+                pageBookmarked && "reader-topbar-btn-bookmarked",
                 bookmarkPulse && "reader-topbar-btn-bookmark-pulse",
               )}
             >
-              {pageBookmarked ? <BookmarkFilledIcon /> : <BookmarkIcon />}
+              <ReaderToolIcon src={READER_TOOL_ICONS.bookmark} alt="Bookmark" />
             </button>
           </ReaderTooltip>
 
