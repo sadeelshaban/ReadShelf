@@ -280,7 +280,7 @@ export function ListsPageClient() {
           {filtered.length === 0 ? (
             <p className="py-10 text-center text-text-muted">No lists match your search.</p>
           ) : (
-            <ul className="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
+            <ul className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {filtered.map((list) => (
                 <li key={list.id}>
                   {renamingId === list.id ? (

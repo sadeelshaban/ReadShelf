@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { cn } from "@/lib/utils";
 
 export function AppHeaderListsLink() {
   const pathname = usePathname();
@@ -13,9 +14,13 @@ export function AppHeaderListsLink() {
     <Link
       href="/lists"
       aria-label="Reading lists"
-      className="rounded-xl px-2.5 py-2 text-sm font-medium text-text/70 transition-all hover:bg-background-elevated hover:text-primary hover:shadow-sm"
+      className={cn(
+        "inline-flex items-center rounded-xl px-3 py-2 text-sm font-semibold shadow-md transition-all",
+        "bg-primary text-white shadow-primary/20",
+        "hover:-translate-y-0.5 hover:bg-primary-light hover:shadow-lg hover:shadow-primary/25",
+      )}
     >
-      Lists
+      Reading Lists
     </Link>
   );
 }

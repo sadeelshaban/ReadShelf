@@ -17,6 +17,11 @@ type ShelfGridProps = {
   compact?: boolean;
   hideAddBook?: boolean;
   trailingAction?: ReactNode;
+  showControlsWhenEmpty?: boolean;
+  onAddClick?: () => void;
+  addLabel?: string;
+  searchId?: string;
+  sortId?: string;
   bookMenuItems?: (
     book: BookWithCounts,
   ) => Array<{ label: string; onClick: () => void; danger?: boolean }> | undefined;
@@ -32,6 +37,11 @@ export function ShelfGrid({
   compact = false,
   hideAddBook = false,
   trailingAction,
+  showControlsWhenEmpty = false,
+  onAddClick,
+  addLabel,
+  searchId,
+  sortId,
   bookMenuItems,
 }: ShelfGridProps) {
   const [search, setSearch] = useState("");
@@ -60,21 +70,37 @@ export function ShelfGrid({
     });
   }, [books, search, sort]);
 
+  const controls = (
+    <ShelfControls
+      search={search}
+      sort={sort}
+      onSearchChange={setSearch}
+      onSortChange={(value) => setSort(value as SortOption)}
+      hideAddBook={hideAddBook}
+      trailingAction={trailingAction}
+      onAddClick={onAddClick}
+      addLabel={addLabel}
+      searchId={searchId}
+      sortId={sortId}
+    />
+  );
+
   if (books.length === 0) {
     if (loading) return null;
+    if (showControlsWhenEmpty) {
+      return (
+        <div className={cn(compact ? "space-y-3.5" : "space-y-6")}>
+          {controls}
+          {emptyState ?? <EmptyShelf />}
+        </div>
+      );
+    }
     return <>{emptyState ?? <EmptyShelf />}</>;
   }
 
   return (
     <div className={cn(compact ? "space-y-3.5" : "space-y-6")}>
-      <ShelfControls
-        search={search}
-        sort={sort}
-        onSearchChange={setSearch}
-        onSortChange={(value) => setSort(value as SortOption)}
-        hideAddBook={hideAddBook}
-        trailingAction={trailingAction}
-      />
+      {controls}
 
       <div>
         {filtered.length === 0 ? (
