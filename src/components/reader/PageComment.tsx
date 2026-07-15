@@ -31,7 +31,7 @@ export type PageCommentProps = {
 };
 
 /**
- * Lightweight Arabic-friendly comment: one text field, drag to move, no sticky chrome.
+ * Pre-sticky style comment: light body-only bubble, Arabic-friendly, distinct from sticky notes.
  */
 export function PageComment({
   note,
@@ -61,6 +61,7 @@ export function PageComment({
     fontSize: number;
   } | null>(null);
   const [text, setText] = useState(note.note_text);
+  const [showActions, setShowActions] = useState(false);
 
   const dir = detectTextDirection(text || note.note_text);
   const display = note.note_text.trim();
@@ -74,6 +75,7 @@ export function PageComment({
   useEffect(() => {
     if (!editing) return;
     setText(note.note_text);
+    setShowActions(true);
     const frame = requestAnimationFrame(() => {
       textareaRef.current?.focus();
       const el = textareaRef.current;
@@ -165,7 +167,7 @@ export function PageComment({
       ref={rootRef}
       data-note-id={note.id}
       data-note-kind="comment"
-      className="note-root absolute z-20"
+      className="note-root group/comment absolute z-20"
       style={{
         left: localPos.x,
         top: localPos.y,
@@ -174,20 +176,19 @@ export function PageComment({
         fontFamily: stickyNoteFontStack(),
       }}
       onPointerDown={(e) => e.stopPropagation()}
+      onMouseEnter={() => setShowActions(true)}
+      onMouseLeave={() => {
+        if (!editing) setShowActions(false);
+      }}
       dir={dir}
     >
-      <div
-        className={cn(
-          "relative rounded-md border border-[#c9952a]/35 bg-[rgba(255,252,247,0.72)] shadow-[0_4px_14px_rgba(40,24,8,0.12)] backdrop-blur-[1.5px]",
-          editing && "ring-1 ring-[#c9952a]/50",
-        )}
-      >
-        <div className="flex items-center gap-1 border-b border-[#eadbc8]/60 px-1.5 py-0.5">
+      {(showActions || editing) && (
+        <div className="absolute -top-8 left-0 z-30 flex items-center gap-1 rounded-lg border border-white/50 bg-white/90 px-1 py-0.5 shadow-sm backdrop-blur-sm">
           <button
             type="button"
             aria-label="Move comment"
             title="اسحب للنقل"
-            className="flex h-5 w-5 cursor-grab items-center justify-center rounded text-[#6f4528]/70 active:cursor-grabbing"
+            className="flex h-6 w-6 cursor-grab items-center justify-center rounded text-[#5b4028]/80 active:cursor-grabbing hover:bg-[#fff1dc]"
             onPointerDown={handleDragStart}
             onPointerMove={handleDragMove}
             onPointerUp={handleDragEnd}
@@ -202,12 +203,11 @@ export function PageComment({
               <circle cx="11" cy="12" r="1.1" fill="currentColor" />
             </svg>
           </button>
-          <span className="flex-1 text-[10px] font-medium text-[#6f4528]/65">تعليق</span>
           <button
             type="button"
             aria-label="Delete comment"
             title="حذف"
-            className="flex h-5 w-5 items-center justify-center rounded text-[#6f4528]/70 hover:bg-black/5"
+            className="flex h-6 w-6 items-center justify-center rounded text-red-600/80 hover:bg-red-50"
             onClick={(e) => {
               e.stopPropagation();
               onDelete(note.id);
@@ -218,11 +218,32 @@ export function PageComment({
             </svg>
           </button>
         </div>
+      )}
+
+      <div
+        className={cn(
+          "relative rounded-lg bg-transparent",
+          editing && "ring-1 ring-primary/35",
+        )}
+      >
+        {/* Speech-bubble tip — distinguishes comments from sticky notes */}
+        <span
+          className="pointer-events-none absolute -left-1.5 top-2 text-primary/55"
+          aria-hidden
+        >
+          <svg viewBox="0 0 12 12" className="h-3 w-3">
+            <path
+              d="M1 6c2.5-1 4-3.2 5.2-5.5L8 6H1z"
+              fill="currentColor"
+              opacity="0.35"
+            />
+          </svg>
+        </span>
 
         {editing ? (
           <textarea
             ref={textareaRef}
-            className="min-h-[56px] w-full resize-none bg-transparent px-2.5 py-2 text-[13px] leading-snug text-[#2a1c12] outline-none placeholder:text-[#6f4528]/45"
+            className="min-h-[52px] w-full resize-none rounded-lg bg-[rgba(255,248,241,0.35)] px-2.5 py-2 text-[13px] leading-snug text-[#2a1c12] outline-none placeholder:text-[#6f4528]/40"
             dir="auto"
             placeholder="اكتب تعليقاً..."
             value={text}
@@ -241,7 +262,7 @@ export function PageComment({
         ) : (
           <button
             type="button"
-            className="block w-full px-2.5 py-2 text-start text-[13px] leading-snug text-[#2a1c12]"
+            className="block w-full rounded-lg bg-[rgba(255,248,241,0.28)] px-2.5 py-2 text-start text-[13px] leading-snug text-[#2a1c12] hover:bg-[rgba(255,248,241,0.45)]"
             dir="auto"
             onClick={(e) => {
               e.stopPropagation();
@@ -250,7 +271,7 @@ export function PageComment({
             }}
           >
             {display || (
-              <span className="text-[#6f4528]/45" dir="rtl">
+              <span className="text-[#6f4528]/40" dir="rtl">
                 اضغط للكتابة
               </span>
             )}

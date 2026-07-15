@@ -19,7 +19,7 @@ import {
   CheckIcon,
   CursorIcon,
   LineThicknessIcon,
-  NoteIcon,
+  CommentIcon,
   PaletteIcon,
   ShapeArrowIcon,
   ShapeCircleIcon,
@@ -394,7 +394,7 @@ export function LeftToolbar({
             <ReaderToolIcon src={READER_TOOL_ICONS.note} alt="Sticky note" />
           </ToolButton>
           <ToolButton active={tool === "comment"} label="Comment" onClick={() => onSelectTool("comment")}>
-            <NoteIcon />
+            <CommentIcon />
           </ToolButton>
 
           <ToolButton active={tool === "eraser"} label="Eraser" onClick={() => onSelectTool("eraser")}>

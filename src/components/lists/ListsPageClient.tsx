@@ -6,6 +6,7 @@ import { ReadingListCard } from "@/components/lists/ReadingListCard";
 import { ShelfControls } from "@/components/shelf/ShelfControls";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { LoadingState } from "@/components/ui/LoadingState";
 import { fetchCoverUrlsClient } from "@/lib/books/client-queries";
 import { forgetCoverUrl, rememberCoverUrl } from "@/lib/books/cover-url-cache";
 import {
@@ -234,7 +235,7 @@ export function ListsPageClient() {
       )}
 
       {loading ? (
-        <p className="py-10 text-center text-sm text-text-muted">Loading lists...</p>
+        <LoadingState label="Loading lists..." />
       ) : lists.length === 0 ? (
         <div className="space-y-4">
           <ShelfControls

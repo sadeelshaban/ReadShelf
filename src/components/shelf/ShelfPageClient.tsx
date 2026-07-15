@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ReadingListsPromoCard } from "@/components/shelf/ReadingListsPromoCard";
 import { ShelfGrid } from "@/components/shelf/ShelfGrid";
 import { ShelfStats } from "@/components/shelf/ShelfStats";
+import { LoadingState } from "@/components/ui/LoadingState";
 import {
   fetchBooksWithCountsClient,
   fetchCoverUrlsClient,
@@ -72,7 +74,7 @@ export function ShelfPageClient() {
   }, []);
 
   useEffect(() => {
-    router.prefetch("/shelf");
+    router.prefetch("/lists");
   }, [router]);
 
   useEffect(() => {
@@ -119,7 +121,13 @@ export function ShelfPageClient() {
             My Reading Shelf
           </h1>
         </div>
-        {books.length > 0 && <ShelfStats books={books} />}
+
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0 flex-1">
+            {books.length > 0 && <ShelfStats books={books} />}
+          </div>
+          <ReadingListsPromoCard />
+        </div>
       </header>
 
       {offline && (
@@ -129,12 +137,16 @@ export function ShelfPageClient() {
         </p>
       )}
 
-      <ShelfGrid
-        books={books}
-        coverUrls={coverUrls}
-        loading={loading}
-        onCoverError={refreshCover}
-      />
+      {loading && books.length === 0 ? (
+        <LoadingState label="Loading shelf..." />
+      ) : (
+        <ShelfGrid
+          books={books}
+          coverUrls={coverUrls}
+          loading={loading}
+          onCoverError={refreshCover}
+        />
+      )}
     </div>
   );
 }

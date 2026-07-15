@@ -187,6 +187,26 @@ export function NoteIcon({ className }: IconProps) {
   );
 }
 
+/** Speech bubble — distinct from sticky note (paper) icon. */
+export function CommentIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={cn("h-[18px] w-[18px]", className)} aria-hidden>
+      <path
+        d="M5.5 6.5h13a1.5 1.5 0 0 1 1.5 1.5v7.2a1.5 1.5 0 0 1-1.5 1.5H11l-3.6 2.6V16.7H5.5A1.5 1.5 0 0 1 4 15.2V8A1.5 1.5 0 0 1 5.5 6.5z"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M8.2 10.2h7.4M8.2 13h5"
+        stroke="currentColor"
+        strokeWidth="1.35"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 export function BookmarkIcon({ className }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={cn("h-[18px] w-[18px]", className)} aria-hidden>

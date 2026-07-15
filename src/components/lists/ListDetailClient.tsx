@@ -7,6 +7,7 @@ import { ShelfGrid } from "@/components/shelf/ShelfGrid";
 import { ShelfStats } from "@/components/shelf/ShelfStats";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { LoadingState } from "@/components/ui/LoadingState";
 import {
   fetchBooksWithCountsClient,
   fetchCoverUrlsClient,
@@ -206,7 +207,7 @@ export function ListDetailClient({ listId }: ListDetailClientProps) {
   }
 
   if (loading) {
-    return <p className="py-10 text-center text-sm text-text-muted">Loading list...</p>;
+    return <LoadingState label="Loading list..." />;
   }
 
   if (!list) {
