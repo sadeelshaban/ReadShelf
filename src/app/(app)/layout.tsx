@@ -1,5 +1,6 @@
 import { AppHeader } from "@/components/layout/AppHeader";
 import { AppFooterGate } from "@/components/layout/AppFooterGate";
+import { AppMain } from "@/components/layout/AppMain";
 
 export default function AppLayout({
   children,
@@ -9,7 +10,7 @@ export default function AppLayout({
   return (
     <div className="ambient-bg min-h-screen">
       <AppHeader />
-      <main className="w-full px-4 py-7 sm:px-6 sm:py-8 lg:px-8">{children}</main>
+      <AppMain>{children}</AppMain>
       <AppFooterGate />
     </div>
   );

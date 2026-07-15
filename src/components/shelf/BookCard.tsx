@@ -12,6 +12,8 @@ type BookCardProps = {
   book: BookWithCounts;
   coverUrl: string | null;
   onCoverError?: (bookId: string) => void;
+  /** Optional overflow menu (e.g. remove from reading list). */
+  menuItems?: Array<{ label: string; onClick: () => void; danger?: boolean }>;
 };
 
 const overlayBtn =
@@ -22,12 +24,14 @@ function isFinePointerDevice() {
   return window.matchMedia("(hover: hover) and (pointer: fine)").matches;
 }
 
-export function BookCard({ book, coverUrl, onCoverError }: BookCardProps) {
+export function BookCard({ book, coverUrl, onCoverError, menuItems }: BookCardProps) {
   const router = useRouter();
   const retriedCoverRef = useRef(false);
   const lastTapRef = useRef(0);
   const tapTimeoutRef = useRef<number | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const [mobileOverlay, setMobileOverlay] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const readLabel = getReadButtonLabel(book);
   const progressLabel = book.total_pages
     ? `${book.progress_percent}% · ${book.last_page}/${book.total_pages}`
@@ -62,6 +66,16 @@ export function BookCard({ book, coverUrl, onCoverError }: BookCardProps) {
     document.addEventListener("pointerdown", handlePointerDown);
     return () => document.removeEventListener("pointerdown", handlePointerDown);
   }, [book.id, closeMobileOverlay, mobileOverlay]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    function handlePointerDown(event: PointerEvent) {
+      if (menuRef.current?.contains(event.target as Node)) return;
+      setMenuOpen(false);
+    }
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [menuOpen]);
 
   function handleCoverPointerUp() {
     if (isFinePointerDevice()) return;
@@ -120,6 +134,46 @@ export function BookCard({ book, coverUrl, onCoverError }: BookCardProps) {
             </div>
           )}
         </button>
+
+        {menuItems && menuItems.length > 0 && (
+          <div className="absolute right-1.5 top-1.5 z-30" ref={menuRef}>
+            <button
+              type="button"
+              aria-label="Book options"
+              className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/90 text-text-muted shadow-sm ring-1 ring-black/5 hover:bg-white hover:text-text"
+              onClick={(e) => {
+                e.stopPropagation();
+                setMenuOpen((open) => !open);
+              }}
+            >
+              <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" aria-hidden>
+                <circle cx="8" cy="3.5" r="1.15" fill="currentColor" />
+                <circle cx="8" cy="8" r="1.15" fill="currentColor" />
+                <circle cx="8" cy="12.5" r="1.15" fill="currentColor" />
+              </svg>
+            </button>
+            {menuOpen && (
+              <div className="absolute right-0 mt-1 min-w-[8rem] overflow-hidden rounded-xl border border-[#eadbc8] bg-white py-1 shadow-lg">
+                {menuItems.map((item) => (
+                  <button
+                    key={item.label}
+                    type="button"
+                    className={cn(
+                      "block w-full px-3 py-2 text-left text-sm hover:bg-[#fff8f1]",
+                      item.danger ? "text-red-600 hover:bg-red-50" : "text-text",
+                    )}
+                    onClick={() => {
+                      setMenuOpen(false);
+                      item.onClick();
+                    }}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         <div
           className={cn(

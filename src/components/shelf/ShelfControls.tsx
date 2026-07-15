@@ -10,6 +10,8 @@ type ShelfControlsProps = {
   sort: SortOption;
   onSearchChange: (value: string) => void;
   onSortChange: (value: SortOption) => void;
+  hideAddBook?: boolean;
+  trailingAction?: React.ReactNode;
 };
 
 function SearchIcon({ className }: { className?: string }) {
@@ -36,11 +38,13 @@ export function ShelfControls({
   sort,
   onSearchChange,
   onSortChange,
+  hideAddBook = false,
+  trailingAction,
 }: ShelfControlsProps) {
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+    <div className="flex flex-col gap-2.5 sm:flex-row sm:items-end">
       <div className="w-full sm:max-w-md">
-        <label htmlFor="shelf-search" className="mb-1.5 block text-xs font-medium text-text-muted/90">
+        <label htmlFor="shelf-search" className="mb-1 block text-xs font-medium text-text-muted/90">
           Search
         </label>
         <div className="relative">
@@ -52,7 +56,7 @@ export function ShelfControls({
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
             className={cn(
-              "w-full rounded-xl border border-[#eadbc8]/80 bg-background-elevated/60 py-3 pl-[42px] pr-4 text-sm text-text",
+              "w-full rounded-xl border border-[#eadbc8]/80 bg-background-elevated/60 py-2.5 pl-[42px] pr-4 text-sm text-text",
               "placeholder:text-soft-gray/90 shadow-sm transition-all",
               "hover:border-primary/25 hover:bg-background-elevated/80",
               "focus:border-primary/35 focus:bg-background-elevated focus:outline-none focus:ring-4 focus:ring-primary/10",
@@ -60,7 +64,7 @@ export function ShelfControls({
           />
         </div>
       </div>
-      <div className="flex flex-wrap items-end gap-3 sm:ml-auto">
+      <div className="flex flex-wrap items-end gap-2.5 sm:ml-auto">
         <div className="flex items-center gap-2.5">
           <label htmlFor="shelf-sort" className="text-xs font-medium text-text-muted">
             Sort
@@ -76,26 +80,29 @@ export function ShelfControls({
             <option value="progress">Progress</option>
           </select>
         </div>
-        <Link href="/shelf/add" className="group">
-          <Button
-            size="sm"
-            className="gap-1.5 px-3.5 shadow-md transition-transform duration-200 group-hover:-translate-y-0.5"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              className="h-3.5 w-3.5"
-              aria-hidden
+        {trailingAction}
+        {!hideAddBook && (
+          <Link href="/shelf/add" className="group">
+            <Button
+              size="sm"
+              className="gap-1.5 px-3.5 shadow-md transition-transform duration-200 group-hover:-translate-y-0.5"
             >
-              <path d="M12 5v14M5 12h14" />
-            </svg>
-            Add Book
-          </Button>
-        </Link>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                className="h-3.5 w-3.5"
+                aria-hidden
+              >
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+              Add Book
+            </Button>
+          </Link>
+        )}
       </div>
     </div>
   );

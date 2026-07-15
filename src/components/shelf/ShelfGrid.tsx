@@ -5,6 +5,7 @@ import { BookCard } from "@/components/shelf/BookCard";
 import { EmptyShelf } from "@/components/shelf/EmptyShelf";
 import { ShelfControls } from "@/components/shelf/ShelfControls";
 import type { BookWithCounts, SortOption } from "@/types";
+import { cn } from "@/lib/utils";
 
 type ShelfGridProps = {
   books: BookWithCounts[];
@@ -13,6 +14,12 @@ type ShelfGridProps = {
   onCoverError?: (bookId: string) => void;
   emptyState?: ReactNode;
   emptySearchLabel?: string;
+  compact?: boolean;
+  hideAddBook?: boolean;
+  trailingAction?: ReactNode;
+  bookMenuItems?: (
+    book: BookWithCounts,
+  ) => Array<{ label: string; onClick: () => void; danger?: boolean }> | undefined;
 };
 
 export function ShelfGrid({
@@ -22,6 +29,10 @@ export function ShelfGrid({
   onCoverError,
   emptyState,
   emptySearchLabel = "No books match your search.",
+  compact = false,
+  hideAddBook = false,
+  trailingAction,
+  bookMenuItems,
 }: ShelfGridProps) {
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortOption>("recent");
@@ -55,25 +66,33 @@ export function ShelfGrid({
   }
 
   return (
-    <div className="space-y-6">
+    <div className={cn(compact ? "space-y-3.5" : "space-y-6")}>
       <ShelfControls
         search={search}
         sort={sort}
         onSearchChange={setSearch}
         onSortChange={setSort}
+        hideAddBook={hideAddBook}
+        trailingAction={trailingAction}
       />
 
       <div>
         {filtered.length === 0 ? (
-          <p className="py-10 text-center text-text-muted">{emptySearchLabel}</p>
+          <p className="py-8 text-center text-text-muted">{emptySearchLabel}</p>
         ) : (
-          <div className="flex flex-wrap gap-x-7 gap-y-5">
+          <div
+            className={cn(
+              "flex flex-wrap",
+              compact ? "gap-x-5 gap-y-4" : "gap-x-7 gap-y-5",
+            )}
+          >
             {filtered.map((book) => (
               <BookCard
                 key={book.id}
                 book={book}
                 coverUrl={coverUrls[book.id] ?? null}
                 onCoverError={onCoverError}
+                menuItems={bookMenuItems?.(book)}
               />
             ))}
           </div>

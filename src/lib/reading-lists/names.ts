@@ -13,8 +13,8 @@ export function normalizeReadingListName(input: string): string | null {
 
 export function readingListBookCountLabel(count: number) {
   if (count === 0) return "No books";
-  if (count === 1) return "1 book";
-  return `${count} books`;
+  if (count === 1) return "1 Book";
+  return `${count} Books`;
 }
 
 export type ReadingListMembership = {

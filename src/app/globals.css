@@ -113,6 +113,21 @@ html {
   }
 }
 
+@keyframes list-card-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.list-card-enter {
+  animation: list-card-enter 220ms ease-out;
+}
+
 .book-tab-panel {
   animation: book-tab-fade-in 0.2s ease;
   overscroll-behavior: contain;

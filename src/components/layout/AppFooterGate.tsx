@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 
-const FOOTER_HIDDEN_PREFIXES = ["/shelf/add"];
+const FOOTER_HIDDEN_PREFIXES = ["/shelf/add", "/lists"];
 
 export function AppFooterGate() {
   const pathname = usePathname();
