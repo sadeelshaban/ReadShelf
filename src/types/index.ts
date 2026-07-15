@@ -128,3 +128,17 @@ export type ReadingList = {
 export type ReadingListWithCount = ReadingList & {
   book_count: number;
 };
+
+/** Lightweight book snippet shown on list cards (Wattpad-style previews). */
+export type ReadingListPreviewBook = {
+  id: string;
+  title: string;
+  author: string;
+  cover_path: string | null;
+};
+
+export type ReadingListWithPreview = ReadingListWithCount & {
+  preview_books: ReadingListPreviewBook[];
+};
+
+export type ListSortOption = "recent" | "created" | "name" | "books";

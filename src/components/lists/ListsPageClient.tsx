@@ -1,44 +1,31 @@
 "use client";
 
-import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ReadingListCard } from "@/components/lists/ReadingListCard";
+import { ShelfControls } from "@/components/shelf/ShelfControls";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { fetchCoverUrlsClient } from "@/lib/books/client-queries";
+import { forgetCoverUrl, rememberCoverUrl } from "@/lib/books/cover-url-cache";
 import {
   createReadingListClient,
   deleteReadingListClient,
   fetchReadingListsClient,
   renameReadingListClient,
 } from "@/lib/reading-lists/client-queries";
-import {
-  MAX_READING_LIST_NAME_LENGTH,
-  readingListBookCountLabel,
-} from "@/lib/reading-lists/names";
+import { MAX_READING_LIST_NAME_LENGTH } from "@/lib/reading-lists/names";
 import { isOnline } from "@/lib/offline/online";
-import type { ReadingListWithCount } from "@/types";
+import { getClientCoverReadUrl } from "@/lib/storage/client-covers";
+import type { ListSortOption, ReadingListWithPreview } from "@/types";
 import { cn } from "@/lib/utils";
 
-function formatCreated(date: string) {
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    year: "numeric",
-  }).format(new Date(date));
-}
-
-function ListIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" className={cn("h-5 w-5", className)} fill="none" aria-hidden>
-      <path
-        d="M6 5.5h12v14l-2.4-1.6L12 19.5l-3.6-1.6L6 19.5V5.5z"
-        stroke="currentColor"
-        strokeWidth="1.55"
-        strokeLinejoin="round"
-      />
-      <path d="M9 9.5h6M9 12.5h4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-    </svg>
-  );
-}
+const LIST_SORT_OPTIONS = [
+  { value: "recent", label: "Recently updated" },
+  { value: "created", label: "Date created" },
+  { value: "name", label: "Name" },
+  { value: "books", label: "Book count" },
+];
 
 function PlusIcon({ className }: { className?: string }) {
   return (
@@ -50,23 +37,49 @@ function PlusIcon({ className }: { className?: string }) {
 
 export function ListsPageClient() {
   const router = useRouter();
-  const [lists, setLists] = useState<ReadingListWithCount[]>([]);
+  const [lists, setLists] = useState<ReadingListWithPreview[]>([]);
+  const [coverUrls, setCoverUrls] = useState<Record<string, string | null>>({});
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState<ListSortOption>("recent");
+  const [createOpen, setCreateOpen] = useState(false);
   const [name, setName] = useState("");
   const [creating, setCreating] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [offline, setOffline] = useState(false);
-  const [menuId, setMenuId] = useState<string | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [enteringIds, setEnteringIds] = useState<Set<string>>(new Set());
-  const menuRef = useRef<HTMLDivElement>(null);
-  const formRef = useRef<HTMLFormElement>(null);
 
   const totalBooks = useMemo(
     () => lists.reduce((sum, list) => sum + list.book_count, 0),
     [lists],
   );
+
+  const filtered = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    let result = lists;
+
+    if (query) {
+      result = result.filter((list) => {
+        if (list.name.toLowerCase().includes(query)) return true;
+        return list.preview_books.some(
+          (book) =>
+            book.title.toLowerCase().includes(query) ||
+            book.author.toLowerCase().includes(query),
+        );
+      });
+    }
+
+    return [...result].sort((a, b) => {
+      if (sort === "name") return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+      if (sort === "books") return b.book_count - a.book_count;
+      if (sort === "created") {
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      }
+      return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+    });
+  }, [lists, search, sort]);
 
   const loadLists = useCallback(async () => {
     if (!isOnline()) {
@@ -80,6 +93,19 @@ export function ListsPageClient() {
       const fetched = await fetchReadingListsClient();
       setLists(fetched);
       setOffline(false);
+
+      const previewBooks = fetched.flatMap((list) =>
+        list.preview_books.map((book) => ({
+          id: book.id,
+          cover_path: book.cover_path,
+        })),
+      );
+      if (previewBooks.length > 0) {
+        const urls = await fetchCoverUrlsClient(previewBooks, { force: false });
+        setCoverUrls(urls);
+      } else {
+        setCoverUrls({});
+      }
     } catch {
       setMessage("Could not load reading lists.");
     } finally {
@@ -92,16 +118,6 @@ export function ListsPageClient() {
     void loadLists();
   }, [loadLists, router]);
 
-  useEffect(() => {
-    if (!menuId) return;
-    function onPointerDown(e: PointerEvent) {
-      if (menuRef.current?.contains(e.target as Node)) return;
-      setMenuId(null);
-    }
-    window.addEventListener("pointerdown", onPointerDown);
-    return () => window.removeEventListener("pointerdown", onPointerDown);
-  }, [menuId]);
-
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     if (creating) return;
@@ -110,9 +126,14 @@ export function ListsPageClient() {
     try {
       const created = await createReadingListClient(name);
       setName("");
-      const withCount = { ...created, book_count: 0 };
+      setCreateOpen(false);
+      const withPreview: ReadingListWithPreview = {
+        ...created,
+        book_count: 0,
+        preview_books: [],
+      };
       setEnteringIds(new Set([created.id]));
-      setLists((prev) => [withCount, ...prev]);
+      setLists((prev) => [withPreview, ...prev]);
       window.setTimeout(() => {
         setEnteringIds((prev) => {
           const next = new Set(prev);
@@ -133,7 +154,6 @@ export function ListsPageClient() {
       `Delete reading list "${listName}"? Books stay on your shelf.`,
     );
     if (!ok) return;
-    setMenuId(null);
     try {
       await deleteReadingListClient(listId);
       setLists((prev) => prev.filter((list) => list.id !== listId));
@@ -147,230 +167,219 @@ export function ListsPageClient() {
       const updated = await renameReadingListClient(listId, renameValue);
       setLists((prev) =>
         prev.map((list) =>
-          list.id === listId ? { ...list, name: updated.name, updated_at: updated.updated_at } : list,
+          list.id === listId
+            ? { ...list, name: updated.name, updated_at: updated.updated_at }
+            : list,
         ),
       );
       setRenamingId(null);
-      setMenuId(null);
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Could not rename list.");
     }
   }
 
-  function focusCreate() {
-    formRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-    const input = formRef.current?.querySelector("input");
-    input?.focus();
-  }
+  const refreshCover = useCallback(
+    async (bookId: string) => {
+      const book = lists
+        .flatMap((list) => list.preview_books)
+        .find((entry) => entry.id === bookId);
+      if (!book?.cover_path) return;
+      forgetCoverUrl(book.cover_path);
+      const url = await getClientCoverReadUrl(book.cover_path);
+      setCoverUrls((current) => ({ ...current, [bookId]: url }));
+      if (url) rememberCoverUrl(book.cover_path, url);
+    },
+    [lists],
+  );
 
   return (
-    <div className="space-y-4">
-      <header className="space-y-3">
+    <div className="space-y-5">
+      <header className="space-y-4">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-text-muted">
             Organize
           </p>
-          <h1 className="mt-0.5 font-serif text-[1.85rem] font-semibold tracking-tight text-text sm:text-[2.05rem]">
+          <h1 className="mt-1 font-serif text-3xl font-semibold tracking-tight text-text sm:text-4xl">
             Reading Lists
           </h1>
-          <p className="mt-1.5 max-w-xl text-sm text-text-muted">
-            Create named lists in Arabic or English, then add books from your shelf.
-          </p>
         </div>
 
         {!loading && lists.length > 0 && (
           <div className="flex flex-wrap gap-2">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-[#eadbc8] bg-white px-3 py-1 text-xs font-medium text-[#5b4028]">
-              <ListIcon className="h-3.5 w-3.5 text-primary" />
-              {lists.length} {lists.length === 1 ? "List" : "Lists"}
-            </span>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-[#eadbc8] bg-white px-3 py-1 text-xs font-medium text-[#5b4028]">
-              {totalBooks} {totalBooks === 1 ? "Book" : "Books"}
-            </span>
-          </div>
-        )}
-
-        <form
-          ref={formRef}
-          onSubmit={handleCreate}
-          className="flex flex-col gap-2.5 rounded-2xl border border-[#eadbc8]/90 bg-white p-3 shadow-sm sm:flex-row sm:items-end sm:gap-3 sm:p-3.5"
-        >
-          <div className="min-w-0 flex-1 space-y-1">
-            <label htmlFor="list-name" className="text-xs font-medium text-[#6f4528]">
-              List name
-            </label>
-            <div className="relative">
-              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-muted">
-                <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" aria-hidden>
-                  <path
-                    d="M3.5 6.5h4.2l1.3 1.4H16.5v7.6H3.5V6.5z"
-                    stroke="currentColor"
-                    strokeWidth="1.4"
-                    strokeLinejoin="round"
-                  />
-                </svg>
+            <div className="rounded-full border border-[#eadbc8]/80 bg-background-elevated/60 px-3.5 py-1.5 text-xs">
+              <span className="font-semibold tabular-nums text-text">{lists.length}</span>{" "}
+              <span className="text-text-muted">
+                {lists.length === 1 ? "List" : "Lists"}
               </span>
-              <Input
-                id="list-name"
-                className="pl-9"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Exams / To Read"
-                maxLength={MAX_READING_LIST_NAME_LENGTH}
-                dir="auto"
-                disabled={!isOnline() || creating}
-              />
+            </div>
+            <div className="rounded-full border border-[#eadbc8]/80 bg-background-elevated/60 px-3.5 py-1.5 text-xs">
+              <span className="font-semibold tabular-nums text-text">{totalBooks}</span>{" "}
+              <span className="text-text-muted">
+                {totalBooks === 1 ? "Book" : "Books"}
+              </span>
             </div>
           </div>
-          <Button
-            type="submit"
-            size="lg"
-            className="gap-1.5 shadow-md shadow-primary/25 hover:shadow-lg hover:shadow-primary/30"
-            disabled={!isOnline() || creating || !name.trim()}
-          >
-            <PlusIcon />
-            {creating ? "Creating..." : "Create List"}
-          </Button>
-        </form>
-
-        {offline && (
-          <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-900">
-            Reading lists need an internet connection.
-          </p>
-        )}
-        {message && (
-          <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700">
-            {message}
-          </p>
         )}
       </header>
 
+      {offline && (
+        <p className="rounded-lg bg-slate-100 px-3 py-2 text-sm text-slate-800">
+          Reading lists need an internet connection.
+        </p>
+      )}
+      {message && (
+        <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700">
+          {message}
+        </p>
+      )}
+
       {loading ? (
-        <p className="py-8 text-center text-sm text-text-muted">Loading lists...</p>
+        <p className="py-10 text-center text-sm text-text-muted">Loading lists...</p>
       ) : lists.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-[#eadbc8] bg-white px-5 py-10 text-center shadow-sm">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[#fff1dc] text-primary">
-            <ListIcon className="h-6 w-6" />
+        <div className="space-y-4">
+          <ShelfControls
+            search={search}
+            sort={sort}
+            onSearchChange={setSearch}
+            onSortChange={(value) => setSort(value as ListSortOption)}
+            searchId="lists-search"
+            sortId="lists-sort"
+            searchPlaceholder="List name or book..."
+            sortOptions={LIST_SORT_OPTIONS}
+            onAddClick={() => setCreateOpen(true)}
+            addLabel="Add Reading List"
+          />
+          <div className="rounded-2xl border border-dashed border-[#eadbc8] bg-white px-5 py-10 text-center shadow-sm">
+            <h2 className="font-serif text-xl font-semibold text-text">
+              No reading lists yet
+            </h2>
+            <p className="mx-auto mt-2 max-w-md text-sm text-text-muted">
+              Create your first reading list, then pick books from your shelf.
+            </p>
+            <Button className="mt-5 gap-1.5" onClick={() => setCreateOpen(true)}>
+              <PlusIcon />
+              Add Reading List
+            </Button>
           </div>
-          <h2 className="mt-3 font-serif text-xl font-semibold text-text">
-            No reading lists yet
-          </h2>
-          <p className="mx-auto mt-2 max-w-md text-sm text-text-muted">
-            Create your first reading list, then pick books from your shelf.
-          </p>
-          <Button className="mt-5 gap-1.5" onClick={focusCreate}>
-            <PlusIcon />
-            Create List
-          </Button>
         </div>
       ) : (
-        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {lists.map((list) => (
-            <li
-              key={list.id}
-              className={cn(
-                "relative rounded-2xl border border-[#eadbc8]/90 bg-white p-3.5 shadow-sm transition duration-200",
-                "hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md",
-                enteringIds.has(list.id) && "list-card-enter",
-              )}
-            >
-              {renamingId === list.id ? (
-                <form
-                  className="space-y-2"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    void handleRenameSubmit(list.id);
-                  }}
-                >
-                  <Input
-                    value={renameValue}
-                    onChange={(e) => setRenameValue(e.target.value)}
-                    maxLength={MAX_READING_LIST_NAME_LENGTH}
-                    dir="auto"
-                    autoFocus
-                  />
-                  <div className="flex gap-2">
-                    <Button type="submit" size="sm">
-                      Save
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => setRenamingId(null)}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </form>
-              ) : (
-                <>
-                  <div className="flex items-start gap-2.5">
-                    <Link
-                      href={`/lists/${list.id}`}
-                      className="flex min-w-0 flex-1 items-start gap-2.5"
-                      dir="auto"
-                    >
-                      <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#fff1dc] text-primary">
-                        <ListIcon />
-                      </span>
-                      <span className="min-w-0">
-                        <span className="block truncate font-serif text-lg font-semibold text-text">
-                          {list.name}
-                        </span>
-                        <span className="mt-0.5 block text-xs text-text-muted">
-                          {readingListBookCountLabel(list.book_count)}
-                        </span>
-                        <span className="mt-1 block text-[11px] text-text-muted/80">
-                          Created {formatCreated(list.created_at)}
-                        </span>
-                      </span>
-                    </Link>
+        <div className="space-y-4">
+          <ShelfControls
+            search={search}
+            sort={sort}
+            onSearchChange={setSearch}
+            onSortChange={(value) => setSort(value as ListSortOption)}
+            searchId="lists-search"
+            sortId="lists-sort"
+            searchPlaceholder="List name or book..."
+            sortOptions={LIST_SORT_OPTIONS}
+            onAddClick={() => setCreateOpen(true)}
+            addLabel="Add Reading List"
+          />
 
-                    <div className="relative shrink-0" ref={menuId === list.id ? menuRef : undefined}>
-                      <button
-                        type="button"
-                        aria-label="List options"
-                        className="rounded-lg px-2 py-1 text-text-muted hover:bg-[#f4ebe0] hover:text-text"
-                        onClick={() =>
-                          setMenuId((current) => (current === list.id ? null : list.id))
-                        }
-                      >
-                        <svg viewBox="0 0 16 16" className="h-4 w-4" aria-hidden>
-                          <circle cx="8" cy="3.5" r="1.2" fill="currentColor" />
-                          <circle cx="8" cy="8" r="1.2" fill="currentColor" />
-                          <circle cx="8" cy="12.5" r="1.2" fill="currentColor" />
-                        </svg>
-                      </button>
-                      {menuId === list.id && (
-                        <div className="absolute right-0 z-20 mt-1 min-w-[8.5rem] overflow-hidden rounded-xl border border-[#eadbc8] bg-white py-1 shadow-lg">
-                          <button
-                            type="button"
-                            className="block w-full px-3 py-2 text-left text-sm text-text hover:bg-[#fff8f1]"
-                            onClick={() => {
-                              setRenamingId(list.id);
-                              setRenameValue(list.name);
-                              setMenuId(null);
-                            }}
-                          >
-                            Rename
-                          </button>
-                          <button
-                            type="button"
-                            className="block w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
-                            onClick={() => void handleDelete(list.id, list.name)}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </>
-              )}
-            </li>
-          ))}
-        </ul>
+          {filtered.length === 0 ? (
+            <p className="py-10 text-center text-text-muted">No lists match your search.</p>
+          ) : (
+            <ul className="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
+              {filtered.map((list) => (
+                <li key={list.id}>
+                  {renamingId === list.id ? (
+                    <form
+                      className="space-y-2 rounded-2xl border border-[#eadbc8]/90 bg-white p-4 shadow-sm"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        void handleRenameSubmit(list.id);
+                      }}
+                    >
+                      <Input
+                        value={renameValue}
+                        onChange={(e) => setRenameValue(e.target.value)}
+                        maxLength={MAX_READING_LIST_NAME_LENGTH}
+                        dir="auto"
+                        autoFocus
+                      />
+                      <div className="flex gap-2">
+                        <Button type="submit" size="sm">
+                          Save
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => setRenamingId(null)}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </form>
+                  ) : (
+                    <ReadingListCard
+                      list={list}
+                      coverUrls={coverUrls}
+                      entering={enteringIds.has(list.id)}
+                      onRename={() => {
+                        setRenamingId(list.id);
+                        setRenameValue(list.name);
+                      }}
+                      onDelete={() => void handleDelete(list.id, list.name)}
+                      onCoverError={(bookId) => void refreshCover(bookId)}
+                    />
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {createOpen && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/35 p-3 sm:items-center sm:p-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Create reading list"
+            className="w-full max-w-md overflow-hidden rounded-2xl border border-[#eadbc8] bg-[#fffdf9] shadow-xl"
+          >
+            <div className="flex items-center justify-between border-b border-[#eadbc8]/80 px-4 py-3">
+              <h2 className="font-serif text-xl font-semibold text-text">New reading list</h2>
+              <button
+                type="button"
+                className="rounded-lg px-2 py-1 text-sm text-text-muted hover:bg-[#eadbc8]/40"
+                onClick={() => {
+                  setCreateOpen(false);
+                  setName("");
+                }}
+              >
+                Close
+              </button>
+            </div>
+            <form onSubmit={handleCreate} className="space-y-3 p-4">
+              <div className="space-y-1">
+                <label htmlFor="new-list-name" className="text-xs font-medium text-[#6f4528]">
+                  List name
+                </label>
+                <Input
+                  id="new-list-name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="e.g. Exams / To Read"
+                  maxLength={MAX_READING_LIST_NAME_LENGTH}
+                  dir="auto"
+                  autoFocus
+                  disabled={!isOnline() || creating}
+                />
+              </div>
+              <Button
+                type="submit"
+                className="w-full gap-1.5"
+                disabled={!isOnline() || creating || !name.trim()}
+              >
+                <PlusIcon />
+                {creating ? "Creating..." : "Create List"}
+              </Button>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

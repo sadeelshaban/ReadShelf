@@ -4,7 +4,11 @@ import {
   normalizeReadingListName,
   type ReadingListDetail,
 } from "@/lib/reading-lists/names";
-import type { ReadingList, ReadingListWithCount } from "@/types";
+import type {
+  ReadingList,
+  ReadingListPreviewBook,
+  ReadingListWithPreview,
+} from "@/types";
 
 async function requireUserId() {
   const supabase = createClient();
@@ -15,7 +19,9 @@ async function requireUserId() {
   return { supabase, userId: session.user.id };
 }
 
-export async function fetchReadingListsClient(): Promise<ReadingListWithCount[]> {
+const PREVIEW_BOOKS_PER_LIST = 4;
+
+export async function fetchReadingListsClient(): Promise<ReadingListWithPreview[]> {
   const auth = await requireUserId();
   if (!auth) return [];
 
@@ -32,18 +38,50 @@ export async function fetchReadingListsClient(): Promise<ReadingListWithCount[]>
 
   const { data: memberships } = await auth.supabase
     .from("reading_list_books")
-    .select("list_id")
-    .in("list_id", listIds);
+    .select("list_id, book_id, added_at")
+    .in("list_id", listIds)
+    .order("added_at", { ascending: false });
 
   const counts = new Map<string, number>();
+  const previewIdsByList = new Map<string, string[]>();
+
   memberships?.forEach((row) => {
     counts.set(row.list_id, (counts.get(row.list_id) ?? 0) + 1);
+    const existing = previewIdsByList.get(row.list_id) ?? [];
+    if (existing.length < PREVIEW_BOOKS_PER_LIST) {
+      existing.push(row.book_id);
+      previewIdsByList.set(row.list_id, existing);
+    }
   });
 
-  return lists.map((list) => ({
-    ...(list as ReadingList),
-    book_count: counts.get(list.id) ?? 0,
-  }));
+  const allPreviewIds = [
+    ...new Set([...previewIdsByList.values()].flat()),
+  ];
+
+  const bookById = new Map<string, ReadingListPreviewBook>();
+  if (allPreviewIds.length > 0) {
+    const shelfBooks = await fetchBooksWithCountsClient();
+    for (const book of shelfBooks) {
+      if (!allPreviewIds.includes(book.id)) continue;
+      bookById.set(book.id, {
+        id: book.id,
+        title: book.title,
+        author: book.author,
+        cover_path: book.cover_path,
+      });
+    }
+  }
+
+  return lists.map((list) => {
+    const previewIds = previewIdsByList.get(list.id) ?? [];
+    return {
+      ...(list as ReadingList),
+      book_count: counts.get(list.id) ?? 0,
+      preview_books: previewIds
+        .map((id) => bookById.get(id))
+        .filter((book): book is ReadingListPreviewBook => Boolean(book)),
+    };
+  });
 }
 
 export async function createReadingListClient(name: string): Promise<ReadingList> {

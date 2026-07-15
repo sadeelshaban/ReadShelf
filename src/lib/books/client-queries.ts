@@ -53,7 +53,7 @@ export async function fetchBooksWithCountsClient(): Promise<BookWithCounts[]> {
 }
 
 export async function fetchCoverUrlsClient(
-  books: BookWithCounts[],
+  books: Array<{ id: string; cover_path: string | null }>,
   options?: { force?: boolean },
 ): Promise<Record<string, string | null>> {
   const force = options?.force ?? false;

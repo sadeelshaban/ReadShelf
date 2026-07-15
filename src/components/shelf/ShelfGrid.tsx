@@ -71,7 +71,7 @@ export function ShelfGrid({
         search={search}
         sort={sort}
         onSearchChange={setSearch}
-        onSortChange={setSort}
+        onSortChange={(value) => setSort(value as SortOption)}
         hideAddBook={hideAddBook}
         trailingAction={trailingAction}
       />

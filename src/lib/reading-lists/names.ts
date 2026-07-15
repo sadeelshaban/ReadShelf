@@ -1,4 +1,4 @@
-import type { BookWithCounts, ReadingList, ReadingListWithCount } from "@/types";
+import type { BookWithCounts, ReadingList, ReadingListWithCount, ReadingListWithPreview } from "@/types";
 
 export const MAX_READING_LIST_NAME_LENGTH = 80;
 
@@ -27,4 +27,4 @@ export type ReadingListDetail = {
   books: BookWithCounts[];
 };
 
-export type { ReadingList, ReadingListWithCount };
+export type { ReadingList, ReadingListWithCount, ReadingListWithPreview };
