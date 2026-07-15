@@ -26,9 +26,9 @@ export function LoadingState({
       <img
         src="/loading-pulse.gif"
         alt=""
-        width={64}
-        height={64}
-        className="h-16 w-16"
+        width={112}
+        height={112}
+        className="h-28 w-28 object-contain"
         aria-hidden
       />
       <p className="text-sm text-text-muted">{label}</p>
