@@ -55,6 +55,7 @@ import {
   SCROLL_PROGRESS_DEBOUNCE_MS,
   SCROLL_SYNC_DEBOUNCE_MS,
   WHEEL_ZOOM_SENSITIVITY,
+  ZOOM_COMMIT_MS,
   ZOOM_STEP,
 } from "@/lib/reader/pdf-reader-config";
 import {
@@ -268,6 +269,7 @@ export function PdfReader({
   const zoomWheelDeltaRef = useRef(0);
   const zoomWheelAnchorRef = useRef<{ clientX: number; clientY: number } | null>(null);
   const zoomWheelFrameRef = useRef<number | null>(null);
+  const zoomCommitTimerRef = useRef<number | null>(null);
   const lastRenderedZoomRef = useRef<Map<number, number>>(new Map());
   const panRef = useRef<{
     pointerId: number;
@@ -281,6 +283,8 @@ export function PdfReader({
     vx: number;
     vy: number;
   } | null>(null);
+  const panMoveFrameRef = useRef<number | null>(null);
+  const panPendingPointRef = useRef<{ clientX: number; clientY: number } | null>(null);
   const panMomentumFrameRef = useRef<number | null>(null);
   const resumeActionRef = useRef<"continue" | "start-over">("continue");
 
@@ -294,6 +298,9 @@ export function PdfReader({
   const [fitScale, setFitScale] = useState(1);
   const [fitScaleReady, setFitScaleReady] = useState(false);
   const [zoomMultiplier, setZoomMultiplier] = useState(initialZoom ?? DEFAULT_ZOOM);
+  const [zoomPercentUi, setZoomPercentUi] = useState(() =>
+    Math.round((initialZoom ?? DEFAULT_ZOOM) * 100),
+  );
   const [pdfNumPages, setPdfNumPages] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -346,8 +353,8 @@ export function PdfReader({
   editingNoteIdRef.current = editingNoteId;
   pageRef.current = page;
   eraserStrokeWidthRef.current = eraserStrokeWidth;
-  zoomMultiplierRef.current = zoomMultiplier;
-  pageSlotSizeRef.current = pageSlotSize;
+  // zoomMultiplierRef / pageSlotSizeRef are owned by live zoom + commit paths —
+  // do not reset them from React state on every render (that fights mid-gesture zoom).
 
   const maxPage = pdfNumPages ?? totalPages ?? page;
   maxPageRef.current = maxPage;
@@ -476,13 +483,21 @@ export function PdfReader({
     viewer.scrollTop = pending.scrollTop;
     viewer.scrollLeft = pending.scrollLeft;
     pendingZoomRestoreRef.current = null;
-    requestAnimationFrame(() => syncPageFromScroll({ force: true }));
-  }, [syncPageFromScroll]);
+  }, []);
+
+  const commitZoomState = useCallback(() => {
+    const next = zoomMultiplierRef.current;
+    const slot = pageSlotSizeRef.current;
+    setZoomMultiplier(next);
+    setZoomPercentUi(Math.round(next * 100));
+    if (slot) setPageSlotSize({ ...slot });
+  }, []);
 
   const changeZoom = useCallback(
     (
       deltaOrTarget: number | ((current: number) => number),
       anchor?: { clientX: number; clientY: number },
+      options?: { commit?: "immediate" | "debounce" },
     ) => {
       const viewer = viewerRef.current;
       if (!viewer) return;
@@ -492,13 +507,11 @@ export function PdfReader({
         typeof deltaOrTarget === "function" ? deltaOrTarget(current) : deltaOrTarget;
       const clamped = Math.min(
         MAX_ZOOM,
-        Math.max(MIN_ZOOM, Number(raw.toFixed(3))),
+        Math.max(MIN_ZOOM, Number(raw.toFixed(4))),
       );
-      if (Math.abs(clamped - current) < 0.0005) return;
+      if (Math.abs(clamped - current) < 0.0002) return;
 
       const ratio = clamped / current;
-
-      // Keep ref in sync immediately so rapid wheel/button zooms don't skip steps.
       zoomMultiplierRef.current = clamped;
 
       if (anchor) {
@@ -518,8 +531,7 @@ export function PdfReader({
         };
       }
 
-      // Grow/shrink page slots immediately so scroll anchoring lands on the right place
-      // before the async PDF re-render finishes.
+      // Live visual zoom via DOM only — avoid React re-renders / PDF redraw mid-gesture.
       const slot = pageSlotSizeRef.current;
       if (slot) {
         const nextSlot = {
@@ -527,7 +539,15 @@ export function PdfReader({
           height: slot.height * ratio,
         };
         pageSlotSizeRef.current = nextSlot;
-        setPageSlotSize(nextSlot);
+
+        for (const [pageNumber, wrap] of pageWrapRefs.current) {
+          if (canvasRefs.current.has(pageNumber)) continue;
+          const placeholder = wrap.firstElementChild as HTMLElement | null;
+          if (placeholder) {
+            placeholder.style.width = `${nextSlot.width}px`;
+            placeholder.style.height = `${nextSlot.height}px`;
+          }
+        }
       }
 
       for (const canvas of canvasRefs.current.values()) {
@@ -547,39 +567,55 @@ export function PdfReader({
         }
       }
 
-      requestAnimationFrame(() => {
-        restorePendingZoomScroll();
-      });
+      // Keep the cursor/content anchored in the same frame as the size change.
+      restorePendingZoomScroll();
 
-      setZoomMultiplier(clamped);
+      const mode = options?.commit ?? "immediate";
+      if (mode === "immediate") {
+        if (zoomCommitTimerRef.current != null) {
+          window.clearTimeout(zoomCommitTimerRef.current);
+          zoomCommitTimerRef.current = null;
+        }
+        commitZoomState();
+        return;
+      }
+
+      // Defer React/PDF work until the gesture settles so zoom stays buttery.
+      if (zoomCommitTimerRef.current != null) {
+        window.clearTimeout(zoomCommitTimerRef.current);
+      }
+      zoomCommitTimerRef.current = window.setTimeout(() => {
+        zoomCommitTimerRef.current = null;
+        commitZoomState();
+      }, ZOOM_COMMIT_MS);
     },
-    [restorePendingZoomScroll],
+    [commitZoomState, restorePendingZoomScroll],
   );
 
   const zoomIn = useCallback(() => {
     const viewer = viewerRef.current;
     if (!viewer) {
-      changeZoom((current) => current + ZOOM_STEP);
+      changeZoom((current) => current + ZOOM_STEP, undefined, { commit: "immediate" });
       return;
     }
     const rect = viewer.getBoundingClientRect();
     changeZoom((current) => current + ZOOM_STEP, {
       clientX: rect.left + rect.width / 2,
       clientY: rect.top + rect.height / 2,
-    });
+    }, { commit: "immediate" });
   }, [changeZoom]);
 
   const zoomOut = useCallback(() => {
     const viewer = viewerRef.current;
     if (!viewer) {
-      changeZoom((current) => current - ZOOM_STEP);
+      changeZoom((current) => current - ZOOM_STEP, undefined, { commit: "immediate" });
       return;
     }
     const rect = viewer.getBoundingClientRect();
     changeZoom((current) => current - ZOOM_STEP, {
       clientX: rect.left + rect.width / 2,
       clientY: rect.top + rect.height / 2,
-    });
+    }, { commit: "immediate" });
   }, [changeZoom]);
 
   const setZoomPercent = useCallback(
@@ -587,14 +623,14 @@ export function PdfReader({
       const viewer = viewerRef.current;
       const target = percent / 100;
       if (!viewer) {
-        changeZoom(target);
+        changeZoom(target, undefined, { commit: "immediate" });
         return;
       }
       const rect = viewer.getBoundingClientRect();
       changeZoom(target, {
         clientX: rect.left + rect.width / 2,
         clientY: rect.top + rect.height / 2,
-      });
+      }, { commit: "immediate" });
     },
     [changeZoom],
   );
@@ -620,9 +656,8 @@ export function PdfReader({
       zoomWheelAnchorRef.current = null;
       if (!dy || !anchor) return;
 
-      // Continuous exponential zoom — follows trackpad/pinch magnitude, not fixed steps.
       const factor = Math.exp(-dy * WHEEL_ZOOM_SENSITIVITY);
-      changeZoom((current) => current * factor, anchor);
+      changeZoom((current) => current * factor, anchor, { commit: "debounce" });
     }
 
     function onWheel(e: WheelEvent) {
@@ -644,9 +679,17 @@ export function PdfReader({
         cancelAnimationFrame(zoomWheelFrameRef.current);
         zoomWheelFrameRef.current = null;
       }
+      if (zoomCommitTimerRef.current != null) {
+        window.clearTimeout(zoomCommitTimerRef.current);
+        zoomCommitTimerRef.current = null;
+      }
       if (panMomentumFrameRef.current != null) {
         cancelAnimationFrame(panMomentumFrameRef.current);
         panMomentumFrameRef.current = null;
+      }
+      if (panMoveFrameRef.current != null) {
+        cancelAnimationFrame(panMoveFrameRef.current);
+        panMoveFrameRef.current = null;
       }
     };
   }, [changeZoom]);
@@ -1097,12 +1140,7 @@ export function PdfReader({
 
   useEffect(() => {
     if (loading || !fitScaleReady || !pendingZoomRestoreRef.current) return;
-
-    const timer = window.setTimeout(() => {
-      restorePendingZoomScroll();
-    }, 80);
-
-    return () => window.clearTimeout(timer);
+    restorePendingZoomScroll();
   }, [zoomMultiplier, fitScale, pageSlotSize, fitScaleReady, loading, restorePendingZoomScroll]);
 
   useEffect(() => {
@@ -2404,10 +2442,38 @@ export function PdfReader({
     }
   }
 
+  function stopPanMoveFrame() {
+    if (panMoveFrameRef.current != null) {
+      cancelAnimationFrame(panMoveFrameRef.current);
+      panMoveFrameRef.current = null;
+    }
+    panPendingPointRef.current = null;
+  }
+
+  function applyPanPoint(clientX: number, clientY: number) {
+    const pan = panRef.current;
+    const viewer = viewerRef.current;
+    if (!pan || !viewer) return;
+
+    const now = performance.now();
+    const dt = Math.max(1, now - pan.lastTime);
+    const moveX = clientX - pan.lastX;
+    const moveY = clientY - pan.lastY;
+    const instantVx = -moveX / dt;
+    const instantVy = -moveY / dt;
+    pan.vx = pan.vx * 0.55 + instantVx * 0.45;
+    pan.vy = pan.vy * 0.55 + instantVy * 0.45;
+    pan.lastX = clientX;
+    pan.lastY = clientY;
+    pan.lastTime = now;
+
+    viewer.scrollLeft = pan.scrollLeft - (clientX - pan.startX);
+    viewer.scrollTop = pan.scrollTop - (clientY - pan.startY);
+  }
+
   function startPanMomentum(viewer: HTMLDivElement, vx: number, vy: number) {
     stopPanMomentum();
-    // Ignore tiny flicks so a tap doesn't keep drifting.
-    if (Math.hypot(vx, vy) < 0.05) {
+    if (Math.hypot(vx, vy) < 0.04) {
       scheduleScrollSync();
       scheduleProgressSaveFromScroll();
       return;
@@ -2418,18 +2484,18 @@ export function PdfReader({
     let lastTime = performance.now();
 
     const tick = (now: number) => {
-      const dt = Math.min(32, now - lastTime);
+      const dt = Math.min(34, now - lastTime);
       lastTime = now;
 
       viewer.scrollLeft += velocityX * dt;
       viewer.scrollTop += velocityY * dt;
 
-      // ~exponential friction so the glide eases out smoothly
-      const decay = Math.exp((-4.2 * dt) / 1000);
+      // Longer, softer glide
+      const decay = Math.exp((-2.6 * dt) / 1000);
       velocityX *= decay;
       velocityY *= decay;
 
-      if (Math.hypot(velocityX, velocityY) < 0.02) {
+      if (Math.hypot(velocityX, velocityY) < 0.015) {
         panMomentumFrameRef.current = null;
         scheduleScrollSync();
         scheduleProgressSaveFromScroll();
@@ -2447,6 +2513,7 @@ export function PdfReader({
     const viewer = viewerRef.current;
     if (!viewer) return;
     stopPanMomentum();
+    stopPanMoveFrame();
     const now = performance.now();
     panRef.current = {
       pointerId: e.pointerId,
@@ -2469,30 +2536,30 @@ export function PdfReader({
     }
 
     const pan = panRef.current;
-    const viewer = viewerRef.current;
-    if (!pan || !viewer || pan.pointerId !== e.pointerId) return;
+    if (!pan || pan.pointerId !== e.pointerId) return;
 
-    const now = performance.now();
-    const dt = Math.max(1, now - pan.lastTime);
-    const moveX = e.clientX - pan.lastX;
-    const moveY = e.clientY - pan.lastY;
-    // Finger velocity (px/ms); scroll moves opposite to the drag.
-    const instantVx = -moveX / dt;
-    const instantVy = -moveY / dt;
-    pan.vx = pan.vx * 0.65 + instantVx * 0.35;
-    pan.vy = pan.vy * 0.65 + instantVy * 0.35;
-    pan.lastX = e.clientX;
-    pan.lastY = e.clientY;
-    pan.lastTime = now;
-
-    viewer.scrollLeft = pan.scrollLeft - (e.clientX - pan.startX);
-    viewer.scrollTop = pan.scrollTop - (e.clientY - pan.startY);
+    panPendingPointRef.current = { clientX: e.clientX, clientY: e.clientY };
+    if (panMoveFrameRef.current != null) return;
+    panMoveFrameRef.current = requestAnimationFrame(() => {
+      panMoveFrameRef.current = null;
+      const point = panPendingPointRef.current;
+      panPendingPointRef.current = null;
+      if (!point) return;
+      applyPanPoint(point.clientX, point.clientY);
+    });
   }
 
   function handleViewerPointerUp(e: ReactPointerEvent<HTMLDivElement>) {
     const pan = panRef.current;
     const viewer = viewerRef.current;
     if (!pan || pan.pointerId !== e.pointerId) return;
+
+    // Flush any pending move so velocity matches the last finger position.
+    if (panPendingPointRef.current) {
+      applyPanPoint(panPendingPointRef.current.clientX, panPendingPointRef.current.clientY);
+    }
+    stopPanMoveFrame();
+
     const { vx, vy } = pan;
     panRef.current = null;
     if (viewer?.hasPointerCapture(e.pointerId)) {
@@ -2821,7 +2888,7 @@ export function PdfReader({
         <ReaderStatusBar
           page={page}
           maxPage={maxPage}
-          zoomPercent={Math.round(zoomMultiplier * 100)}
+          zoomPercent={zoomPercentUi}
           onGoToPage={scrollToPage}
           onZoomIn={zoomIn}
           onZoomOut={zoomOut}

@@ -419,6 +419,18 @@ span[data-active="true"] .book-detail-tool-icon {
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   scroll-behavior: auto;
+  scrollbar-gutter: stable;
+}
+
+.reader-viewport-shell.cursor-grab,
+.reader-viewport-shell.cursor-grabbing {
+  touch-action: none;
+}
+
+.reader-page-panel,
+.acrobat-page-panel {
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }
 
 .acrobat-toolbar,
