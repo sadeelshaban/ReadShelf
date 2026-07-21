@@ -54,6 +54,7 @@ import {
   READING_IDLE_SAVE_MS,
   SCROLL_PROGRESS_DEBOUNCE_MS,
   SCROLL_SYNC_DEBOUNCE_MS,
+  WHEEL_ZOOM_SENSITIVITY,
   ZOOM_STEP,
 } from "@/lib/reader/pdf-reader-config";
 import {
@@ -274,7 +275,13 @@ export function PdfReader({
     startY: number;
     scrollLeft: number;
     scrollTop: number;
+    lastX: number;
+    lastY: number;
+    lastTime: number;
+    vx: number;
+    vy: number;
   } | null>(null);
+  const panMomentumFrameRef = useRef<number | null>(null);
   const resumeActionRef = useRef<"continue" | "start-over">("continue");
 
   const [page, setPage] = useState(initialPage);
@@ -485,9 +492,9 @@ export function PdfReader({
         typeof deltaOrTarget === "function" ? deltaOrTarget(current) : deltaOrTarget;
       const clamped = Math.min(
         MAX_ZOOM,
-        Math.max(MIN_ZOOM, Number(raw.toFixed(2))),
+        Math.max(MIN_ZOOM, Number(raw.toFixed(3))),
       );
-      if (Math.abs(clamped - current) < 0.001) return;
+      if (Math.abs(clamped - current) < 0.0005) return;
 
       const ratio = clamped / current;
 
@@ -607,24 +614,23 @@ export function PdfReader({
 
     function flushWheelZoom() {
       zoomWheelFrameRef.current = null;
-      const steps = zoomWheelDeltaRef.current;
+      const dy = zoomWheelDeltaRef.current;
       const anchor = zoomWheelAnchorRef.current;
       zoomWheelDeltaRef.current = 0;
       zoomWheelAnchorRef.current = null;
-      if (!steps || !anchor) return;
+      if (!dy || !anchor) return;
 
-      // Apply the full accumulated delta in one frame for smooth trackpad zooms.
-      changeZoom((current) => current + steps * ZOOM_STEP, anchor);
+      // Continuous exponential zoom — follows trackpad/pinch magnitude, not fixed steps.
+      const factor = Math.exp(-dy * WHEEL_ZOOM_SENSITIVITY);
+      changeZoom((current) => current * factor, anchor);
     }
 
     function onWheel(e: WheelEvent) {
       if (!e.ctrlKey && !e.metaKey) return;
       e.preventDefault();
-      // Pixel/line deltas: normalize so fast gestures zoom further without layout thrash.
       const unit =
-        e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 80 : 1;
-      const normalized = e.deltaY * unit;
-      zoomWheelDeltaRef.current += normalized > 0 ? -0.35 : 0.35;
+        e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? viewer.clientHeight : 1;
+      zoomWheelDeltaRef.current += e.deltaY * unit;
       zoomWheelAnchorRef.current = { clientX: e.clientX, clientY: e.clientY };
       if (zoomWheelFrameRef.current == null) {
         zoomWheelFrameRef.current = requestAnimationFrame(flushWheelZoom);
@@ -637,6 +643,10 @@ export function PdfReader({
       if (zoomWheelFrameRef.current != null) {
         cancelAnimationFrame(zoomWheelFrameRef.current);
         zoomWheelFrameRef.current = null;
+      }
+      if (panMomentumFrameRef.current != null) {
+        cancelAnimationFrame(panMomentumFrameRef.current);
+        panMomentumFrameRef.current = null;
       }
     };
   }, [changeZoom]);
@@ -2387,16 +2397,68 @@ export function PdfReader({
     }
   }
 
+  function stopPanMomentum() {
+    if (panMomentumFrameRef.current != null) {
+      cancelAnimationFrame(panMomentumFrameRef.current);
+      panMomentumFrameRef.current = null;
+    }
+  }
+
+  function startPanMomentum(viewer: HTMLDivElement, vx: number, vy: number) {
+    stopPanMomentum();
+    // Ignore tiny flicks so a tap doesn't keep drifting.
+    if (Math.hypot(vx, vy) < 0.05) {
+      scheduleScrollSync();
+      scheduleProgressSaveFromScroll();
+      return;
+    }
+
+    let velocityX = vx;
+    let velocityY = vy;
+    let lastTime = performance.now();
+
+    const tick = (now: number) => {
+      const dt = Math.min(32, now - lastTime);
+      lastTime = now;
+
+      viewer.scrollLeft += velocityX * dt;
+      viewer.scrollTop += velocityY * dt;
+
+      // ~exponential friction so the glide eases out smoothly
+      const decay = Math.exp((-4.2 * dt) / 1000);
+      velocityX *= decay;
+      velocityY *= decay;
+
+      if (Math.hypot(velocityX, velocityY) < 0.02) {
+        panMomentumFrameRef.current = null;
+        scheduleScrollSync();
+        scheduleProgressSaveFromScroll();
+        return;
+      }
+
+      panMomentumFrameRef.current = requestAnimationFrame(tick);
+    };
+
+    panMomentumFrameRef.current = requestAnimationFrame(tick);
+  }
+
   function handleViewerPointerDown(e: ReactPointerEvent<HTMLDivElement>) {
     if (tool !== "pan" || editingNoteId) return;
     const viewer = viewerRef.current;
     if (!viewer) return;
+    stopPanMomentum();
+    const now = performance.now();
     panRef.current = {
       pointerId: e.pointerId,
       startX: e.clientX,
       startY: e.clientY,
       scrollLeft: viewer.scrollLeft,
       scrollTop: viewer.scrollTop,
+      lastX: e.clientX,
+      lastY: e.clientY,
+      lastTime: now,
+      vx: 0,
+      vy: 0,
     };
     viewer.setPointerCapture(e.pointerId);
   }
@@ -2409,6 +2471,20 @@ export function PdfReader({
     const pan = panRef.current;
     const viewer = viewerRef.current;
     if (!pan || !viewer || pan.pointerId !== e.pointerId) return;
+
+    const now = performance.now();
+    const dt = Math.max(1, now - pan.lastTime);
+    const moveX = e.clientX - pan.lastX;
+    const moveY = e.clientY - pan.lastY;
+    // Finger velocity (px/ms); scroll moves opposite to the drag.
+    const instantVx = -moveX / dt;
+    const instantVy = -moveY / dt;
+    pan.vx = pan.vx * 0.65 + instantVx * 0.35;
+    pan.vy = pan.vy * 0.65 + instantVy * 0.35;
+    pan.lastX = e.clientX;
+    pan.lastY = e.clientY;
+    pan.lastTime = now;
+
     viewer.scrollLeft = pan.scrollLeft - (e.clientX - pan.startX);
     viewer.scrollTop = pan.scrollTop - (e.clientY - pan.startY);
   }
@@ -2417,12 +2493,17 @@ export function PdfReader({
     const pan = panRef.current;
     const viewer = viewerRef.current;
     if (!pan || pan.pointerId !== e.pointerId) return;
+    const { vx, vy } = pan;
     panRef.current = null;
     if (viewer?.hasPointerCapture(e.pointerId)) {
       viewer.releasePointerCapture(e.pointerId);
     }
-    scheduleScrollSync();
-    scheduleProgressSaveFromScroll();
+    if (viewer) {
+      startPanMomentum(viewer, vx, vy);
+    } else {
+      scheduleScrollSync();
+      scheduleProgressSaveFromScroll();
+    }
   }
 
   return (

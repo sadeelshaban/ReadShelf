@@ -416,6 +416,9 @@ span[data-active="true"] .book-detail-tool-icon {
 .acrobat-viewport,
 .reader-viewport-shell {
   background: var(--reader-viewport-bg);
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: auto;
 }
 
 .acrobat-toolbar,
