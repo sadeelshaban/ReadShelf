@@ -645,8 +645,8 @@ export function PdfReader({
   }
 
   useEffect(() => {
-    const viewer = viewerRef.current;
-    if (!viewer) return;
+    const viewerEl = viewerRef.current;
+    if (!viewerEl) return;
 
     function flushWheelZoom() {
       zoomWheelFrameRef.current = null;
@@ -663,8 +663,9 @@ export function PdfReader({
     function onWheel(e: WheelEvent) {
       if (!e.ctrlKey && !e.metaKey) return;
       e.preventDefault();
+      const shell = viewerRef.current;
       const unit =
-        e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? viewer.clientHeight : 1;
+        e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? (shell?.clientHeight ?? 1) : 1;
       zoomWheelDeltaRef.current += e.deltaY * unit;
       zoomWheelAnchorRef.current = { clientX: e.clientX, clientY: e.clientY };
       if (zoomWheelFrameRef.current == null) {
@@ -672,9 +673,9 @@ export function PdfReader({
       }
     }
 
-    viewer.addEventListener("wheel", onWheel, { passive: false });
+    viewerEl.addEventListener("wheel", onWheel, { passive: false });
     return () => {
-      viewer.removeEventListener("wheel", onWheel);
+      viewerEl.removeEventListener("wheel", onWheel);
       if (zoomWheelFrameRef.current != null) {
         cancelAnimationFrame(zoomWheelFrameRef.current);
         zoomWheelFrameRef.current = null;
