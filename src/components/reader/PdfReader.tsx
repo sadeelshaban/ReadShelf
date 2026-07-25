@@ -48,6 +48,7 @@ import {
 import { redrawHighlightLayer, compositeHighlightLayer, syncHighlightBackup } from "@/lib/reader/pdf-reader-canvas";
 import {
   DEFAULT_ZOOM,
+  MAX_RENDER_PIXEL_SCALE,
   MAX_ZOOM,
   MIN_ZOOM,
   PROGRAMMATIC_SCROLL_TIMEOUT_MS,
@@ -55,8 +56,8 @@ import {
   SCROLL_PROGRESS_DEBOUNCE_MS,
   SCROLL_SYNC_DEBOUNCE_MS,
   WHEEL_ZOOM_SENSITIVITY,
+  ZOOM_BUTTON_FACTOR,
   ZOOM_COMMIT_MS,
-  ZOOM_STEP,
 } from "@/lib/reader/pdf-reader-config";
 import {
   bindMapRef,
@@ -595,27 +596,31 @@ export function PdfReader({
   const zoomIn = useCallback(() => {
     const viewer = viewerRef.current;
     if (!viewer) {
-      changeZoom((current) => current + ZOOM_STEP, undefined, { commit: "immediate" });
+      changeZoom((current) => current * ZOOM_BUTTON_FACTOR, undefined, {
+        commit: "debounce",
+      });
       return;
     }
     const rect = viewer.getBoundingClientRect();
-    changeZoom((current) => current + ZOOM_STEP, {
+    changeZoom((current) => current * ZOOM_BUTTON_FACTOR, {
       clientX: rect.left + rect.width / 2,
       clientY: rect.top + rect.height / 2,
-    }, { commit: "immediate" });
+    }, { commit: "debounce" });
   }, [changeZoom]);
 
   const zoomOut = useCallback(() => {
     const viewer = viewerRef.current;
     if (!viewer) {
-      changeZoom((current) => current - ZOOM_STEP, undefined, { commit: "immediate" });
+      changeZoom((current) => current / ZOOM_BUTTON_FACTOR, undefined, {
+        commit: "debounce",
+      });
       return;
     }
     const rect = viewer.getBoundingClientRect();
-    changeZoom((current) => current - ZOOM_STEP, {
+    changeZoom((current) => current / ZOOM_BUTTON_FACTOR, {
       clientX: rect.left + rect.width / 2,
       clientY: rect.top + rect.height / 2,
-    }, { commit: "immediate" });
+    }, { commit: "debounce" });
   }, [changeZoom]);
 
   const setZoomPercent = useCallback(
@@ -931,7 +936,8 @@ export function PdfReader({
     renderTasksRef.current.get(pageNumber)?.cancel();
 
     const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
-    const renderScale = zoom * dpr;
+    // Cap bitmap scale so zoomed-in scrolling stays fluid on the main thread.
+    const renderScale = Math.min(zoom * dpr, MAX_RENDER_PIXEL_SCALE);
 
     let pdfPage;
     try {
@@ -942,16 +948,18 @@ export function PdfReader({
     }
     if (generation !== renderGenRef.current.get(pageNumber)) return;
 
+    const cssViewport = pdfPage.getViewport({ scale: zoom });
+    const cssWidth = cssViewport.width;
+    const cssHeight = cssViewport.height;
     const viewport = pdfPage.getViewport({ scale: renderScale });
     const pixelWidth = viewport.width;
     const pixelHeight = viewport.height;
-    const cssWidth = pixelWidth / dpr;
-    const cssHeight = pixelHeight / dpr;
 
     const alreadyRendered =
       lastRenderedZoomRef.current.get(pageNumber) === zoom &&
       canvas.width === pixelWidth &&
-      canvas.height === pixelHeight;
+      canvas.height === pixelHeight &&
+      Math.abs(Number.parseFloat(canvas.style.width) - cssWidth) < 0.5;
     if (alreadyRendered) return;
 
     // Apply CSS size immediately so layout stays correct while PDF paints.
@@ -1119,20 +1127,30 @@ export function PdfReader({
     });
 
     let cancelled = false;
-    for (const pageNumber of pages) {
-      renderPage(pageNumber, zoom)
-        .then(() => {
+
+    // Render one page at a time and yield between them so zoom/scroll stay responsive.
+    async function renderQueue() {
+      for (const pageNumber of pages) {
+        if (cancelled) return;
+        try {
+          await renderPage(pageNumber, zoom);
           if (!cancelled) setError(null);
-        })
-        .catch((err) => {
+        } catch (err) {
           if (cancelled) return;
           const name = err instanceof Error ? err.name : "";
           if (name === "RenderingCancelledException" || name === "AbortException") {
-            return;
+            continue;
           }
           setError(err instanceof Error ? err.message : "Failed to render page");
+          return;
+        }
+        await new Promise<void>((resolve) => {
+          requestAnimationFrame(() => resolve());
         });
+      }
     }
+
+    void renderQueue();
 
     return () => {
       cancelled = true;
@@ -1396,10 +1414,16 @@ export function PdfReader({
     const viewer = viewerRef.current;
     if (!viewer) return;
 
+    let lastActivityBump = 0;
+
     function onScroll() {
       scheduleScrollSync();
       scheduleProgressSaveFromScroll();
-      bumpStatusActivity();
+      const now = performance.now();
+      if (now - lastActivityBump > 220) {
+        lastActivityBump = now;
+        bumpStatusActivity();
+      }
     }
 
     viewer.addEventListener("scroll", onScroll, { passive: true });

@@ -143,7 +143,7 @@ function ZoomPercentField({
       return;
     }
 
-    const clamped = Math.min(400, Math.max(25, Math.round(parsed)));
+    const clamped = Math.min(600, Math.max(10, Math.round(parsed)));
     setDraft(String(clamped));
     onZoomPercentChange(clamped);
   }

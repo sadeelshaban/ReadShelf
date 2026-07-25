@@ -420,6 +420,8 @@ span[data-active="true"] .book-detail-tool-icon {
   -webkit-overflow-scrolling: touch;
   scroll-behavior: auto;
   scrollbar-gutter: stable;
+  /* Prefer compositor scrolling when zoomed in on large pages */
+  overflow-anchor: none;
 }
 
 .reader-viewport-shell.cursor-grab,
@@ -427,10 +429,15 @@ span[data-active="true"] .book-detail-tool-icon {
   touch-action: none;
 }
 
+.reader-page-surface {
+  contain: layout style;
+}
+
 .reader-page-panel,
 .acrobat-page-panel {
   transform: translateZ(0);
   backface-visibility: hidden;
+  image-rendering: auto;
 }
 
 .acrobat-toolbar,
