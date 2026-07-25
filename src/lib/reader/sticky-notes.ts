@@ -147,7 +147,7 @@ export function isCommentNote(note: Note | null | undefined) {
 }
 
 export function noteKindLabel(note: Note): string {
-  return isCommentNote(note) ? "تعليق" : "ملاحظة لاصقة";
+  return isCommentNote(note) ? "Comment" : "Note";
 }
 
 export function notePreviewLabel(note: Note): string {
@@ -155,18 +155,65 @@ export function notePreviewLabel(note: Note): string {
     const body = noteBody(note);
     if (body) {
       const firstLine = body.split(/\r?\n/)[0]?.trim() ?? "";
-      return firstLine.slice(0, 64) || "تعليق";
+      return firstLine.slice(0, 64) || "Comment";
     }
-    return "تعليق";
+    return "Comment";
   }
   const title = noteTitle(note);
   if (title) return title;
   const body = noteBody(note);
   if (body) {
     const firstLine = body.split(/\r?\n/)[0]?.trim() ?? "";
-    return firstLine.slice(0, 48) || "ملاحظة";
+    return firstLine.slice(0, 48) || "Note";
   }
-  return "ملاحظة";
+  return "Note";
+}
+
+/** Expand page wrap scroll bounds so notes outside the PDF canvas stay trackable. */
+export function noteOverflowExtent(
+  notes: Note[],
+  pageWidth: number,
+  pageHeight: number,
+): { left: number; top: number; width: number; height: number } | null {
+  if (pageWidth <= 0 || pageHeight <= 0 || notes.length === 0) return null;
+
+  let minL = 0;
+  let minT = 0;
+  let maxR = pageWidth;
+  let maxB = pageHeight;
+  let expanded = false;
+
+  for (const note of notes) {
+    const p = note.position;
+    if (!p) continue;
+    const vw = p.viewportWidth && p.viewportWidth > 0 ? p.viewportWidth : pageWidth;
+    const vh = p.viewportHeight && p.viewportHeight > 0 ? p.viewportHeight : pageHeight;
+    const sx = pageWidth / vw;
+    const sy = pageHeight / vh;
+    const x = p.x * sx;
+    const y = p.y * sy;
+    const w = Math.max(1, p.width * sx);
+    const h = Math.max(1, p.height * sy);
+    if (x < 0 || y < 0 || x + w > pageWidth || y + h > pageHeight) {
+      expanded = true;
+    }
+    minL = Math.min(minL, x);
+    minT = Math.min(minT, y);
+    maxR = Math.max(maxR, x + w);
+    maxB = Math.max(maxB, y + h);
+  }
+
+  if (!expanded) return null;
+
+  const pad = 12;
+  const left = Math.min(0, minL) - pad;
+  const top = Math.min(0, minT) - pad;
+  return {
+    left,
+    top,
+    width: Math.max(pageWidth, maxR) + pad - left,
+    height: Math.max(pageHeight, maxB) + pad - top,
+  };
 }
 
 export function detectTextDirection(text: string): "rtl" | "ltr" {

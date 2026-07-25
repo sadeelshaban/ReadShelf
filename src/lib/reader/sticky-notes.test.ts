@@ -7,6 +7,7 @@ import {
   normalizeStickyColor,
   noteHasContent,
   noteKindLabel,
+  noteOverflowExtent,
   notePreviewLabel,
   noteTitle,
   stickyPaperPalette,
@@ -64,8 +65,8 @@ describe("sticky note content helpers", () => {
     expect(notePreviewLabel(note)).toBe("Hello world");
   });
 
-  it("falls back to Arabic placeholder when empty", () => {
-    expect(notePreviewLabel(makeNote())).toBe("ملاحظة");
+  it("falls back to English placeholder when empty", () => {
+    expect(notePreviewLabel(makeNote())).toBe("Note");
   });
 
   it("detects Arabic as RTL", () => {
@@ -92,7 +93,23 @@ describe("sticky note content helpers", () => {
     });
     expect(isStickyNote(sticky)).toBe(true);
     expect(isCommentNote(comment)).toBe(true);
-    expect(noteKindLabel(comment)).toBe("تعليق");
+    expect(noteKindLabel(comment)).toBe("Comment");
     expect(notePreviewLabel(comment)).toBe("تعليق قصير");
+  });
+
+  it("expands page bounds when a note sits outside the canvas", () => {
+    const onPage = makeNote({
+      position: { x: 10, y: 10, width: 40, height: 40, viewportWidth: 100, viewportHeight: 200 },
+    });
+    expect(noteOverflowExtent([onPage], 100, 200)).toBeNull();
+
+    const offPage = makeNote({
+      position: { x: 120, y: -30, width: 50, height: 40, viewportWidth: 100, viewportHeight: 200 },
+    });
+    const extent = noteOverflowExtent([offPage], 100, 200);
+    expect(extent).not.toBeNull();
+    expect(extent!.left).toBeLessThan(0);
+    expect(extent!.width).toBeGreaterThan(100);
+    expect(extent!.height).toBeGreaterThan(200);
   });
 });

@@ -139,6 +139,7 @@ import {
   isNoteOnPage,
   isStickyNote,
   noteHasContent,
+  noteOverflowExtent,
   noteTitle,
   normalizeStickyColor,
   OFF_PAGE_NOTE_EXPORT_NOTICE,
@@ -1483,27 +1484,42 @@ export function PdfReader({
   useEffect(() => {
     if (!focusNoteId || focusedNoteRef.current || loading || !resumeReady) return;
 
+    const target = notesRef.current.find((entry) => entry.id === focusNoteId);
+    if (target) {
+      setRenderedPages((prev) =>
+        mergeRenderedPages(prev, target.page_number, maxPageRef.current),
+      );
+      scrollToPage(target.page_number, "auto");
+    }
+
     let attempts = 0;
     let timer: ReturnType<typeof setTimeout> | null = null;
+    let cancelled = false;
 
     const tryFocus = () => {
-      const el = document.querySelector(`[data-note-id="${CSS.escape(focusNoteId)}"]`);
+      if (cancelled || focusedNoteRef.current) return;
+      const el = document.querySelector(
+        `[data-note-id="${CSS.escape(focusNoteId)}"]`,
+      );
       if (el instanceof HTMLElement) {
         focusedNoteRef.current = true;
-        el.scrollIntoView({ block: "center", behavior: "smooth" });
+        el.scrollIntoView({ block: "center", inline: "center", behavior: "smooth" });
+        el.classList.add("reader-note-focus");
+        window.setTimeout(() => el.classList.remove("reader-note-focus"), 1800);
         return;
       }
       attempts += 1;
-      if (attempts < 40) {
+      if (attempts < 60) {
         timer = setTimeout(tryFocus, 50);
       }
     };
 
-    timer = setTimeout(tryFocus, 80);
+    timer = setTimeout(tryFocus, 100);
     return () => {
+      cancelled = true;
       if (timer) clearTimeout(timer);
     };
-  }, [focusNoteId, loading, resumeReady, renderedPages, zoomMultiplier]);
+  }, [focusNoteId, loading, resumeReady, scrollToPage]);
 
   useEffect(() => {
     return () => {
@@ -2953,6 +2969,21 @@ export function PdfReader({
               const pageBookmarks = bookmarks.filter(
                 (bookmark) => bookmark.page_number === pageNumber,
               );
+              const pageNotes = notes.filter(
+                (note) => note.page_number === pageNumber,
+              );
+              const canvasEl = canvasRefs.current.get(pageNumber);
+              const pageDisplayW = canvasEl
+                ? Number.parseFloat(canvasEl.style.width) || slotWidth
+                : slotWidth;
+              const pageDisplayH = canvasEl
+                ? Number.parseFloat(canvasEl.style.height) || slotHeight
+                : slotHeight;
+              const noteExtent = noteOverflowExtent(
+                pageNotes,
+                pageDisplayW,
+                pageDisplayH,
+              );
 
               return (
                 <div
@@ -2969,6 +3000,13 @@ export function PdfReader({
                   )}
                   onPointerDown={(e) => handleContainerPointerDown(e, pageNumber)}
                 >
+                  {noteExtent && (
+                    <div
+                      aria-hidden
+                      className="pointer-events-none absolute"
+                      style={noteExtent}
+                    />
+                  )}
                   {pageBookmarks.map((bookmark, bookmarkIndex) => (
                     <PageBookmarkRibbon
                       key={bookmark.id}
@@ -3005,9 +3043,7 @@ export function PdfReader({
                         onPointerUp={(e) => handleDrawPointerUp(e, pageNumber)}
                         onPointerLeave={(e) => handleDrawPointerUp(e, pageNumber)}
                       />
-                      {notes
-                        .filter((note) => note.page_number === pageNumber)
-                        .map((note) =>
+                      {pageNotes.map((note) =>
                           isCommentNote(note) ? (
                             <PageComment
                               key={note.id}

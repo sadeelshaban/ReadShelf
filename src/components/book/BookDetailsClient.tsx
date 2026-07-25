@@ -17,7 +17,6 @@ import {
 import {
   isCommentNote,
   noteHasContent,
-  noteKindLabel,
   notePreviewLabel,
   stickyPaperPalette,
 } from "@/lib/reader/sticky-notes";
@@ -122,7 +121,6 @@ function NoteAnnotationCard({
 }) {
   const palette = stickyPaperPalette(note.text_color);
   const preview = notePreviewLabel(note);
-  const kind = noteKindLabel(note);
 
   return (
     <Link
@@ -133,9 +131,6 @@ function NoteAnnotationCard({
         <span className="flex items-center gap-2 text-sm font-semibold text-[#3c2a21]">
           <PageIcon />
           Page {pageNumber}
-          <span className="rounded-full bg-[#eadbc8]/60 px-2 py-0.5 text-[10px] font-medium text-[#6f4528]">
-            {kind}
-          </span>
         </span>
         <p
           className="mt-1.5 pl-6 text-sm leading-snug text-[#5b4028]"
@@ -148,7 +143,7 @@ function NoteAnnotationCard({
       <span
         className="mt-1 h-3.5 w-3.5 shrink-0 rounded-sm border border-[#eadbc8]/90 shadow-sm"
         style={{ backgroundColor: isCommentNote(note) ? "#c9952a" : palette.brand }}
-        title={kind}
+        aria-hidden
       />
     </Link>
   );

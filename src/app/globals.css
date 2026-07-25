@@ -445,8 +445,15 @@ span[data-active="true"] .book-detail-tool-icon {
 }
 
 .reader-page-surface {
-  contain: layout style;
+  /* Do not use contain:layout — off-page notes must expand scrollable overflow. */
   flex-shrink: 0;
+  overflow: visible;
+}
+
+.reader-note-focus {
+  outline: 2px solid #c9952a;
+  outline-offset: 3px;
+  box-shadow: 0 0 0 4px rgba(201, 149, 42, 0.25);
 }
 
 .reader-page-panel,
