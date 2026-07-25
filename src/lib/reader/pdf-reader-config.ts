@@ -4,7 +4,7 @@ export const MAX_ZOOM = 6;
 export const ZOOM_BUTTON_FACTOR = 1.08;
 /** @deprecated Prefer ZOOM_BUTTON_FACTOR; kept for typed percent nudges. */
 export const ZOOM_STEP = 0.05;
-export const DEFAULT_ZOOM = 0.55;
+export const DEFAULT_ZOOM = 0.5;
 /** Pixel-delta → log-zoom scale for Ctrl/Meta + wheel / trackpad pinch. */
 export const WHEEL_ZOOM_SENSITIVITY = 0.0035;
 /** Wait after last zoom input before crisp PDF re-render. */

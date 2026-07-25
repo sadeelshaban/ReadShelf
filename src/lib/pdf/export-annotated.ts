@@ -17,6 +17,7 @@ import {
 } from "@/lib/reader/constants";
 import {
   noteBody,
+  isNoteOnPage,
   noteHasContent,
   noteTitle,
   stickyPaperPalette,
@@ -171,6 +172,8 @@ function drawNotesOnPage(
 
   for (const note of pageNotes) {
     if (!note.position || !noteHasContent(note)) continue;
+    // Reader-only notes parked outside the page are not drawn into the PDF.
+    if (!isNoteOnPage(note.position)) continue;
 
     const viewport = resolveNoteViewport(note, pageFallback);
     const title = noteTitle(note);

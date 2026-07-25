@@ -131,10 +131,12 @@ import {
   DEFAULT_STICKY_HEIGHT,
   DEFAULT_STICKY_WIDTH,
   isCommentNote,
+  isNoteOnPage,
   isStickyNote,
   noteHasContent,
   noteTitle,
   normalizeStickyColor,
+  OFF_PAGE_NOTE_EXPORT_NOTICE,
 } from "@/lib/reader/sticky-notes";
 import { ReadAgainPrompt } from "@/components/reader/ReadAgainPrompt";
 import { LoadingState } from "@/components/ui/LoadingState";
@@ -159,6 +161,7 @@ type PdfReaderProps = {
   initialPage: number;
   initialScrollY: number | null;
   initialZoom: number | null;
+  focusNoteId?: string | null;
   restoreScrollPosition: boolean;
   showResumePrompt: boolean;
   showReadAgainPrompt: boolean;
@@ -177,6 +180,7 @@ export function PdfReader({
   initialPage,
   initialScrollY,
   initialZoom,
+  focusNoteId = null,
   restoreScrollPosition,
   showResumePrompt,
   showReadAgainPrompt,
@@ -321,6 +325,9 @@ export function PdfReader({
   const [showResumeOverlay, setShowResumeOverlay] = useState(showResumePrompt);
   const [showReadAgainOverlay, setShowReadAgainOverlay] = useState(showReadAgainPrompt);
   const [message, setMessage] = useState<string | null>(null);
+  const [infoToast, setInfoToast] = useState<string | null>(null);
+  const infoToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const focusedNoteRef = useRef(false);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [noteTextColor, setNoteTextColor] = useState(DEFAULT_STICKY_COLOR);
   const [noteFontSize, setNoteFontSize] = useState(DEFAULT_NOTE_FONT_SIZE);
@@ -1410,6 +1417,39 @@ export function PdfReader({
   }, [loading, fitScaleReady, resumeReady, restoreSavedPosition]);
 
   useEffect(() => {
+    if (!focusNoteId || focusedNoteRef.current || loading || !resumeReady) return;
+
+    let attempts = 0;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const tryFocus = () => {
+      const el = document.querySelector(`[data-note-id="${CSS.escape(focusNoteId)}"]`);
+      if (el instanceof HTMLElement) {
+        focusedNoteRef.current = true;
+        el.scrollIntoView({ block: "center", behavior: "smooth" });
+        return;
+      }
+      attempts += 1;
+      if (attempts < 40) {
+        timer = setTimeout(tryFocus, 50);
+      }
+    };
+
+    timer = setTimeout(tryFocus, 80);
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [focusNoteId, loading, resumeReady, renderedPages, zoomMultiplier]);
+
+  useEffect(() => {
+    return () => {
+      if (infoToastTimerRef.current) {
+        clearTimeout(infoToastTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     if (loading || maxPage <= 0) return;
     const viewer = viewerRef.current;
     if (!viewer) return;
@@ -2416,11 +2456,29 @@ export function PdfReader({
     );
   }
 
+  function showInfoToast(text: string) {
+    if (infoToastTimerRef.current) {
+      clearTimeout(infoToastTimerRef.current);
+    }
+    setInfoToast(text);
+    infoToastTimerRef.current = setTimeout(() => {
+      setInfoToast(null);
+      infoToastTimerRef.current = null;
+    }, 6500);
+  }
+
   async function moveNote(id: string, position: NotePosition) {
     const previous = notes.find((entry) => entry.id === id)?.position ?? null;
+    const wasOnPage = previous ? isNoteOnPage(previous) : true;
+    const nowOnPage = isNoteOnPage(position);
+
     setNotes((prev) =>
       prev.map((n) => (n.id === id ? { ...n, position } : n)),
     );
+
+    if (wasOnPage && !nowOnPage) {
+      showInfoToast(OFF_PAGE_NOTE_EXPORT_NOTICE);
+    }
 
     try {
       await moveNoteApi(id, position);
@@ -2647,6 +2705,15 @@ export function PdfReader({
             </p>
           )}
           {message && <p className={darkMode ? "text-amber-300" : "text-amber-700"}>{message}</p>}
+        </div>
+      )}
+
+      {infoToast && (
+        <div
+          role="status"
+          className="pointer-events-none absolute bottom-20 left-1/2 z-50 w-[min(28rem,calc(100%-2rem))] -translate-x-1/2 rounded-xl border border-[#eadbc8] bg-[#fffdf9] px-4 py-3 text-center text-sm leading-snug text-[#3c2a21] shadow-[0_12px_32px_rgba(31,22,16,0.18)]"
+        >
+          {infoToast}
         </div>
       )}
 

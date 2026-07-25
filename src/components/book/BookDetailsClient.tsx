@@ -664,7 +664,7 @@ export function BookDetailsClient({
                 {highlightGroups.map((group) => (
                   <li key={group.pageNumber}>
                     <AnnotationCard
-                      href={`/book/${book.id}/read?page=${group.pageNumber}`}
+                      href={`/book/${book.id}/read?page=${group.pageNumber}&zoom=0.5`}
                       pageNumber={group.pageNumber}
                       subtitle={
                         group.highlightIds.length > 1
@@ -688,7 +688,7 @@ export function BookDetailsClient({
                   group.notes.map((note) => (
                     <li key={note.id}>
                       <NoteAnnotationCard
-                        href={`/book/${book.id}/read?page=${group.pageNumber}`}
+                        href={`/book/${book.id}/read?page=${group.pageNumber}&zoom=0.5&note=${note.id}`}
                         pageNumber={group.pageNumber}
                         note={note}
                       />
@@ -706,7 +706,7 @@ export function BookDetailsClient({
                 {displayBookmarks.map((bookmark) => (
                   <li key={bookmark.id}>
                     <Link
-                      href={`/book/${book.id}/read?page=${bookmark.page_number}`}
+                      href={`/book/${book.id}/read?page=${bookmark.page_number}&zoom=0.5`}
                       className="flex items-start justify-between gap-4 rounded-xl border border-[#eadbc8]/70 bg-[#fff8f1] px-4 py-3.5 transition duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:bg-[#fffdf9] hover:shadow-[0_8px_20px_rgba(31,22,16,0.08)]"
                     >
                       <div className="min-w-0">

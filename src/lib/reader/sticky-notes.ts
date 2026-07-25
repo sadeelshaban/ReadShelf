@@ -118,6 +118,19 @@ export function noteHasContent(note: Note | null | undefined): boolean {
   return noteTitle(note).length > 0 || noteBody(note).length > 0;
 }
 
+/** True when the note rectangle intersects the page canvas bounds. */
+export function isNoteOnPage(position: NotePosition | null | undefined): boolean {
+  if (!position) return false;
+  const vw = position.viewportWidth ?? 0;
+  const vh = position.viewportHeight ?? 0;
+  if (vw <= 0 || vh <= 0) return true;
+  const { x, y, width, height } = position;
+  return x < vw && y < vh && x + width > 0 && y + height > 0;
+}
+
+export const OFF_PAGE_NOTE_EXPORT_NOTICE =
+  "Notes placed outside the book pages stay in the reader only and will not appear when you download the PDF.";
+
 export function noteKind(note: Note | NotePosition | null | undefined): "sticky" | "comment" {
   if (!note) return "sticky";
   const kind =
