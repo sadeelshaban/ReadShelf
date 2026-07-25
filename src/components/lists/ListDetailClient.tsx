@@ -421,7 +421,7 @@ export function ListDetailClient({ listId }: ListDetailClientProps) {
                 <div className="flex flex-wrap justify-start gap-x-4 gap-y-4">
                   {availableBooks.map((book) => {
                     const checked = selectedIds.has(book.id);
-                    const coverUrl = shelfCoverUrls[book.id] ?? null;
+                    const coverUrl = shelfCoverUrls[book.id];
                     const author = book.author.trim() || "Unknown";
                     const pagesLabel = book.total_pages
                       ? `${book.total_pages} Pages`
@@ -456,9 +456,16 @@ export function ListDetailClient({ listId }: ListDetailClientProps) {
                               unoptimized
                               onError={() => void refreshCover(book.id)}
                             />
+                          ) : coverUrl === undefined ? (
+                            <span
+                              className="block h-full w-full animate-pulse bg-gradient-to-br from-[#efe4d4] via-[#e8dcc8] to-[#dfd0ba]"
+                              aria-hidden
+                            />
                           ) : (
-                            <span className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/10 to-accent/20 px-1.5 text-center font-serif text-[9px] text-primary">
-                              No cover
+                            <span className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#f0dfc8] to-[#e2c9a8]">
+                              <span className="font-serif text-lg font-semibold text-primary/35" dir="auto">
+                                {book.title.trim().charAt(0) || "·"}
+                              </span>
                             </span>
                           )}
                           <span

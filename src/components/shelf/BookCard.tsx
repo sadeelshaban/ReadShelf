@@ -1,16 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { CoverArt } from "@/components/shelf/CoverArt";
 import type { BookWithCounts } from "@/types";
 import { getReadButtonLabel } from "@/lib/pdf";
 import { cn } from "@/lib/utils";
 
 type BookCardProps = {
   book: BookWithCounts;
-  coverUrl: string | null;
+  /** `undefined` while covers resolve — shows a pulse, never "No cover". */
+  coverUrl: string | null | undefined;
   onCoverError?: (bookId: string) => void;
   /** Optional overflow menu (e.g. remove from reading list). */
   menuItems?: Array<{ label: string; onClick: () => void; danger?: boolean }>;
@@ -114,25 +115,15 @@ export function BookCard({ book, coverUrl, onCoverError, menuItems }: BookCardPr
           aria-label={`Open ${book.title}`}
           onPointerUp={handleCoverPointerUp}
         >
-          {coverUrl ? (
-            <Image
-              src={coverUrl}
-              alt=""
-              fill
-              sizes="176px"
-              className="object-cover object-center"
-              unoptimized
-              onError={() => {
-                if (retriedCoverRef.current) return;
-                retriedCoverRef.current = true;
-                onCoverError?.(book.id);
-              }}
-            />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/10 to-accent/20 px-2 text-center font-serif text-[10px] text-primary">
-              No cover
-            </div>
-          )}
+          <CoverArt
+            coverUrl={coverUrl}
+            title={book.title}
+            onError={() => {
+              if (retriedCoverRef.current) return;
+              retriedCoverRef.current = true;
+              onCoverError?.(book.id);
+            }}
+          />
         </button>
 
         {menuItems && menuItems.length > 0 && (

@@ -93,7 +93,6 @@ export function ListsPageClient() {
 
     try {
       const fetched = await fetchReadingListsClient();
-      setLists(fetched);
       setOffline(false);
 
       const previewBooks = fetched.flatMap((list) =>
@@ -102,12 +101,13 @@ export function ListsPageClient() {
           cover_path: book.cover_path,
         })),
       );
-      if (previewBooks.length > 0) {
-        const urls = await fetchCoverUrlsClient(previewBooks, { force: false });
-        setCoverUrls(urls);
-      } else {
-        setCoverUrls({});
-      }
+      const urls =
+        previewBooks.length > 0
+          ? await fetchCoverUrlsClient(previewBooks, { force: false })
+          : {};
+
+      setCoverUrls(urls);
+      setLists(fetched);
     } catch {
       setMessage("Could not load reading lists.");
     } finally {

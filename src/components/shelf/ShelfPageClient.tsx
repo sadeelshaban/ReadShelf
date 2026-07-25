@@ -56,14 +56,14 @@ export function ShelfPageClient() {
 
       setBooks(fetched);
       setOffline(false);
-      setLoading(false);
-
       void cacheBooks(fetched).catch(() => undefined);
 
+      // Wait for signed cover URLs so the shelf never flashes empty "No cover" tiles.
       const urls = await fetchCoverUrlsClient(fetched, { force: true });
       if (cancelled()) return;
       setCoverUrls(urls);
       void persistCachedCoverUrls(fetched, urls).catch(() => undefined);
+      setLoading(false);
     } catch {
       if (cancelled()) return;
       setBooks(cached);
@@ -124,7 +124,7 @@ export function ShelfPageClient() {
 
         <LibraryTabs />
 
-        {books.length > 0 && <ShelfStats books={books} />}
+        {!loading && books.length > 0 && <ShelfStats books={books} />}
       </header>
 
       {offline && (
@@ -134,13 +134,13 @@ export function ShelfPageClient() {
         </p>
       )}
 
-      {loading && books.length === 0 ? (
-        <LoadingState label="Loading shelf..." />
+      {loading ? (
+        <LoadingState />
       ) : (
         <ShelfGrid
           books={books}
           coverUrls={coverUrls}
-          loading={loading}
+          loading={false}
           onCoverError={refreshCover}
         />
       )}

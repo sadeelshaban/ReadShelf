@@ -479,8 +479,10 @@ export function BookDetailsClient({
                 priority
               />
             ) : (
-              <div className="flex h-full items-center justify-center bg-gradient-to-br from-primary/15 to-accent/25 font-serif text-primary">
-                No cover
+              <div className="flex h-full items-center justify-center bg-gradient-to-br from-[#f0dfc8] to-[#e2c9a8]">
+                <span className="font-serif text-4xl font-semibold text-primary/35" dir="auto">
+                  {book.title.trim().charAt(0) || "·"}
+                </span>
               </div>
             )}
             {isUnread && (

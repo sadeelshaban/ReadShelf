@@ -116,7 +116,7 @@ export function ShelfGrid({
               <BookCard
                 key={book.id}
                 book={book}
-                coverUrl={coverUrls[book.id] ?? null}
+                coverUrl={coverUrls[book.id]}
                 onCoverError={onCoverError}
                 menuItems={bookMenuItems?.(book)}
               />
