@@ -269,6 +269,7 @@ export function PdfReader({
   const scrollProgressTimerRef = useRef<number | null>(null);
   const idleProgressTimerRef = useRef<number | null>(null);
   const programmaticScrollTimerRef = useRef<number | null>(null);
+  const seekRafRef = useRef<number | null>(null);
   const saveProgressRef = useRef<(currentPage: number) => Promise<void>>(async () => {});
   const zoomAnchorRef = useRef<ZoomAnchor | null>(null);
   const zoomMultiplierRef = useRef(initialZoom ?? DEFAULT_ZOOM);
@@ -406,11 +407,9 @@ export function PdfReader({
 
       const target = programmaticScrollTargetRef.current;
       if (target !== null && !options?.force) {
-        if (visible === target) {
-          programmaticScrollTargetRef.current = null;
-        } else {
-          return;
-        }
+        // Keep the seek target until scrollToPage finishes — clearing here lets
+        // mid-layout scroll sync land on the wrong page after deep links.
+        return;
       }
 
       if (visible !== pageRef.current) {
@@ -448,38 +447,67 @@ export function PdfReader({
     }, READING_IDLE_SAVE_MS);
   }, []);
 
-  const scrollToPage = useCallback((target: number, behavior: ScrollBehavior = "smooth") => {
+  const scrollToPage = useCallback((target: number, _behavior: ScrollBehavior = "smooth") => {
     const clamped = Math.min(maxPageRef.current, Math.max(1, target));
     programmaticScrollTargetRef.current = clamped;
+    pageRef.current = clamped;
 
     if (programmaticScrollTimerRef.current) {
       window.clearTimeout(programmaticScrollTimerRef.current);
+      programmaticScrollTimerRef.current = null;
+    }
+    if (seekRafRef.current != null) {
+      cancelAnimationFrame(seekRafRef.current);
+      seekRafRef.current = null;
     }
 
-    setRenderedPages((prev) => mergeRenderedPages(prev, clamped, maxPageRef.current));
+    // Render a wider window so placeholder heights around the target are ready.
+    setRenderedPages((prev) => mergeRenderedPages(prev, clamped, maxPageRef.current, 4));
     setPage(clamped);
 
-    const attemptScroll = (retriesLeft: number) => {
+    const startedAt = performance.now();
+    const maxMs = 2200;
+    let stableFrames = 0;
+
+    const tick = () => {
+      if (programmaticScrollTargetRef.current !== clamped) return;
+
       const viewer = viewerRef.current;
       const pageWrap = pageWrapRefs.current.get(clamped);
       if (viewer && pageWrap) {
-        scrollViewerToPage(viewer, pageWrap, behavior);
-        return;
+        // Always correct with instant scroll during the seek loop (Chrome-like jump).
+        scrollViewerToPage(viewer, pageWrap, "auto");
+        const viewerRect = viewer.getBoundingClientRect();
+        const pageRect = pageWrap.getBoundingClientRect();
+        const aligned = Math.abs(pageRect.top - (viewerRect.top + 8)) < 56;
+        stableFrames = aligned ? stableFrames + 1 : 0;
+
+        if (stableFrames >= 3) {
+          programmaticScrollTimerRef.current = window.setTimeout(() => {
+            if (programmaticScrollTargetRef.current === clamped) {
+              programmaticScrollTargetRef.current = null;
+            }
+            // Trust the seek target — don't let a mid-layout sync override the page.
+            setPage(clamped);
+            pageRef.current = clamped;
+          }, 180);
+          seekRafRef.current = null;
+          return;
+        }
       }
-      if (retriesLeft > 0) {
-        requestAnimationFrame(() => attemptScroll(retriesLeft - 1));
+
+      if (performance.now() - startedAt < maxMs) {
+        seekRafRef.current = requestAnimationFrame(tick);
+      } else {
+        programmaticScrollTargetRef.current = null;
+        setPage(clamped);
+        pageRef.current = clamped;
+        seekRafRef.current = null;
       }
     };
 
-    requestAnimationFrame(() => attemptScroll(12));
-
-    programmaticScrollTimerRef.current = window.setTimeout(() => {
-      if (programmaticScrollTargetRef.current === clamped) {
-        programmaticScrollTargetRef.current = null;
-      }
-      syncPageFromScroll({ force: true });
-    }, behavior === "smooth" ? PROGRAMMATIC_SCROLL_TIMEOUT_MS : 120);
-  }, [syncPageFromScroll]);
+    seekRafRef.current = requestAnimationFrame(tick);
+  }, []);
 
   const goToPrevPage = useCallback(() => {
     scrollToPage(pageRef.current - 1);
@@ -937,21 +965,18 @@ export function PdfReader({
         return;
       }
 
-      programmaticScrollTargetRef.current = initialPage;
-
       if (restoreScrollPosition && initialScrollY != null && initialScrollY > 0) {
+        programmaticScrollTargetRef.current = initialPage;
         viewer.scrollTop = initialScrollY;
-      } else {
-        const pageWrap = pageWrapRefs.current.get(initialPage);
-        if (pageWrap) {
-          scrollViewerToPage(viewer, pageWrap, behavior);
-        }
+        window.setTimeout(() => {
+          programmaticScrollTargetRef.current = null;
+          syncPageFromScroll({ force: true });
+        }, 200);
+        return;
       }
 
-      window.setTimeout(() => {
-        programmaticScrollTargetRef.current = null;
-        syncPageFromScroll({ force: true });
-      }, behavior === "smooth" ? PROGRAMMATIC_SCROLL_TIMEOUT_MS : 150);
+      // Annotation / deep-link jumps: keep correcting until the target page is stable.
+      scrollToPage(initialPage, "auto");
     },
     [
       bookId,
@@ -959,6 +984,7 @@ export function PdfReader({
       initialScrollY,
       pdfNumPages,
       restoreScrollPosition,
+      scrollToPage,
       syncPageFromScroll,
       totalPages,
     ],
@@ -1481,15 +1507,27 @@ export function PdfReader({
     requestAnimationFrame(() => restoreSavedPosition("auto"));
   }, [loading, fitScaleReady, resumeReady, restoreSavedPosition]);
 
+  // While seeking a deep-linked page, re-pin after zoom/slot layout shifts.
+  useEffect(() => {
+    const target = programmaticScrollTargetRef.current;
+    if (target == null || loading || !fitScaleReady) return;
+    const viewer = viewerRef.current;
+    const pageWrap = pageWrapRefs.current.get(target);
+    if (viewer && pageWrap) {
+      scrollViewerToPage(viewer, pageWrap, "auto");
+    }
+  }, [zoomMultiplier, pageSlotSize, fitScale, fitScaleReady, loading]);
+
   useEffect(() => {
     if (!focusNoteId || focusedNoteRef.current || loading || !resumeReady) return;
 
     const target = notesRef.current.find((entry) => entry.id === focusNoteId);
-    if (target) {
-      setRenderedPages((prev) =>
-        mergeRenderedPages(prev, target.page_number, maxPageRef.current),
-      );
+    // Only jump to the note's page when the note still exists; otherwise stay on ?page=.
+    if (target && noteHasContent(target)) {
       scrollToPage(target.page_number, "auto");
+    } else {
+      focusedNoteRef.current = true;
+      return;
     }
 
     let attempts = 0;
@@ -1498,23 +1536,37 @@ export function PdfReader({
 
     const tryFocus = () => {
       if (cancelled || focusedNoteRef.current) return;
+      // Wait until the page seek finishes so scrollIntoView can't yank us mid-jump.
+      if (programmaticScrollTargetRef.current != null) {
+        attempts += 1;
+        if (attempts < 80) {
+          timer = setTimeout(tryFocus, 40);
+        } else {
+          focusedNoteRef.current = true;
+        }
+        return;
+      }
+
       const el = document.querySelector(
         `[data-note-id="${CSS.escape(focusNoteId)}"]`,
       );
       if (el instanceof HTMLElement) {
         focusedNoteRef.current = true;
-        el.scrollIntoView({ block: "center", inline: "center", behavior: "smooth" });
+        el.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
         el.classList.add("reader-note-focus");
         window.setTimeout(() => el.classList.remove("reader-note-focus"), 1800);
         return;
       }
       attempts += 1;
-      if (attempts < 60) {
-        timer = setTimeout(tryFocus, 50);
+      if (attempts < 80) {
+        timer = setTimeout(tryFocus, 40);
+      } else {
+        // Note missing from the reader — keep the page seek, don't wander.
+        focusedNoteRef.current = true;
       }
     };
 
-    timer = setTimeout(tryFocus, 100);
+    timer = setTimeout(tryFocus, 200);
     return () => {
       cancelled = true;
       if (timer) clearTimeout(timer);
@@ -1525,6 +1577,14 @@ export function PdfReader({
     return () => {
       if (infoToastTimerRef.current) {
         clearTimeout(infoToastTimerRef.current);
+      }
+      if (seekRafRef.current != null) {
+        cancelAnimationFrame(seekRafRef.current);
+        seekRafRef.current = null;
+      }
+      if (programmaticScrollTimerRef.current) {
+        window.clearTimeout(programmaticScrollTimerRef.current);
+        programmaticScrollTimerRef.current = null;
       }
     };
   }, []);

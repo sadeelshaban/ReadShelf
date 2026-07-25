@@ -20,7 +20,12 @@ import {
   notePreviewLabel,
   stickyPaperPalette,
 } from "@/lib/reader/sticky-notes";
-import { flushSyncQueue, loadBookAnnotations, loadBookBookmarks } from "@/lib/offline/reader-api";
+import {
+  deleteNote,
+  flushSyncQueue,
+  loadBookAnnotations,
+  loadBookBookmarks,
+} from "@/lib/offline/reader-api";
 import { cacheBook } from "@/lib/offline/books-store";
 import { purgeBookFromLocalCache } from "@/lib/offline/purge-book-cache";
 import { Button } from "@/components/ui/Button";
@@ -114,38 +119,53 @@ function NoteAnnotationCard({
   href,
   pageNumber,
   note,
+  onDelete,
+  deleting,
 }: {
   href: string;
   pageNumber: number;
   note: Note;
+  onDelete: () => void;
+  deleting?: boolean;
 }) {
   const palette = stickyPaperPalette(note.text_color);
   const preview = notePreviewLabel(note);
 
   return (
-    <Link
-      href={href}
-      className="flex items-start justify-between gap-4 rounded-xl border border-[#eadbc8]/70 bg-[#fff8f1] px-4 py-3.5 transition duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:bg-[#fffdf9] hover:shadow-[0_8px_20px_rgba(31,22,16,0.08)]"
-    >
-      <div className="min-w-0 flex-1">
-        <span className="flex items-center gap-2 text-sm font-semibold text-[#3c2a21]">
-          <PageIcon />
-          Page {pageNumber}
-        </span>
-        <p
-          className="mt-1.5 pl-6 text-sm leading-snug text-[#5b4028]"
-          dir="auto"
-          style={{ fontFamily: '"Noto Sans Arabic", "Segoe UI", Tahoma, Arial, sans-serif' }}
-        >
-          {preview}
-        </p>
-      </div>
-      <span
-        className="mt-1 h-3.5 w-3.5 shrink-0 rounded-sm border border-[#eadbc8]/90 shadow-sm"
-        style={{ backgroundColor: isCommentNote(note) ? "#c9952a" : palette.brand }}
-        aria-hidden
-      />
-    </Link>
+    <div className="flex items-stretch gap-2 rounded-xl border border-[#eadbc8]/70 bg-[#fff8f1] transition duration-200 hover:border-primary/30 hover:bg-[#fffdf9] hover:shadow-[0_8px_20px_rgba(31,22,16,0.08)]">
+      <Link
+        href={href}
+        className="flex min-w-0 flex-1 items-start justify-between gap-4 px-4 py-3.5"
+      >
+        <div className="min-w-0 flex-1">
+          <span className="flex items-center gap-2 text-sm font-semibold text-[#3c2a21]">
+            <PageIcon />
+            Page {pageNumber}
+          </span>
+          <p
+            className="mt-1.5 pl-6 text-sm leading-snug text-[#5b4028]"
+            dir="auto"
+            style={{ fontFamily: '"Noto Sans Arabic", "Segoe UI", Tahoma, Arial, sans-serif' }}
+          >
+            {preview}
+          </p>
+        </div>
+        <span
+          className="mt-1 h-3.5 w-3.5 shrink-0 rounded-sm border border-[#eadbc8]/90 shadow-sm"
+          style={{ backgroundColor: isCommentNote(note) ? "#c9952a" : palette.brand }}
+          aria-hidden
+        />
+      </Link>
+      <button
+        type="button"
+        onClick={onDelete}
+        disabled={deleting}
+        className="shrink-0 px-3 text-xs font-medium text-red-600/80 transition hover:bg-red-50 hover:text-red-700 disabled:opacity-50"
+        aria-label="Delete note"
+      >
+        {deleting ? "..." : "Delete"}
+      </button>
+    </div>
   );
 }
 
@@ -259,12 +279,15 @@ export function BookDetailsClient({
   const router = useRouter();
   const [book, setBook] = useState(initialBook);
   const [displayHighlights, setDisplayHighlights] = useState(serverHighlights);
-  const [displayNotes, setDisplayNotes] = useState(serverNotes);
+  const [displayNotes, setDisplayNotes] = useState(() =>
+    serverNotes.filter((note) => noteHasContent(note)),
+  );
   const [displayBookmarks, setDisplayBookmarks] = useState(serverBookmarks);
   const [tab, setTab] = useState<Tab>("bookmarks");
   const [message, setMessage] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -274,11 +297,27 @@ export function BookDetailsClient({
   const refreshAnnotations = useCallback(async () => {
     await flushSyncQueue();
     const local = await loadBookAnnotations(book.id);
-    const bookmarks = await loadBookBookmarks(book.id);
-    setDisplayHighlights(mergeAnnotationsById(serverHighlights, local.highlights));
-    setDisplayNotes(mergeAnnotationsById(serverNotes, local.notes));
+    const localBookmarks = await loadBookBookmarks(book.id);
+
+    // Server wins on conflicts so stale IndexedDB page numbers don't mis-route jumps.
+    const highlights = mergeAnnotationsById(local.highlights, serverHighlights).filter(
+      (h) => h.highlight_type !== "pen" && !h.highlight_type.startsWith("shape_"),
+    );
+    const mergedNotes = mergeAnnotationsById(local.notes, serverNotes);
+    const notes = mergedNotes.filter((note) => noteHasContent(note));
+    const bookmarks = mergeAnnotationsById(localBookmarks, serverBookmarks);
+
+    // Drop empty leftovers that still inflate the Notes count.
+    for (const note of mergedNotes) {
+      if (!noteHasContent(note)) {
+        void deleteNote(note.id).catch(() => undefined);
+      }
+    }
+
+    setDisplayHighlights(highlights);
+    setDisplayNotes(notes);
     setDisplayBookmarks(bookmarks);
-  }, [book.id, serverHighlights, serverNotes]);
+  }, [book.id, serverBookmarks, serverHighlights, serverNotes]);
 
   useEffect(() => {
     void refreshAnnotations();
@@ -296,6 +335,25 @@ export function BookDetailsClient({
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
   }, [refreshAnnotations]);
+
+  const handleDeleteNote = useCallback(
+    async (noteId: string) => {
+      if (deletingNoteId) return;
+      const confirmed = window.confirm("Delete this note?");
+      if (!confirmed) return;
+      setDeletingNoteId(noteId);
+      setMessage(null);
+      try {
+        await deleteNote(noteId);
+        setDisplayNotes((prev) => prev.filter((note) => note.id !== noteId));
+      } catch {
+        setMessage("Couldn't delete the note. Try again.");
+      } finally {
+        setDeletingNoteId(null);
+      }
+    },
+    [deletingNoteId],
+  );
 
   const highlightGroups = groupHighlightsByPage(
     displayHighlights.filter(
@@ -686,6 +744,8 @@ export function BookDetailsClient({
                         href={`/book/${book.id}/read?page=${group.pageNumber}&zoom=0.5&note=${note.id}`}
                         pageNumber={group.pageNumber}
                         note={note}
+                        onDelete={() => void handleDeleteNote(note.id)}
+                        deleting={deletingNoteId === note.id}
                       />
                     </li>
                   )),
