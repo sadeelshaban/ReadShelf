@@ -429,8 +429,14 @@ span[data-active="true"] .book-detail-tool-icon {
   touch-action: none;
 }
 
+/* w-max column: page width drives scrollWidth so Chrome-style zoom anchoring stays stable */
+.reader-pages-column {
+  box-sizing: border-box;
+}
+
 .reader-page-surface {
   contain: layout style;
+  flex-shrink: 0;
 }
 
 .reader-page-panel,

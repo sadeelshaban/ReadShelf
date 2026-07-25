@@ -77,6 +77,12 @@ import {
   scrollViewerToPage,
 } from "@/lib/reader/pdf-reader-scroll";
 import {
+  applyZoomAnchor,
+  captureZoomAnchor,
+  scaleNoteRoots,
+  type ZoomAnchor,
+} from "@/lib/reader/pdf-reader-zoom";
+import {
   canNavigatePages as canNavigatePagesCheck,
   isDrawingTool,
   isInteractiveDrawLayer,
@@ -264,17 +270,14 @@ export function PdfReader({
   const idleProgressTimerRef = useRef<number | null>(null);
   const programmaticScrollTimerRef = useRef<number | null>(null);
   const saveProgressRef = useRef<(currentPage: number) => Promise<void>>(async () => {});
-  const pendingZoomRestoreRef = useRef<{
-    scrollTop: number;
-    scrollLeft: number;
-    pageNumber: number;
-  } | null>(null);
+  const zoomAnchorRef = useRef<ZoomAnchor | null>(null);
   const zoomMultiplierRef = useRef(initialZoom ?? DEFAULT_ZOOM);
   const pageSlotSizeRef = useRef<{ width: number; height: number } | null>(null);
   const zoomWheelDeltaRef = useRef(0);
   const zoomWheelAnchorRef = useRef<{ clientX: number; clientY: number } | null>(null);
   const zoomWheelFrameRef = useRef<number | null>(null);
   const zoomCommitTimerRef = useRef<number | null>(null);
+  const zoomAnchorFrameRef = useRef<number | null>(null);
   const lastRenderedZoomRef = useRef<Map<number, number>>(new Map());
   const panRef = useRef<{
     pointerId: number;
@@ -483,15 +486,27 @@ export function PdfReader({
   goToPrevPageRef.current = goToPrevPage;
   goToNextPageRef.current = goToNextPage;
 
-  const restorePendingZoomScroll = useCallback(() => {
-    const pending = pendingZoomRestoreRef.current;
+  const reapplyZoomAnchor = useCallback((clearAfter = false) => {
     const viewer = viewerRef.current;
-    if (!pending || !viewer) return;
-
-    viewer.scrollTop = pending.scrollTop;
-    viewer.scrollLeft = pending.scrollLeft;
-    pendingZoomRestoreRef.current = null;
+    const anchor = zoomAnchorRef.current;
+    if (!viewer || !anchor) return;
+    applyZoomAnchor(viewer, pageWrapRefs.current, anchor);
+    if (clearAfter) zoomAnchorRef.current = null;
   }, []);
+
+  const scheduleZoomAnchorRepair = useCallback(() => {
+    if (zoomAnchorFrameRef.current != null) {
+      cancelAnimationFrame(zoomAnchorFrameRef.current);
+    }
+    // Double rAF: once after style changes, once after React/layout commit.
+    zoomAnchorFrameRef.current = requestAnimationFrame(() => {
+      reapplyZoomAnchor(false);
+      zoomAnchorFrameRef.current = requestAnimationFrame(() => {
+        zoomAnchorFrameRef.current = null;
+        reapplyZoomAnchor(false);
+      });
+    });
+  }, [reapplyZoomAnchor]);
 
   const commitZoomState = useCallback(() => {
     const next = zoomMultiplierRef.current;
@@ -499,12 +514,17 @@ export function PdfReader({
     setZoomMultiplier(next);
     setZoomPercentUi(Math.round(next * 100));
     if (slot) setPageSlotSize({ ...slot });
-  }, []);
+    // React layout can shift centered pages — pin the cursor point again.
+    scheduleZoomAnchorRepair();
+    window.setTimeout(() => {
+      reapplyZoomAnchor(true);
+    }, ZOOM_COMMIT_MS + 32);
+  }, [reapplyZoomAnchor, scheduleZoomAnchorRepair]);
 
   const changeZoom = useCallback(
     (
       deltaOrTarget: number | ((current: number) => number),
-      anchor?: { clientX: number; clientY: number },
+      pointer?: { clientX: number; clientY: number },
       options?: { commit?: "immediate" | "debounce" },
     ) => {
       const viewer = viewerRef.current;
@@ -522,22 +542,16 @@ export function PdfReader({
       const ratio = clamped / current;
       zoomMultiplierRef.current = clamped;
 
-      if (anchor) {
-        const rect = viewer.getBoundingClientRect();
-        const contentX = anchor.clientX - rect.left + viewer.scrollLeft;
-        const contentY = anchor.clientY - rect.top + viewer.scrollTop;
-        pendingZoomRestoreRef.current = {
-          scrollLeft: contentX * ratio - (anchor.clientX - rect.left),
-          scrollTop: contentY * ratio - (anchor.clientY - rect.top),
-          pageNumber: pageRef.current,
-        };
-      } else {
-        pendingZoomRestoreRef.current = {
-          scrollTop: viewer.scrollTop * ratio,
-          scrollLeft: viewer.scrollLeft * ratio,
-          pageNumber: pageRef.current,
-        };
-      }
+      const rect = viewer.getBoundingClientRect();
+      const pointerX = pointer?.clientX ?? rect.left + rect.width / 2;
+      const pointerY = pointer?.clientY ?? rect.top + rect.height / 2;
+      // Chrome: keep the page point under the cursor fixed on screen.
+      zoomAnchorRef.current = captureZoomAnchor(
+        pointerX,
+        pointerY,
+        pageWrapRefs.current,
+        pageRef.current,
+      );
 
       // Live visual zoom via DOM only — avoid React re-renders / PDF redraw mid-gesture.
       const slot = pageSlotSizeRef.current;
@@ -558,25 +572,27 @@ export function PdfReader({
         }
       }
 
-      for (const canvas of canvasRefs.current.values()) {
+      for (const [pageNumber, canvas] of canvasRefs.current) {
         const w = Number.parseFloat(canvas.style.width);
         const h = Number.parseFloat(canvas.style.height);
         if (w > 0 && h > 0) {
           canvas.style.width = `${w * ratio}px`;
           canvas.style.height = `${h * ratio}px`;
         }
-      }
-      for (const drawLayer of drawLayerRefs.current.values()) {
-        const w = Number.parseFloat(drawLayer.style.width);
-        const h = Number.parseFloat(drawLayer.style.height);
-        if (w > 0 && h > 0) {
-          drawLayer.style.width = `${w * ratio}px`;
-          drawLayer.style.height = `${h * ratio}px`;
+        const drawLayer = drawLayerRefs.current.get(pageNumber);
+        if (drawLayer) {
+          const dw = Number.parseFloat(drawLayer.style.width);
+          const dh = Number.parseFloat(drawLayer.style.height);
+          if (dw > 0 && dh > 0) {
+            drawLayer.style.width = `${dw * ratio}px`;
+            drawLayer.style.height = `${dh * ratio}px`;
+          }
         }
+        const wrap = pageWrapRefs.current.get(pageNumber);
+        if (wrap) scaleNoteRoots(wrap, ratio);
       }
 
-      // Keep the cursor/content anchored in the same frame as the size change.
-      restorePendingZoomScroll();
+      applyZoomAnchor(viewer, pageWrapRefs.current, zoomAnchorRef.current);
 
       const mode = options?.commit ?? "immediate";
       if (mode === "immediate") {
@@ -588,7 +604,6 @@ export function PdfReader({
         return;
       }
 
-      // Defer React/PDF work until the gesture settles so zoom stays buttery.
       if (zoomCommitTimerRef.current != null) {
         window.clearTimeout(zoomCommitTimerRef.current);
       }
@@ -597,7 +612,7 @@ export function PdfReader({
         commitZoomState();
       }, ZOOM_COMMIT_MS);
     },
-    [commitZoomState, restorePendingZoomScroll],
+    [commitZoomState],
   );
 
   const zoomIn = useCallback(() => {
@@ -695,6 +710,10 @@ export function PdfReader({
       if (zoomCommitTimerRef.current != null) {
         window.clearTimeout(zoomCommitTimerRef.current);
         zoomCommitTimerRef.current = null;
+      }
+      if (zoomAnchorFrameRef.current != null) {
+        cancelAnimationFrame(zoomAnchorFrameRef.current);
+        zoomAnchorFrameRef.current = null;
       }
       if (panMomentumFrameRef.current != null) {
         cancelAnimationFrame(panMomentumFrameRef.current);
@@ -1059,15 +1078,12 @@ export function PdfReader({
 
     redrawPageHighlights(pageNumber, highlightsRef.current);
 
-    if (
-      pendingZoomRestoreRef.current &&
-      pageNumber === pendingZoomRestoreRef.current.pageNumber
-    ) {
+    if (zoomAnchorRef.current?.pageNumber === pageNumber) {
       requestAnimationFrame(() => {
-        restorePendingZoomScroll();
+        reapplyZoomAnchor(false);
       });
     }
-  }, [restorePendingZoomScroll]);
+  }, [reapplyZoomAnchor]);
 
   useEffect(() => {
     let active = true;
@@ -1165,9 +1181,9 @@ export function PdfReader({
   }, [renderedPages, fitScale, fitScaleReady, zoomMultiplier, renderPage, loading]);
 
   useEffect(() => {
-    if (loading || !fitScaleReady || !pendingZoomRestoreRef.current) return;
-    restorePendingZoomScroll();
-  }, [zoomMultiplier, fitScale, pageSlotSize, fitScaleReady, loading, restorePendingZoomScroll]);
+    if (loading || !fitScaleReady || !zoomAnchorRef.current) return;
+    scheduleZoomAnchorRepair();
+  }, [zoomMultiplier, fitScale, pageSlotSize, fitScaleReady, loading, scheduleZoomAnchorRepair]);
 
   useEffect(() => {
     if (isDrawingRef.current || isErasingRef.current) return;
@@ -1889,6 +1905,26 @@ export function PdfReader({
           event.preventDefault();
           event.stopPropagation();
           void performRedo();
+          return;
+        }
+
+        // Chrome-style zoom shortcuts: Ctrl/Cmd + / - / 0
+        if (event.code === "Equal" || event.code === "NumpadAdd") {
+          event.preventDefault();
+          event.stopPropagation();
+          zoomIn();
+          return;
+        }
+        if (event.code === "Minus" || event.code === "NumpadSubtract") {
+          event.preventDefault();
+          event.stopPropagation();
+          zoomOut();
+          return;
+        }
+        if (event.code === "Digit0" || event.code === "Numpad0") {
+          event.preventDefault();
+          event.stopPropagation();
+          setZoomPercent(Math.round(DEFAULT_ZOOM * 100));
           return;
         }
       }
@@ -2857,7 +2893,7 @@ export function PdfReader({
             </p>
           )}
           <div
-            className="mx-auto flex w-full max-w-full flex-col items-center gap-2.5 py-4"
+            className="reader-pages-column mx-auto flex w-max min-w-full max-w-none flex-col items-center gap-2.5 py-4"
             style={{ visibility: loading || error ? "hidden" : "visible" }}
           >
             {Array.from({ length: maxPage }, (_, index) => {
