@@ -7,8 +7,8 @@ export const ZOOM_STEP = 0.05;
 export const DEFAULT_ZOOM = 0.5;
 /** Pixel-delta → log-zoom scale for Ctrl/Meta + wheel / trackpad pinch. */
 export const WHEEL_ZOOM_SENSITIVITY = 0.0035;
-/** Wait after last zoom input before crisp PDF re-render. */
-export const ZOOM_COMMIT_MS = 150;
+/** Wait after last zoom input before baking layout + crisp PDF re-render. */
+export const ZOOM_COMMIT_MS = 200;
 /**
  * Cap canvas bitmap scale (cssZoom * devicePixelRatio).
  * Keeps scroll smooth when zoomed in — CSS size stays exact, bitmap may be slightly softer.

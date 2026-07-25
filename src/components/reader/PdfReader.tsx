@@ -79,7 +79,6 @@ import {
 import {
   applyZoomAnchor,
   captureZoomAnchor,
-  scaleNoteRoots,
   type ZoomAnchor,
 } from "@/lib/reader/pdf-reader-zoom";
 import {
@@ -272,12 +271,18 @@ export function PdfReader({
   const saveProgressRef = useRef<(currentPage: number) => Promise<void>>(async () => {});
   const zoomAnchorRef = useRef<ZoomAnchor | null>(null);
   const zoomMultiplierRef = useRef(initialZoom ?? DEFAULT_ZOOM);
+  /** Committed layout zoom — live gestures preview via CSS transform until bake. */
+  const committedZoomRef = useRef(initialZoom ?? DEFAULT_ZOOM);
+  const liveZoomRef = useRef(initialZoom ?? DEFAULT_ZOOM);
+  const zoomPreviewRef = useRef(1);
+  const zoomPointerRef = useRef<{ clientX: number; clientY: number } | null>(null);
+  const zoomSpacerRef = useRef<HTMLDivElement>(null);
+  const zoomLayerRef = useRef<HTMLDivElement>(null);
   const pageSlotSizeRef = useRef<{ width: number; height: number } | null>(null);
   const zoomWheelDeltaRef = useRef(0);
   const zoomWheelAnchorRef = useRef<{ clientX: number; clientY: number } | null>(null);
   const zoomWheelFrameRef = useRef<number | null>(null);
   const zoomCommitTimerRef = useRef<number | null>(null);
-  const zoomAnchorFrameRef = useRef<number | null>(null);
   const lastRenderedZoomRef = useRef<Map<number, number>>(new Map());
   const panRef = useRef<{
     pointerId: number;
@@ -486,40 +491,126 @@ export function PdfReader({
   goToPrevPageRef.current = goToPrevPage;
   goToNextPageRef.current = goToNextPage;
 
-  const reapplyZoomAnchor = useCallback((clearAfter = false) => {
+  const applyLiveZoomPreview = useCallback(
+    (nextPreview: number, pointer: { clientX: number; clientY: number }) => {
+      const viewer = viewerRef.current;
+      const layer = zoomLayerRef.current;
+      const spacer = zoomSpacerRef.current;
+      if (!viewer || !layer || !spacer) return;
+
+      const prevPreview = zoomPreviewRef.current;
+      const rect = viewer.getBoundingClientRect();
+      const ox = pointer.clientX - rect.left;
+      const oy = pointer.clientY - rect.top;
+      const contentX = (viewer.scrollLeft + ox) / prevPreview;
+      const contentY = (viewer.scrollTop + oy) / prevPreview;
+
+      // GPU path: one transform + spacer size — no per-page layout thrash.
+      const naturalW = layer.offsetWidth;
+      const naturalH = layer.offsetHeight;
+      layer.style.transform = nextPreview === 1 ? "" : `scale(${nextPreview})`;
+      layer.style.transformOrigin = "0 0";
+      spacer.style.width = `${Math.max(naturalW * nextPreview, viewer.clientWidth)}px`;
+      spacer.style.height = `${naturalH * nextPreview}px`;
+
+      viewer.scrollLeft = contentX * nextPreview - ox;
+      viewer.scrollTop = contentY * nextPreview - oy;
+      zoomPreviewRef.current = nextPreview;
+    },
+    [],
+  );
+
+  const bakeZoomPreview = useCallback(() => {
     const viewer = viewerRef.current;
-    const anchor = zoomAnchorRef.current;
-    if (!viewer || !anchor) return;
-    applyZoomAnchor(viewer, pageWrapRefs.current, anchor);
-    if (clearAfter) zoomAnchorRef.current = null;
-  }, []);
+    const layer = zoomLayerRef.current;
+    const spacer = zoomSpacerRef.current;
+    if (!viewer || !layer || !spacer) return;
 
-  const scheduleZoomAnchorRepair = useCallback(() => {
-    if (zoomAnchorFrameRef.current != null) {
-      cancelAnimationFrame(zoomAnchorFrameRef.current);
+    const live = liveZoomRef.current;
+    const committed = committedZoomRef.current;
+    const preview = zoomPreviewRef.current;
+    const ratio = live / committed;
+    if (Math.abs(ratio - 1) < 0.0002 && preview === 1) {
+      setZoomPercentUi(Math.round(live * 100));
+      return;
     }
-    // Double rAF: once after style changes, once after React/layout commit.
-    zoomAnchorFrameRef.current = requestAnimationFrame(() => {
-      reapplyZoomAnchor(false);
-      zoomAnchorFrameRef.current = requestAnimationFrame(() => {
-        zoomAnchorFrameRef.current = null;
-        reapplyZoomAnchor(false);
-      });
-    });
-  }, [reapplyZoomAnchor]);
 
-  const commitZoomState = useCallback(() => {
-    const next = zoomMultiplierRef.current;
+    const pointer = zoomPointerRef.current;
+    const rect = viewer.getBoundingClientRect();
+    const ox = pointer ? pointer.clientX - rect.left : rect.width / 2;
+    const oy = pointer ? pointer.clientY - rect.top : rect.height / 2;
+    const contentX = (viewer.scrollLeft + ox) / preview;
+    const contentY = (viewer.scrollTop + oy) / preview;
+
     const slot = pageSlotSizeRef.current;
-    setZoomMultiplier(next);
-    setZoomPercentUi(Math.round(next * 100));
-    if (slot) setPageSlotSize({ ...slot });
-    // React layout can shift centered pages — pin the cursor point again.
-    scheduleZoomAnchorRepair();
-    window.setTimeout(() => {
-      reapplyZoomAnchor(true);
-    }, ZOOM_COMMIT_MS + 32);
-  }, [reapplyZoomAnchor, scheduleZoomAnchorRepair]);
+    if (slot) {
+      pageSlotSizeRef.current = {
+        width: slot.width * ratio,
+        height: slot.height * ratio,
+      };
+    }
+
+    for (const [pageNumber, canvas] of canvasRefs.current) {
+      const w = Number.parseFloat(canvas.style.width);
+      const h = Number.parseFloat(canvas.style.height);
+      if (w > 0 && h > 0) {
+        canvas.style.width = `${w * ratio}px`;
+        canvas.style.height = `${h * ratio}px`;
+      }
+      const drawLayer = drawLayerRefs.current.get(pageNumber);
+      if (drawLayer) {
+        const dw = Number.parseFloat(drawLayer.style.width);
+        const dh = Number.parseFloat(drawLayer.style.height);
+        if (dw > 0 && dh > 0) {
+          drawLayer.style.width = `${dw * ratio}px`;
+          drawLayer.style.height = `${dh * ratio}px`;
+        }
+      }
+    }
+
+    for (const [pageNumber, wrap] of pageWrapRefs.current) {
+      if (canvasRefs.current.has(pageNumber)) continue;
+      const placeholder = wrap.firstElementChild as HTMLElement | null;
+      const nextSlot = pageSlotSizeRef.current;
+      if (placeholder && nextSlot) {
+        placeholder.style.width = `${nextSlot.width}px`;
+        placeholder.style.height = `${nextSlot.height}px`;
+      }
+    }
+
+    layer.style.transform = "";
+    spacer.style.width = "";
+    spacer.style.height = "";
+    zoomPreviewRef.current = 1;
+    committedZoomRef.current = live;
+    zoomMultiplierRef.current = live;
+
+    viewer.scrollLeft = contentX * ratio - ox;
+    viewer.scrollTop = contentY * ratio - oy;
+
+    // Re-pin after layout (centering / note remount) using page-relative anchor.
+    if (pointer) {
+      zoomAnchorRef.current = captureZoomAnchor(
+        pointer.clientX,
+        pointer.clientY,
+        pageWrapRefs.current,
+        pageRef.current,
+      );
+      requestAnimationFrame(() => {
+        const anchor = zoomAnchorRef.current;
+        if (anchor && viewerRef.current) {
+          applyZoomAnchor(viewerRef.current, pageWrapRefs.current, anchor);
+        }
+        zoomAnchorRef.current = null;
+      });
+    }
+
+    setZoomMultiplier(live);
+    setZoomPercentUi(Math.round(live * 100));
+    if (pageSlotSizeRef.current) {
+      setPageSlotSize({ ...pageSlotSizeRef.current });
+    }
+  }, []);
 
   const changeZoom = useCallback(
     (
@@ -530,7 +621,7 @@ export function PdfReader({
       const viewer = viewerRef.current;
       if (!viewer) return;
 
-      const current = zoomMultiplierRef.current;
+      const current = liveZoomRef.current;
       const raw =
         typeof deltaOrTarget === "function" ? deltaOrTarget(current) : deltaOrTarget;
       const clamped = Math.min(
@@ -539,60 +630,25 @@ export function PdfReader({
       );
       if (Math.abs(clamped - current) < 0.0002) return;
 
-      const ratio = clamped / current;
+      liveZoomRef.current = clamped;
       zoomMultiplierRef.current = clamped;
 
       const rect = viewer.getBoundingClientRect();
       const pointerX = pointer?.clientX ?? rect.left + rect.width / 2;
       const pointerY = pointer?.clientY ?? rect.top + rect.height / 2;
-      // Chrome: keep the page point under the cursor fixed on screen.
-      zoomAnchorRef.current = captureZoomAnchor(
-        pointerX,
-        pointerY,
-        pageWrapRefs.current,
-        pageRef.current,
-      );
+      zoomPointerRef.current = { clientX: pointerX, clientY: pointerY };
 
-      // Live visual zoom via DOM only — avoid React re-renders / PDF redraw mid-gesture.
-      const slot = pageSlotSizeRef.current;
-      if (slot) {
-        const nextSlot = {
-          width: slot.width * ratio,
-          height: slot.height * ratio,
-        };
-        pageSlotSizeRef.current = nextSlot;
-
-        for (const [pageNumber, wrap] of pageWrapRefs.current) {
-          if (canvasRefs.current.has(pageNumber)) continue;
-          const placeholder = wrap.firstElementChild as HTMLElement | null;
-          if (placeholder) {
-            placeholder.style.width = `${nextSlot.width}px`;
-            placeholder.style.height = `${nextSlot.height}px`;
-          }
-        }
+      // Before the pages layer mounts, fall back to a direct state update.
+      if (!zoomLayerRef.current || !zoomSpacerRef.current) {
+        committedZoomRef.current = clamped;
+        zoomPreviewRef.current = 1;
+        setZoomMultiplier(clamped);
+        setZoomPercentUi(Math.round(clamped * 100));
+        return;
       }
 
-      for (const [pageNumber, canvas] of canvasRefs.current) {
-        const w = Number.parseFloat(canvas.style.width);
-        const h = Number.parseFloat(canvas.style.height);
-        if (w > 0 && h > 0) {
-          canvas.style.width = `${w * ratio}px`;
-          canvas.style.height = `${h * ratio}px`;
-        }
-        const drawLayer = drawLayerRefs.current.get(pageNumber);
-        if (drawLayer) {
-          const dw = Number.parseFloat(drawLayer.style.width);
-          const dh = Number.parseFloat(drawLayer.style.height);
-          if (dw > 0 && dh > 0) {
-            drawLayer.style.width = `${dw * ratio}px`;
-            drawLayer.style.height = `${dh * ratio}px`;
-          }
-        }
-        const wrap = pageWrapRefs.current.get(pageNumber);
-        if (wrap) scaleNoteRoots(wrap, ratio);
-      }
-
-      applyZoomAnchor(viewer, pageWrapRefs.current, zoomAnchorRef.current);
+      const preview = clamped / committedZoomRef.current;
+      applyLiveZoomPreview(preview, { clientX: pointerX, clientY: pointerY });
 
       const mode = options?.commit ?? "immediate";
       if (mode === "immediate") {
@@ -600,7 +656,7 @@ export function PdfReader({
           window.clearTimeout(zoomCommitTimerRef.current);
           zoomCommitTimerRef.current = null;
         }
-        commitZoomState();
+        bakeZoomPreview();
         return;
       }
 
@@ -609,10 +665,10 @@ export function PdfReader({
       }
       zoomCommitTimerRef.current = window.setTimeout(() => {
         zoomCommitTimerRef.current = null;
-        commitZoomState();
+        bakeZoomPreview();
       }, ZOOM_COMMIT_MS);
     },
-    [commitZoomState],
+    [applyLiveZoomPreview, bakeZoomPreview],
   );
 
   const zoomIn = useCallback(() => {
@@ -710,10 +766,6 @@ export function PdfReader({
       if (zoomCommitTimerRef.current != null) {
         window.clearTimeout(zoomCommitTimerRef.current);
         zoomCommitTimerRef.current = null;
-      }
-      if (zoomAnchorFrameRef.current != null) {
-        cancelAnimationFrame(zoomAnchorFrameRef.current);
-        zoomAnchorFrameRef.current = null;
       }
       if (panMomentumFrameRef.current != null) {
         cancelAnimationFrame(panMomentumFrameRef.current);
@@ -1077,13 +1129,7 @@ export function PdfReader({
     }
 
     redrawPageHighlights(pageNumber, highlightsRef.current);
-
-    if (zoomAnchorRef.current?.pageNumber === pageNumber) {
-      requestAnimationFrame(() => {
-        reapplyZoomAnchor(false);
-      });
-    }
-  }, [reapplyZoomAnchor]);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -1141,6 +1187,9 @@ export function PdfReader({
 
   useEffect(() => {
     if (!pdfRef.current || loading || !fitScaleReady) return;
+    // Skip PDF redraw while a live CSS-zoom preview is active.
+    if (zoomPreviewRef.current !== 1) return;
+
     const zoom = fitScale * zoomMultiplier;
     const currentPage = pageRef.current;
     const pages = [...renderedPages].sort((a, b) => {
@@ -1151,10 +1200,10 @@ export function PdfReader({
 
     let cancelled = false;
 
-    // Render one page at a time and yield between them so zoom/scroll stay responsive.
     async function renderQueue() {
-      for (const pageNumber of pages) {
+      for (let i = 0; i < pages.length; i += 1) {
         if (cancelled) return;
+        const pageNumber = pages[i]!;
         try {
           await renderPage(pageNumber, zoom);
           if (!cancelled) setError(null);
@@ -1167,9 +1216,13 @@ export function PdfReader({
           setError(err instanceof Error ? err.message : "Failed to render page");
           return;
         }
-        await new Promise<void>((resolve) => {
-          requestAnimationFrame(() => resolve());
-        });
+        // Yield longer after the visible page so zoom/scroll stay fluid.
+        const delayFrames = i === 0 ? 1 : 2;
+        for (let f = 0; f < delayFrames; f += 1) {
+          await new Promise<void>((resolve) => {
+            requestAnimationFrame(() => resolve());
+          });
+        }
       }
     }
 
@@ -1179,11 +1232,6 @@ export function PdfReader({
       cancelled = true;
     };
   }, [renderedPages, fitScale, fitScaleReady, zoomMultiplier, renderPage, loading]);
-
-  useEffect(() => {
-    if (loading || !fitScaleReady || !zoomAnchorRef.current) return;
-    scheduleZoomAnchorRepair();
-  }, [zoomMultiplier, fitScale, pageSlotSize, fitScaleReady, loading, scheduleZoomAnchorRepair]);
 
   useEffect(() => {
     if (isDrawingRef.current || isErasingRef.current) return;
@@ -2892,8 +2940,10 @@ export function PdfReader({
               {error}
             </p>
           )}
+          <div ref={zoomSpacerRef} className="reader-zoom-spacer">
           <div
-            className="reader-pages-column mx-auto flex w-max min-w-full max-w-none flex-col items-center gap-2.5 py-4"
+            ref={zoomLayerRef}
+            className="reader-pages-column reader-zoom-layer mx-auto flex w-max min-w-full max-w-none flex-col items-center gap-2.5 py-4"
             style={{ visibility: loading || error ? "hidden" : "visible" }}
           >
             {Array.from({ length: maxPage }, (_, index) => {
@@ -3010,6 +3060,7 @@ export function PdfReader({
                 </div>
               );
             })}
+          </div>
           </div>
         </div>
 

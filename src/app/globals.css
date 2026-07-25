@@ -429,7 +429,17 @@ span[data-active="true"] .book-detail-tool-icon {
   touch-action: none;
 }
 
-/* w-max column: page width drives scrollWidth so Chrome-style zoom anchoring stays stable */
+/* Live zoom uses transform on .reader-zoom-layer; spacer holds scrollable size. */
+.reader-zoom-spacer {
+  position: relative;
+  min-width: 100%;
+  box-sizing: border-box;
+}
+
+.reader-zoom-layer {
+  will-change: transform;
+}
+
 .reader-pages-column {
   box-sizing: border-box;
 }
