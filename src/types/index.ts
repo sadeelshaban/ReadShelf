@@ -37,7 +37,7 @@ export type NotePosition = {
   rotation?: number;
   /** sticky = paper note; comment = light text annotation */
   kind?: "sticky" | "comment";
-  /** When true, fontSize is screen pixels and does not scale with page zoom. */
+  /** When true, fontSize was stored as screen pixels (legacy); ignored for new notes. */
   commentFontScreen?: boolean;
   viewportWidth?: number;
   viewportHeight?: number;

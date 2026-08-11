@@ -11,6 +11,7 @@ import {
 import type { Note, NotePosition } from "@/types";
 import {
   displayCommentFromPagePosition,
+  displayFontSizeFromLayout,
   pageCommentPositionFromDisplay,
   type ViewportSize,
 } from "@/lib/reader/coordinates";
@@ -26,14 +27,13 @@ export type PageCommentProps = {
   note: Note;
   editing: boolean;
   liveFontSize?: number;
-  /** Live CSS zoom preview on the pages layer (counter-scales text). */
-  zoomPreview?: number;
   onFinish: (id: string, text: string) => void;
   onDelete: (id: string) => void;
   onMove: (id: string, position: NotePosition) => void;
   onStartEdit: (id: string) => void;
   onDraftChange: (id: string, text: string) => void;
   canvasRef: { current: HTMLCanvasElement | null };
+  canvasDisplayWidth: number;
   pageViewport: ViewportSize;
 };
 
@@ -41,13 +41,13 @@ export function PageComment({
   note,
   editing,
   liveFontSize,
-  zoomPreview = 1,
   onFinish,
   onDelete,
   onMove,
   onStartEdit,
   onDraftChange,
   canvasRef,
+  canvasDisplayWidth,
   pageViewport,
 }: PageCommentProps) {
   const dragRef = useRef<{
@@ -72,8 +72,14 @@ export function PageComment({
   const dir = detectTextDirection(text || note.note_text);
   const display = note.note_text.trim();
   const fontSize =
-    editing && liveFontSize != null ? liveFontSize : (localPos?.fontSize ?? DEFAULT_NOTE_FONT_SIZE);
-  const screenFontSize = fontSize / Math.max(zoomPreview, 0.0001);
+    editing && liveFontSize != null && canvasDisplayWidth > 0
+      ? displayFontSizeFromLayout(
+          liveFontSize,
+          canvasDisplayWidth,
+          pageViewport.width,
+          note.position,
+        )
+      : (localPos?.fontSize ?? DEFAULT_NOTE_FONT_SIZE);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -204,7 +210,7 @@ export function PageComment({
         left: localPos.x,
         top: localPos.y,
         fontFamily: stickyNoteFontStack(),
-        fontSize: screenFontSize,
+        fontSize,
       }}
       onPointerDown={(e) => e.stopPropagation()}
       onMouseEnter={() => setShowActions(true)}

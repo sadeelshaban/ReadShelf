@@ -18,7 +18,7 @@ import type {
   ShapeKind,
 } from "@/types";
 import { createClient } from "@/lib/supabase/client";
-import { canvasPointFromClient, commentFontSizeToScreen, normalizeCommentPosition, type ViewportSize } from "@/lib/reader/coordinates";
+import { canvasPointFromClient, migrateCommentToPageAnchored, type ViewportSize } from "@/lib/reader/coordinates";
 import {
   DEFAULT_NOTE_FONT_SIZE,
   MAX_NOTE_FONT_SIZE,
@@ -292,7 +292,6 @@ export function PdfReader({
   const committedZoomRef = useRef(initialZoom ?? DEFAULT_ZOOM);
   const liveZoomRef = useRef(initialZoom ?? DEFAULT_ZOOM);
   const zoomPreviewRef = useRef(1);
-  const [zoomPreview, setZoomPreview] = useState(1);
   const zoomPointerRef = useRef<{ clientX: number; clientY: number } | null>(null);
   const zoomSpacerRef = useRef<HTMLDivElement>(null);
   const zoomLayerRef = useRef<HTMLDivElement>(null);
@@ -573,7 +572,6 @@ export function PdfReader({
       viewer.scrollLeft = contentX * nextPreview - ox;
       viewer.scrollTop = contentY * nextPreview - oy;
       zoomPreviewRef.current = nextPreview;
-      setZoomPreview(nextPreview);
     },
     [],
   );
@@ -640,7 +638,6 @@ export function PdfReader({
     spacer.style.width = "";
     spacer.style.height = "";
     zoomPreviewRef.current = 1;
-    setZoomPreview(1);
     committedZoomRef.current = live;
     zoomMultiplierRef.current = live;
 
@@ -701,7 +698,6 @@ export function PdfReader({
       if (!zoomLayerRef.current || !zoomSpacerRef.current) {
         committedZoomRef.current = clamped;
         zoomPreviewRef.current = 1;
-        setZoomPreview(1);
         setZoomMultiplier(clamped);
         setZoomPercentUi(Math.round(clamped * 100));
         return;
@@ -1338,7 +1334,7 @@ export function PdfReader({
       const canvas = canvasRefs.current.get(note.page_number);
       if (!canvas || !renderedPages.has(note.page_number)) continue;
 
-      const normalized = normalizeCommentPosition(note.position, canvas);
+      const normalized = migrateCommentToPageAnchored(note.position, canvas);
       commentsMigratedRef.current.add(note.id);
 
       if (
@@ -1888,16 +1884,7 @@ export function PdfReader({
     const note = notes.find((entry) => entry.id === id);
     if (note) {
       setNoteTextColor(normalizeStickyColor(note.text_color));
-      if (isCommentNote(note) && note.position) {
-        const canvas = canvasRefs.current.get(note.page_number);
-        setNoteFontSize(
-          canvas
-            ? commentFontSizeToScreen(note.position, canvas)
-            : note.position.fontSize ?? DEFAULT_NOTE_FONT_SIZE,
-        );
-      } else {
-        setNoteFontSize(note.position?.fontSize ?? DEFAULT_NOTE_FONT_SIZE);
-      }
+      setNoteFontSize(note.position?.fontSize ?? DEFAULT_NOTE_FONT_SIZE);
       editingDraftRef.current = {
         title: noteTitle(note),
         body: note.note_text,
@@ -1941,21 +1928,11 @@ export function PdfReader({
     setNotes((prev) => {
       const note = prev.find((entry) => entry.id === editingNoteId);
       if (note?.position) {
-        const nextPosition = isCommentNote(note)
-          ? { ...note.position, fontSize: next, commentFontScreen: true as const }
-          : { ...note.position, fontSize: next };
-        void updateNoteFontSize(editingNoteId, nextPosition);
+        void updateNoteFontSize(editingNoteId, { ...note.position, fontSize: next });
       }
       return prev.map((n) => {
         if (n.id !== editingNoteId || !n.position) return n;
-        return {
-          ...n,
-          position: {
-            ...n.position,
-            fontSize: next,
-            ...(isCommentNote(n) ? { commentFontScreen: true as const } : {}),
-          },
-        };
+        return { ...n, position: { ...n.position, fontSize: next } };
       });
     });
   }
@@ -2611,7 +2588,6 @@ export function PdfReader({
       title: "",
       rotation: 0,
       kind: isComment ? "comment" : "sticky",
-      ...(isComment ? { commentFontScreen: true as const } : {}),
       viewportWidth: canvas.width,
       viewportHeight: canvas.height,
     };
@@ -3277,7 +3253,6 @@ export function PdfReader({
                               key={note.id}
                               note={note}
                               editing={editingNoteId === note.id}
-                              zoomPreview={zoomPreview}
                               liveFontSize={
                                 editingNoteId === note.id ? noteFontSize : undefined
                               }
@@ -3291,6 +3266,9 @@ export function PdfReader({
                                 syncNoteDraft(id, { title: "", body: text })
                               }
                               canvasRef={canvasRefForPage(canvasRefs, pageNumber)}
+                              canvasDisplayWidth={
+                                pageNumber === page ? canvasDisplayWidth : slotWidth
+                              }
                               pageViewport={pageViewport}
                             />
                           ) : (
