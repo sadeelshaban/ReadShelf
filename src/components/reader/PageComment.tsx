@@ -4,16 +4,20 @@ import {
   useEffect,
   useRef,
   useState,
+  type FocusEvent as ReactFocusEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import type { Note, NotePosition } from "@/types";
 import {
-  displayRectFromPagePosition,
-  pagePositionFromDisplay,
+  displayCommentFromPagePosition,
+  pageCommentPositionFromDisplay,
   type ViewportSize,
 } from "@/lib/reader/coordinates";
+import { DEFAULT_NOTE_FONT_SIZE } from "@/lib/reader/constants";
 import {
   detectTextDirection,
+  MAX_STICKY_NOTE_CHARS,
   stickyNoteFontStack,
 } from "@/lib/reader/sticky-notes";
 import { cn } from "@/lib/utils";
@@ -21,6 +25,7 @@ import { cn } from "@/lib/utils";
 export type PageCommentProps = {
   note: Note;
   editing: boolean;
+  liveFontSize?: number;
   onFinish: (id: string, text: string) => void;
   onDelete: (id: string) => void;
   onMove: (id: string, position: NotePosition) => void;
@@ -30,12 +35,10 @@ export type PageCommentProps = {
   pageViewport: ViewportSize;
 };
 
-/**
- * Pre-sticky style comment: light body-only bubble, Arabic-friendly, distinct from sticky notes.
- */
 export function PageComment({
   note,
   editing,
+  liveFontSize,
   onFinish,
   onDelete,
   onMove,
@@ -65,11 +68,13 @@ export function PageComment({
 
   const dir = detectTextDirection(text || note.note_text);
   const display = note.note_text.trim();
+  const fontSize =
+    editing && liveFontSize != null ? liveFontSize : (localPos?.fontSize ?? DEFAULT_NOTE_FONT_SIZE);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || !note.position || dragRef.current || isDraggingRef.current) return;
-    setLocalPos(displayRectFromPagePosition(note.position, canvas));
+    setLocalPos(displayCommentFromPagePosition(note.position, canvas));
   }, [note.position, pageViewport, canvasRef]);
 
   useEffect(() => {
@@ -94,6 +99,19 @@ export function PageComment({
   }, [editing, note.note_text]);
 
   if (!localPos || !note.position) return null;
+
+  function persistPosition(nextDisplay: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    fontSize: number;
+  }) {
+    const canvas = canvasRef.current;
+    if (!canvas || !note.position) return;
+    setLocalPos(nextDisplay);
+    onMove(note.id, pageCommentPositionFromDisplay(nextDisplay, canvas, note.position));
+  }
 
   function handleDragStart(e: ReactPointerEvent<HTMLElement>) {
     if (editing) return;
@@ -129,17 +147,14 @@ export function PageComment({
     if (!dragRef.current) return;
     e.stopPropagation();
     const drag = dragRef.current;
-    const canvas = canvasRef.current;
-    if (drag.dragging && canvas && note.position) {
+    if (drag.dragging) {
       const dx = e.clientX - drag.startX;
       const dy = e.clientY - drag.startY;
-      const finalDisplay = {
+      persistPosition({
         ...drag.origin,
         x: drag.origin.x + dx,
         y: drag.origin.y + dy,
-      };
-      setLocalPos(finalDisplay);
-      onMove(note.id, pagePositionFromDisplay(finalDisplay, canvas, note.position));
+      });
     }
     dragRef.current = null;
     window.setTimeout(() => {
@@ -154,7 +169,7 @@ export function PageComment({
     onFinish(note.id, text);
   }
 
-  function handleBlur(e: React.FocusEvent<HTMLElement>) {
+  function handleBlur(e: ReactFocusEvent<HTMLElement>) {
     if (!editing) return;
     const related = e.relatedTarget as Element | null;
     if (related && rootRef.current?.contains(related)) return;
@@ -162,18 +177,30 @@ export function PageComment({
     handleFinish();
   }
 
+  function handleKeyDown(e: ReactKeyboardEvent<HTMLTextAreaElement>) {
+    if ((e.ctrlKey || e.metaKey) && (e.code === "KeyY" || (e.code === "KeyZ" && e.shiftKey))) {
+      e.preventDefault();
+      document.execCommand("redo");
+      return;
+    }
+
+    if (e.key === "Escape") {
+      e.preventDefault();
+      handleFinish();
+    }
+  }
+
   return (
     <div
       ref={rootRef}
       data-note-id={note.id}
       data-note-kind="comment"
-      className="note-root group/comment absolute z-20"
+      className="note-root group/comment absolute z-20 max-w-[min(360px,70vw)]"
       style={{
         left: localPos.x,
         top: localPos.y,
-        width: localPos.width,
-        minHeight: localPos.height,
         fontFamily: stickyNoteFontStack(),
+        fontSize,
       }}
       onPointerDown={(e) => e.stopPropagation()}
       onMouseEnter={() => setShowActions(true)}
@@ -187,7 +214,7 @@ export function PageComment({
           <button
             type="button"
             aria-label="Move comment"
-            title="اسحب للنقل"
+            title="Drag to move"
             className="flex h-6 w-6 cursor-grab items-center justify-center rounded text-[#5b4028]/80 active:cursor-grabbing hover:bg-[#fff1dc]"
             onPointerDown={handleDragStart}
             onPointerMove={handleDragMove}
@@ -206,7 +233,7 @@ export function PageComment({
           <button
             type="button"
             aria-label="Delete comment"
-            title="حذف"
+            title="Delete"
             className="flex h-6 w-6 items-center justify-center rounded text-red-600/80 hover:bg-red-50"
             onClick={(e) => {
               e.stopPropagation();
@@ -222,11 +249,10 @@ export function PageComment({
 
       <div
         className={cn(
-          "relative rounded-lg bg-transparent",
+          "relative w-max max-w-full rounded-lg bg-transparent",
           editing && "ring-1 ring-primary/35",
         )}
       >
-        {/* Speech-bubble tip — distinguishes comments from sticky notes */}
         <span
           className="pointer-events-none absolute -left-1.5 top-2 text-primary/55"
           aria-hidden
@@ -243,26 +269,25 @@ export function PageComment({
         {editing ? (
           <textarea
             ref={textareaRef}
-            className="min-h-[52px] w-full resize-none rounded-lg bg-[rgba(255,248,241,0.35)] px-2.5 py-2 text-[13px] leading-snug text-[#2a1c12] outline-none placeholder:text-[#6f4528]/40"
+            className="min-h-[1.5em] w-[min(320px,65vw)] resize-none rounded-lg bg-[rgba(255,248,241,0.35)] px-2.5 py-2 leading-snug text-[#2a1c12] outline-none placeholder:text-[#6f4528]/40"
+            style={{ fontSize: "inherit" }}
             dir="auto"
-            placeholder="اكتب تعليقاً..."
+            maxLength={MAX_STICKY_NOTE_CHARS}
+            placeholder="Write a comment..."
             value={text}
             onChange={(e) => {
-              setText(e.target.value);
-              onDraftChange(note.id, e.target.value);
+              const value = e.target.value.slice(0, MAX_STICKY_NOTE_CHARS);
+              setText(value);
+              onDraftChange(note.id, value);
             }}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") {
-                e.preventDefault();
-                handleFinish();
-              }
-            }}
+            onKeyDown={handleKeyDown}
             onBlur={handleBlur}
           />
         ) : (
           <button
             type="button"
-            className="block w-full rounded-lg bg-[rgba(255,248,241,0.28)] px-2.5 py-2 text-start text-[13px] leading-snug text-[#2a1c12] hover:bg-[rgba(255,248,241,0.45)]"
+            className="block w-max max-w-full rounded-lg bg-[rgba(255,248,241,0.28)] px-2.5 py-2 text-start leading-snug text-[#2a1c12] hover:bg-[rgba(255,248,241,0.45)]"
+            style={{ fontSize: "inherit" }}
             dir="auto"
             onClick={(e) => {
               e.stopPropagation();
@@ -271,8 +296,8 @@ export function PageComment({
             }}
           >
             {display || (
-              <span className="text-[#6f4528]/40" dir="rtl">
-                اضغط للكتابة
+              <span className="text-[#6f4528]/40">
+                Click to write
               </span>
             )}
           </button>

@@ -1,5 +1,9 @@
 import type { HighlightStroke, NotePosition } from "@/types";
 import { DEFAULT_NOTE_FONT_SIZE } from "@/lib/reader/constants";
+import {
+  DEFAULT_COMMENT_HEIGHT,
+  DEFAULT_COMMENT_WIDTH,
+} from "@/lib/reader/sticky-notes";
 
 export type ViewportSize = {
   width: number;
@@ -79,6 +83,47 @@ export function displayFontSizeFromLayout(
   }
   const refW = previous?.viewportWidth ?? pageViewportWidth;
   return (pageFontSize * displayWidth) / refW;
+}
+
+/** Comment text uses a zoom-independent CSS pixel size chosen by the reader. */
+export function displayCommentFromPagePosition(
+  pos: NotePosition,
+  canvas: HTMLCanvasElement,
+) {
+  const layout = displayRectFromPagePosition(pos, canvas);
+  return {
+    ...layout,
+    fontSize: pos.fontSize ?? DEFAULT_NOTE_FONT_SIZE,
+  };
+}
+
+export function pageCommentPositionFromDisplay(
+  display: {
+    x: number;
+    y: number;
+    width?: number;
+    height?: number;
+    fontSize?: number;
+  },
+  canvas: HTMLCanvasElement,
+  previous?: NotePosition | null,
+): NotePosition {
+  const scaled = pagePositionFromDisplay(
+    {
+      x: display.x,
+      y: display.y,
+      width: display.width ?? previous?.width ?? DEFAULT_COMMENT_WIDTH,
+      height: display.height ?? previous?.height ?? DEFAULT_COMMENT_HEIGHT,
+      fontSize: previous?.fontSize,
+    },
+    canvas,
+    previous,
+  );
+
+  return {
+    ...scaled,
+    fontSize: display.fontSize ?? previous?.fontSize ?? DEFAULT_NOTE_FONT_SIZE,
+  };
 }
 
 export function scaleStroke(

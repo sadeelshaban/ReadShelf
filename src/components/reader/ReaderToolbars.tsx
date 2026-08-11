@@ -292,6 +292,7 @@ type LeftToolbarProps = {
   noteTextColor: string;
   noteFontSize: number;
   editingNote: boolean;
+  editingComment: boolean;
   onPickNoteColor: (color: string) => void;
   onAdjustNoteFontSize: (delta: number) => void;
   highlightStrokeWidth: number;
@@ -323,6 +324,7 @@ export function LeftToolbar({
   noteTextColor,
   noteFontSize,
   editingNote,
+  editingComment,
   onPickNoteColor,
   onAdjustNoteFontSize,
   highlightStrokeWidth,
@@ -344,6 +346,8 @@ export function LeftToolbar({
   const showPenThickness = tool === "pen" || tool === "shape";
   const showEraserControls = tool === "eraser";
   const showNoteColors = tool === "note" || (editingNote && tool !== "comment");
+  const showNoteFontSize =
+    tool === "note" || tool === "comment" || editingNote || editingComment;
 
   useEffect(() => {
     if (openGroup !== "shapes") return;
@@ -566,6 +570,15 @@ export function LeftToolbar({
               onClick={() => onPickNoteColor(c.value)}
             />
           ))}
+        </div>
+      )}
+
+      {showNoteFontSize && (
+        <div
+          id="note-toolbar"
+          className="reader-toolbar-section"
+          onMouseDown={(e) => e.preventDefault()}
+        >
           <button
             type="button"
             title="Smaller text"

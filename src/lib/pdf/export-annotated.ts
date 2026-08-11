@@ -16,6 +16,7 @@ import {
   HIGHLIGHT_DRAW_ALPHA,
 } from "@/lib/reader/constants";
 import {
+  isCommentNote,
   noteBody,
   isNoteOnPage,
   noteHasContent,
@@ -187,7 +188,9 @@ function drawNotesOnPage(
     );
     const maxWidth = (note.position.width / viewport.width) * width;
     const fontSize = note.position.fontSize ?? DEFAULT_NOTE_FONT_SIZE;
-    const size = (fontSize / viewport.width) * width;
+    const size = isCommentNote(note)
+      ? fontSize
+      : (fontSize / viewport.width) * width;
 
     try {
       page.drawText(text, {

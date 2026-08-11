@@ -2921,6 +2921,10 @@ export function PdfReader({
             editingNoteId &&
               notes.some((n) => n.id === editingNoteId && isStickyNote(n)),
           )}
+          editingComment={Boolean(
+            editingNoteId &&
+              notes.some((n) => n.id === editingNoteId && isCommentNote(n)),
+          )}
           onPickNoteColor={pickNoteColor}
           onAdjustNoteFontSize={adjustNoteFontSize}
           highlightStrokeWidth={highlightStrokeWidth}
@@ -3124,6 +3128,9 @@ export function PdfReader({
                               key={note.id}
                               note={note}
                               editing={editingNoteId === note.id}
+                              liveFontSize={
+                                editingNoteId === note.id ? noteFontSize : undefined
+                              }
                               onFinish={(id, text) =>
                                 finishNote(id, { title: "", body: text })
                               }
