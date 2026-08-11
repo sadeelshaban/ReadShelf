@@ -18,7 +18,7 @@ import type {
   ShapeKind,
 } from "@/types";
 import { createClient } from "@/lib/supabase/client";
-import { canvasPointFromClient, migrateCommentToPageAnchored, pageFontSizeFromDisplaySize, type ViewportSize } from "@/lib/reader/coordinates";
+import { canvasPointFromClient, migrateCommentToPageAnchored, normalizeCommentFontSize, pageFontSizeFromDisplaySize, type ViewportSize } from "@/lib/reader/coordinates";
 import {
   DEFAULT_NOTE_FONT_SIZE,
   MAX_NOTE_FONT_SIZE,
@@ -270,7 +270,7 @@ export function PdfReader({
   const toolRef = useRef<ReaderTool>("read");
   const editingNoteIdRef = useRef<string | null>(null);
   const creatingNoteRef = useRef(false);
-  const commentsMigratedRef = useRef<Set<string>>(new Set());
+  const commentFont14MigratedRef = useRef<Set<string>>(new Set());
   const maxPageRef = useRef(initialPage);
   const goToPrevPageRef = useRef<() => void>(() => {});
   const goToNextPageRef = useRef<() => void>(() => {});
@@ -1330,12 +1330,12 @@ export function PdfReader({
 
     for (const note of notesRef.current) {
       if (!isCommentNote(note) || !note.position) continue;
-      if (commentsMigratedRef.current.has(note.id)) continue;
+      if (commentFont14MigratedRef.current.has(note.id)) continue;
       const canvas = canvasRefs.current.get(note.page_number);
       if (!canvas || !renderedPages.has(note.page_number)) continue;
 
-      const normalized = migrateCommentToPageAnchored(note.position, canvas);
-      commentsMigratedRef.current.add(note.id);
+      const normalized = normalizeCommentFontSize(note.position, canvas);
+      commentFont14MigratedRef.current.add(note.id);
 
       if (
         normalized.fontSize !== note.position.fontSize ||

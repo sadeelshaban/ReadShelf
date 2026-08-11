@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   displayCommentFromPagePosition,
-  migrateCommentToPageAnchored,
+  normalizeCommentFontSize,
 } from "@/lib/reader/coordinates";
 import type { NotePosition } from "@/types";
 
@@ -39,21 +39,19 @@ describe("displayCommentFromPagePosition", () => {
   });
 });
 
-describe("migrateCommentToPageAnchored", () => {
-  it("converts legacy screen-pixel comments to page coordinates", () => {
+describe("normalizeCommentFontSize", () => {
+  it("sets page-anchored font size equivalent to 14px display", () => {
     const pos: NotePosition = {
       x: 10,
       y: 20,
       width: 80,
       height: 40,
-      fontSize: 14,
+      fontSize: 28,
       kind: "comment",
-      commentFontScreen: true,
       viewportWidth: 595,
     };
-    const canvas = mockCanvas(1190);
-    const migrated = migrateCommentToPageAnchored(pos, canvas);
-    expect(migrated.commentFontScreen).toBeUndefined();
-    expect(displayCommentFromPagePosition(migrated, canvas).fontSize).toBe(14);
+    const canvas = mockCanvas(595);
+    const normalized = normalizeCommentFontSize(pos, canvas);
+    expect(displayCommentFromPagePosition(normalized, canvas).fontSize).toBe(14);
   });
 });

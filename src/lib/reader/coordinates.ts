@@ -145,6 +145,26 @@ export function migrateCommentToPageAnchored(
   };
 }
 
+/** Reset a comment to the default display font size in page coordinates. */
+export function normalizeCommentFontSize(
+  pos: NotePosition,
+  canvas: HTMLCanvasElement,
+  targetDisplaySize = DEFAULT_NOTE_FONT_SIZE,
+): NotePosition {
+  const anchored = migrateCommentToPageAnchored(pos, canvas);
+  const pageFontSize = pageFontSizeFromDisplaySize(targetDisplaySize, canvas);
+  const { commentFontScreen: _flag, ...rest } = anchored;
+
+  if (rest.fontSize === pageFontSize && !pos.commentFontScreen) {
+    return rest;
+  }
+
+  return {
+    ...rest,
+    fontSize: pageFontSize,
+  };
+}
+
 export function scaleStroke(
   stroke: HighlightStroke,
   refW: number,
