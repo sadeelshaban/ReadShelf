@@ -3,7 +3,11 @@ import type { Highlight, Note } from "@/types";
 import {
   applyHistoryRedo,
   applyHistoryUndo,
+  HISTORY_TTL_MS,
+  isHistoryEntryExpired,
   mergeHighlightChanges,
+  popUndoEntry,
+  pruneExpiredHistory,
 } from "@/lib/reader/pdf-reader-history";
 
 const baseHighlight = (id: string, page = 1): Highlight => ({
@@ -58,6 +62,26 @@ describe("mergeHighlightChanges", () => {
       { before: h2, after: updatedH2 },
     ]);
     expect(result).toEqual([updatedH2, h3]);
+  });
+});
+
+describe("history expiry", () => {
+  it("drops entries older than 15 minutes", () => {
+    const now = Date.now();
+    const fresh = { action: { type: "add_highlight" as const, highlight: baseHighlight("h1") }, at: now - 1000 };
+    const stale = { action: { type: "add_highlight" as const, highlight: baseHighlight("h2") }, at: now - HISTORY_TTL_MS - 1 };
+    expect(isHistoryEntryExpired(stale, now)).toBe(true);
+    expect(pruneExpiredHistory([fresh, stale], now)).toEqual([fresh]);
+  });
+
+  it("skips expired undo entries", () => {
+    const now = Date.now();
+    const stale = { action: { type: "add_highlight" as const, highlight: baseHighlight("h1") }, at: now - HISTORY_TTL_MS - 1 };
+    const fresh = { action: { type: "add_highlight" as const, highlight: baseHighlight("h2") }, at: now - 5000 };
+    const result = popUndoEntry([stale, fresh], now);
+    expect(result.entry?.action.type).toBe("add_highlight");
+    expect((result.entry?.action as { highlight: Highlight }).highlight.id).toBe("h2");
+    expect(result.stack).toEqual([]);
   });
 });
 

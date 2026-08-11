@@ -70,6 +70,11 @@ import {
   applyHistoryRedo,
   applyHistoryUndo,
   mergeHighlightChanges,
+  popRedoEntry,
+  popUndoEntry,
+  pruneExpiredHistory,
+  trimHistoryStack,
+  type TimestampedHistoryAction,
 } from "@/lib/reader/pdf-reader-history";
 import {
   mergeRenderedPages,
@@ -215,8 +220,9 @@ export function PdfReader({
   } | null>(null);
   const eraserCursorRef = useRef<{ x: number; y: number } | null>(null);
   const annotationSyncTimerRef = useRef<number | null>(null);
-  const undoStackRef = useRef<HistoryAction[]>([]);
-  const redoStackRef = useRef<HistoryAction[]>([]);
+  const undoStackRef = useRef<TimestampedHistoryAction[]>([]);
+  const redoStackRef = useRef<TimestampedHistoryAction[]>([]);
+  const cancelledHighlightIdsRef = useRef(new Set<string>());
   const applyingHistoryRef = useRef(false);
   const historyChainRef = useRef<Promise<void>>(Promise.resolve());
   const shapeDragRef = useRef<{
@@ -1310,6 +1316,7 @@ export function PdfReader({
       activeDraft?.pageNumber === pageNumber ? activeDraft.draft : undefined;
 
     const interacting =
+      !applyingHistoryRef.current &&
       (isDrawingRef.current || isErasingRef.current) &&
       currentDrawPageRef.current === pageNumber;
 
@@ -1669,6 +1676,7 @@ export function PdfReader({
           if (payload.eventType === "INSERT") {
             setHighlights((prev) => {
               const row = payload.new as Highlight;
+              if (cancelledHighlightIdsRef.current.has(row.id)) return prev;
               if (prev.some((h) => h.id === row.id)) return prev;
               return [...prev, row];
             });
@@ -1854,11 +1862,32 @@ export function PdfReader({
 
   function pushHistory(action: HistoryAction) {
     if (applyingHistoryRef.current) return;
-    undoStackRef.current.push(action);
+    const now = Date.now();
+    undoStackRef.current = trimHistoryStack(
+      pruneExpiredHistory([...undoStackRef.current, { action, at: now }], now),
+    );
     redoStackRef.current = [];
-    if (undoStackRef.current.length > 100) {
-      undoStackRef.current.shift();
+  }
+
+  async function persistHighlightSafely(highlight: Highlight) {
+    if (cancelledHighlightIdsRef.current.has(highlight.id)) {
+      await deleteHighlightApi(highlight.id);
+      return;
     }
+
+    await persistHighlight(highlight);
+
+    if (cancelledHighlightIdsRef.current.has(highlight.id)) {
+      await deleteHighlightApi(highlight.id);
+    }
+  }
+
+  function markHighlightCancelled(id: string) {
+    cancelledHighlightIdsRef.current.add(id);
+  }
+
+  function unmarkHighlightCancelled(id: string) {
+    cancelledHighlightIdsRef.current.delete(id);
   }
 
   function enqueueHistoryOp(op: () => Promise<void>) {
@@ -1869,95 +1898,124 @@ export function PdfReader({
   }
 
   async function persistHistoryAction(action: HistoryAction, direction: "undo" | "redo") {
-    if (action.type === "add_highlight") {
-      if (direction === "undo") await deleteHighlightApi(action.highlight.id);
-      else await upsertHighlight(action.highlight);
-      return;
-    }
-    if (action.type === "delete_highlight") {
-      if (direction === "undo") await upsertHighlight(action.highlight);
-      else await deleteHighlightApi(action.highlight.id);
-      return;
-    }
-    if (action.type === "update_highlight") {
-      const target = direction === "undo" ? action.before : action.after;
-      if (target.position) await updateHighlight(target.id, target.position);
-      return;
-    }
-    if (action.type === "batch_highlight") {
-      if (direction === "undo") {
-        await Promise.all(
-          action.changes.map((change) =>
-            change.after === null
-              ? upsertHighlight(change.before)
-              : updateHighlight(change.before.id, change.before.position!),
-          ),
-        );
-      } else {
-        await Promise.all(
-          action.changes.map((change) =>
-            change.after === null
-              ? deleteHighlightApi(change.before.id)
-              : updateHighlight(change.after.id, change.after.position!),
-          ),
-        );
+    try {
+      if (action.type === "add_highlight") {
+        if (direction === "undo") {
+          markHighlightCancelled(action.highlight.id);
+          await deleteHighlightApi(action.highlight.id);
+        } else {
+          unmarkHighlightCancelled(action.highlight.id);
+          await upsertHighlight(action.highlight);
+        }
+        return;
       }
-      return;
+      if (action.type === "delete_highlight") {
+        if (direction === "undo") await upsertHighlight(action.highlight);
+        else await deleteHighlightApi(action.highlight.id);
+        return;
+      }
+      if (action.type === "update_highlight") {
+        const target = direction === "undo" ? action.before : action.after;
+        if (target.position) await updateHighlight(target.id, target.position);
+        return;
+      }
+      if (action.type === "batch_highlight") {
+        if (direction === "undo") {
+          await Promise.all(
+            action.changes.map((change) =>
+              change.after === null
+                ? upsertHighlight(change.before)
+                : updateHighlight(change.before.id, change.before.position!),
+            ),
+          );
+        } else {
+          await Promise.all(
+            action.changes.map((change) =>
+              change.after === null
+                ? deleteHighlightApi(change.before.id)
+                : updateHighlight(change.after.id, change.after.position!),
+            ),
+          );
+        }
+        return;
+      }
+      if (action.type === "add_note") {
+        if (direction === "undo") await deleteNoteApi(action.note.id);
+        else await upsertNote(action.note);
+        return;
+      }
+      if (action.type === "delete_note") {
+        if (direction === "undo") await upsertNote(action.note);
+        else await deleteNoteApi(action.note.id);
+      }
+    } catch (err) {
+      console.error("History persistence failed:", err);
     }
-    if (action.type === "add_note") {
-      if (direction === "undo") await deleteNoteApi(action.note.id);
-      else await upsertNote(action.note);
-      return;
+  }
+
+  function applyHistoryToUi(action: HistoryAction, direction: "undo" | "redo") {
+    const applied =
+      direction === "undo"
+        ? applyHistoryUndo(highlightsRef.current, notesRef.current, action)
+        : applyHistoryRedo(highlightsRef.current, notesRef.current, action);
+
+    const highlightPages = [
+      ...new Set(
+        [
+          action.type === "add_highlight" || action.type === "delete_highlight"
+            ? action.highlight.page_number
+            : null,
+          action.type === "update_highlight"
+            ? direction === "undo"
+              ? action.before.page_number
+              : action.after.page_number
+            : null,
+          ...(action.type === "batch_highlight"
+            ? action.changes.map((change) => change.before.page_number)
+            : []),
+        ].filter((page): page is number => typeof page === "number"),
+      ),
+    ];
+
+    if (
+      action.type === "add_highlight" ||
+      action.type === "delete_highlight" ||
+      action.type === "update_highlight" ||
+      action.type === "batch_highlight"
+    ) {
+      commitHighlights(applied.highlights, highlightPages);
     }
-    if (action.type === "delete_note") {
-      if (direction === "undo") await upsertNote(action.note);
-      else await deleteNoteApi(action.note.id);
+    if (action.type === "add_note" || action.type === "delete_note") {
+      notesRef.current = applied.notes;
+      setNotes(applied.notes);
     }
+    scheduleAnnotationSync();
   }
 
   function performUndo() {
     return enqueueHistoryOp(async () => {
-      const action = undoStackRef.current.pop();
-      if (!action) return;
+      const now = Date.now();
+      undoStackRef.current = pruneExpiredHistory(undoStackRef.current, now);
+      const popped = popUndoEntry(undoStackRef.current, now);
+      undoStackRef.current = popped.stack;
+      const entry = popped.entry;
+      if (!entry) return;
 
+      const action = entry.action;
       applyingHistoryRef.current = true;
       try {
-        const applied = applyHistoryUndo(
-          highlightsRef.current,
-          notesRef.current,
-          action,
-        );
-        const highlightPages = [
-          ...new Set(
-            [
-              action.type === "add_highlight" || action.type === "delete_highlight"
-                ? action.highlight.page_number
-                : null,
-              action.type === "update_highlight" ? action.before.page_number : null,
-              ...(action.type === "batch_highlight"
-                ? action.changes.map((change) => change.before.page_number)
-                : []),
-            ].filter((page): page is number => typeof page === "number"),
-          ),
-        ];
-        if (
-          action.type === "add_highlight" ||
-          action.type === "delete_highlight" ||
-          action.type === "update_highlight" ||
-          action.type === "batch_highlight"
-        ) {
-          commitHighlights(applied.highlights, highlightPages);
+        if (action.type === "add_highlight") {
+          markHighlightCancelled(action.highlight.id);
         }
-        if (action.type === "add_note" || action.type === "delete_note") {
-          notesRef.current = applied.notes;
-          setNotes(applied.notes);
-        }
-        scheduleAnnotationSync();
-        redoStackRef.current.push(action);
+        applyHistoryToUi(action, "undo");
+        redoStackRef.current = trimHistoryStack([
+          ...pruneExpiredHistory(redoStackRef.current, now),
+          entry,
+        ]);
         await persistHistoryAction(action, "undo");
       } catch (err) {
-        undoStackRef.current.push(action);
-        redoStackRef.current = redoStackRef.current.filter((entry) => entry !== action);
+        undoStackRef.current = trimHistoryStack([...undoStackRef.current, entry]);
+        redoStackRef.current = redoStackRef.current.filter((item) => item !== entry);
         setMessage(err instanceof Error ? err.message : "Could not undo");
       } finally {
         applyingHistoryRef.current = false;
@@ -1967,47 +2025,28 @@ export function PdfReader({
 
   function performRedo() {
     return enqueueHistoryOp(async () => {
-      const action = redoStackRef.current.pop();
-      if (!action) return;
+      const now = Date.now();
+      redoStackRef.current = pruneExpiredHistory(redoStackRef.current, now);
+      const popped = popRedoEntry(redoStackRef.current, now);
+      redoStackRef.current = popped.stack;
+      const entry = popped.entry;
+      if (!entry) return;
 
+      const action = entry.action;
       applyingHistoryRef.current = true;
       try {
-        const applied = applyHistoryRedo(
-          highlightsRef.current,
-          notesRef.current,
-          action,
-        );
-        const highlightPages = [
-          ...new Set(
-            [
-              action.type === "add_highlight" || action.type === "delete_highlight"
-                ? action.highlight.page_number
-                : null,
-              action.type === "update_highlight" ? action.after.page_number : null,
-              ...(action.type === "batch_highlight"
-                ? action.changes.map((change) => change.before.page_number)
-                : []),
-            ].filter((page): page is number => typeof page === "number"),
-          ),
-        ];
-        if (
-          action.type === "add_highlight" ||
-          action.type === "delete_highlight" ||
-          action.type === "update_highlight" ||
-          action.type === "batch_highlight"
-        ) {
-          commitHighlights(applied.highlights, highlightPages);
+        if (action.type === "add_highlight") {
+          unmarkHighlightCancelled(action.highlight.id);
         }
-        if (action.type === "add_note" || action.type === "delete_note") {
-          notesRef.current = applied.notes;
-          setNotes(applied.notes);
-        }
-        scheduleAnnotationSync();
-        undoStackRef.current.push(action);
+        applyHistoryToUi(action, "redo");
+        undoStackRef.current = trimHistoryStack([
+          ...pruneExpiredHistory(undoStackRef.current, now),
+          entry,
+        ]);
         await persistHistoryAction(action, "redo");
       } catch (err) {
-        redoStackRef.current.push(action);
-        undoStackRef.current = undoStackRef.current.filter((entry) => entry !== action);
+        redoStackRef.current = trimHistoryStack([...redoStackRef.current, entry]);
+        undoStackRef.current = undoStackRef.current.filter((item) => item !== entry);
         setMessage(err instanceof Error ? err.message : "Could not redo");
       } finally {
         applyingHistoryRef.current = false;
@@ -2110,7 +2149,7 @@ export function PdfReader({
       pickHighlightColor(color);
     }
 
-    void persistHighlight(highlight)
+    void persistHighlightSafely(highlight)
       .then(() => scheduleAnnotationSync())
       .catch((err) => {
         setMessage(err instanceof Error ? err.message : "Could not save mark");
@@ -2139,7 +2178,7 @@ export function PdfReader({
     pushHistory({ type: "add_highlight", highlight });
     pickPenColor(penColor);
 
-    void persistHighlight(highlight)
+    void persistHighlightSafely(highlight)
       .then(() => scheduleAnnotationSync())
       .catch((err) => {
         setMessage(err instanceof Error ? err.message : "Could not save shape");
