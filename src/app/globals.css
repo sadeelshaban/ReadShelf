@@ -353,6 +353,50 @@ html {
   }
 }
 
+.loading-pulse {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 0.75rem;
+  width: 7rem;
+  height: 7rem;
+}
+
+.loading-pulse-bar {
+  width: 0.875rem;
+  height: 3.25rem;
+  border-radius: 0.125rem;
+  transform-origin: bottom center;
+  animation: loading-pulse-wave 1.05s ease-in-out infinite;
+}
+
+.loading-pulse-bar--1 {
+  background: #f8f2e7;
+}
+
+.loading-pulse-bar--2 {
+  background: #d8ae56;
+  animation-delay: 0.175s;
+}
+
+.loading-pulse-bar--3 {
+  background: #6a3e26;
+  animation-delay: 0.35s;
+}
+
+@keyframes loading-pulse-wave {
+  0%,
+  100% {
+    transform: scaleY(0.55);
+    opacity: 0.75;
+  }
+
+  35% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
 .reader-topbar-divider {
   width: 1px;
   height: 1.5rem;

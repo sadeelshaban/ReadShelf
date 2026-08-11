@@ -7,7 +7,7 @@ type LoadingStateProps = {
   className?: string;
 };
 
-/** Centered loading state with the brand pulse GIF + label. */
+/** Centered loading state with brand pulse bars + label. */
 export function LoadingState({
   label = "Getting everything ready...",
   className,
@@ -22,15 +22,11 @@ export function LoadingState({
       aria-live="polite"
       aria-busy="true"
     >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src="/loading-pulse.gif"
-        alt=""
-        width={112}
-        height={112}
-        className="-scale-x-100 h-28 w-28 object-contain"
-        aria-hidden
-      />
+      <div className="loading-pulse" aria-hidden>
+        <span className="loading-pulse-bar loading-pulse-bar--1" />
+        <span className="loading-pulse-bar loading-pulse-bar--2" />
+        <span className="loading-pulse-bar loading-pulse-bar--3" />
+      </div>
       <p className="text-sm text-text-muted">{label}</p>
     </div>
   );
