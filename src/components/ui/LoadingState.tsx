@@ -28,7 +28,7 @@ export function LoadingState({
         alt=""
         width={112}
         height={112}
-        className="h-28 w-28 object-contain"
+        className="-scale-x-100 h-28 w-28 object-contain"
         aria-hidden
       />
       <p className="text-sm text-text-muted">{label}</p>
