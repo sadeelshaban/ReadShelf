@@ -77,11 +77,14 @@ export const STICKY_NOTE_COLORS = BOOKMARK_COLORS.map((entry) => ({
 
 export const DEFAULT_STICKY_COLOR: BookmarkColorId = "yellow";
 export const DEFAULT_STICKY_WIDTH = 200;
-export const DEFAULT_STICKY_HEIGHT = 168;
+export const DEFAULT_STICKY_HEIGHT = 120;
 export const MIN_STICKY_WIDTH = 140;
-export const MIN_STICKY_HEIGHT = 120;
+export const MIN_STICKY_HEIGHT = 96;
 export const MAX_STICKY_WIDTH = 360;
 export const MAX_STICKY_HEIGHT = 420;
+export const MAX_STICKY_NOTE_CHARS = 250;
+export const STICKY_NOTE_HEADER_HEIGHT = 32;
+export const STICKY_NOTE_BODY_PADDING = 20;
 export const STICKY_ROTATION_STEP = 15;
 
 export function normalizeStickyColor(color: string | null | undefined): BookmarkColorId {
@@ -159,13 +162,13 @@ export function notePreviewLabel(note: Note): string {
     }
     return "Comment";
   }
-  const title = noteTitle(note);
-  if (title) return title;
   const body = noteBody(note);
   if (body) {
     const firstLine = body.split(/\r?\n/)[0]?.trim() ?? "";
-    return firstLine.slice(0, 48) || "Note";
+    return firstLine.slice(0, 64) || "Note";
   }
+  const title = noteTitle(note);
+  if (title) return title;
   return "Note";
 }
 

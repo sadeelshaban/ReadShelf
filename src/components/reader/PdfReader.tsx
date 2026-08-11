@@ -138,6 +138,7 @@ import {
   isCommentNote,
   isNoteOnPage,
   isStickyNote,
+  MAX_STICKY_NOTE_CHARS,
   noteHasContent,
   noteOverflowExtent,
   noteTitle,
@@ -257,6 +258,7 @@ export function PdfReader({
   );
   const toolRef = useRef<ReaderTool>("read");
   const editingNoteIdRef = useRef<string | null>(null);
+  const creatingNoteRef = useRef(false);
   const maxPageRef = useRef(initialPage);
   const goToPrevPageRef = useRef<() => void>(() => {});
   const goToNextPageRef = useRef<() => void>(() => {});
@@ -1801,12 +1803,13 @@ export function PdfReader({
       noteHadContentRef.current = noteHasContent(note);
     }
     setEditingNoteId(id);
+    editingNoteIdRef.current = id;
   }
 
   function syncNoteDraft(id: string, draft: StickyNoteDraft) {
     if (editingNoteId === id) {
       editingDraftRef.current = draft;
-      if (draft.title.trim().length > 0 || draft.body.trim().length > 0) {
+      if (draft.body.trim().length > 0) {
         noteHadContentRef.current = true;
       }
     }
@@ -2449,8 +2452,11 @@ export function PdfReader({
       return;
     }
 
-    if ((tool !== "note" && tool !== "comment") || editingNoteId) return;
+    if ((tool !== "note" && tool !== "comment") || editingNoteIdRef.current || creatingNoteRef.current) {
+      return;
+    }
 
+    creatingNoteRef.current = true;
     const point = canvasPointFromClient(e.clientX, e.clientY, canvas);
     const isComment = tool === "comment";
     const position: NotePosition = {
@@ -2478,9 +2484,12 @@ export function PdfReader({
       pushHistory({ type: "add_note", note: data });
       editingDraftRef.current = { title: "", body: "" };
       noteHadContentRef.current = false;
+      editingNoteIdRef.current = data.id;
       setEditingNoteId(data.id);
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Could not add note");
+    } finally {
+      creatingNoteRef.current = false;
     }
   }
 
@@ -2490,7 +2499,7 @@ export function PdfReader({
   ) {
     if (tool === "pan") return;
 
-    if (editingNoteId) {
+    if (editingNoteIdRef.current) {
       const target = e.target as Element;
       if (
         !target.closest(".note-root") &&
@@ -2499,12 +2508,12 @@ export function PdfReader({
         !target.closest("#right-toolbar") &&
         !target.closest("#reader-top-bar")
       ) {
-        void finishNoteRef.current(editingNoteId, editingDraftRef.current);
+        void finishNoteRef.current(editingNoteIdRef.current, editingDraftRef.current);
       }
       return;
     }
 
-    if ((tool === "note" || tool === "comment") && !editingNoteId) {
+    if ((tool === "note" || tool === "comment") && !editingNoteIdRef.current && !creatingNoteRef.current) {
       void handlePageClick(e, pageNumber);
       return;
     }
@@ -2515,9 +2524,8 @@ export function PdfReader({
   }
 
   async function finishNote(id: string, draft: StickyNoteDraft) {
-    const title = draft.title.trim();
-    const body = draft.body.trim();
-    const hasText = title.length > 0 || body.length > 0;
+    const body = draft.body.trim().slice(0, MAX_STICKY_NOTE_CHARS);
+    const hasText = body.length > 0;
     const existing = notes.find((entry) => entry.id === id);
     const nextPosition: NotePosition = {
       ...(existing?.position ?? {
@@ -2527,12 +2535,15 @@ export function PdfReader({
         height: DEFAULT_STICKY_HEIGHT,
         kind: "sticky",
       }),
-      title,
+      title: "",
+      width: draft.width ?? existing?.position?.width ?? DEFAULT_STICKY_WIDTH,
+      height: draft.height ?? existing?.position?.height ?? DEFAULT_STICKY_HEIGHT,
       kind: existing?.position?.kind ?? "sticky",
     };
 
     if (!hasText) {
       setEditingNoteId(null);
+      editingNoteIdRef.current = null;
       setTool("read");
       if (!noteHadContentRef.current) {
         await deleteNote(id);
@@ -2568,14 +2579,15 @@ export function PdfReader({
           ? {
               ...n,
               note_text: body,
-              position: n.position ? { ...n.position, title } : nextPosition,
+              position: n.position ? { ...n.position, ...nextPosition, title: "" } : nextPosition,
             }
           : n,
       ),
     );
-    editingDraftRef.current = { title, body };
+    editingDraftRef.current = { title: "", body, width: nextPosition.width, height: nextPosition.height };
     noteHadContentRef.current = true;
     setEditingNoteId(null);
+    editingNoteIdRef.current = null;
     setTool("read");
 
     try {
@@ -2659,7 +2671,10 @@ export function PdfReader({
     }
     await deleteNoteApi(id);
     setNotes((prev) => prev.filter((n) => n.id !== id));
-    if (editingNoteId === id) setEditingNoteId(null);
+    if (editingNoteId === id) {
+      setEditingNoteId(null);
+      editingNoteIdRef.current = null;
+    }
     setTool("read");
   }
 

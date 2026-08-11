@@ -62,7 +62,7 @@ describe("sticky note content helpers", () => {
     });
     expect(noteTitle(note)).toBe("Hello world");
     expect(noteHasContent(note)).toBe(true);
-    expect(notePreviewLabel(note)).toBe("Hello world");
+    expect(notePreviewLabel(note)).toBe("Body text");
   });
 
   it("falls back to English placeholder when empty", () => {
