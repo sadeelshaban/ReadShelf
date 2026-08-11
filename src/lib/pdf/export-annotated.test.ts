@@ -5,6 +5,7 @@ import {
   noteFontSizeInPdfPoints,
   noteTextUsesMixedScripts,
   parseRgbaColor,
+  resolveExportNoteFontSize,
   splitNoteScriptRuns,
 } from "@/lib/pdf/export-annotated";
 import type { Note, NotePosition } from "@/types";
@@ -13,6 +14,26 @@ describe("noteFontSizeInPdfPoints", () => {
   it("scales page font size to PDF points for comments and sticky notes", () => {
     expect(noteFontSizeInPdfPoints(14, { width: 595, height: 842 }, 595)).toBe(14);
     expect(noteFontSizeInPdfPoints(14, { width: 595, height: 842 }, 1190)).toBe(28);
+  });
+});
+
+describe("resolveExportNoteFontSize", () => {
+  it("converts legacy screen-pixel comment sizes during export", () => {
+    const size = resolveExportNoteFontSize(
+      {
+        x: 0,
+        y: 0,
+        width: 180,
+        height: 48,
+        fontSize: 14,
+        commentFontScreen: true,
+        viewportWidth: 800,
+        viewportHeight: 1131,
+      },
+      { width: 595, height: 842 },
+      595,
+    );
+    expect(size).toBeCloseTo(10.4125);
   });
 });
 

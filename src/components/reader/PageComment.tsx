@@ -19,6 +19,7 @@ import { DEFAULT_NOTE_FONT_SIZE } from "@/lib/reader/constants";
 import {
   detectTextDirection,
   MAX_STICKY_NOTE_CHARS,
+  commentFontStack,
   stickyNoteFontStack,
 } from "@/lib/reader/sticky-notes";
 import { cn } from "@/lib/utils";
@@ -210,7 +211,7 @@ export function PageComment({
         left: localPos.x,
         top: localPos.y,
         maxWidth: "18em",
-        fontFamily: stickyNoteFontStack(),
+        fontFamily: commentFontStack(display || text),
         fontSize,
       }}
       onPointerDown={(e) => e.stopPropagation()}

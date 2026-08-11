@@ -225,6 +225,12 @@ export function stickyNoteFontStack() {
   return '"Noto Sans Arabic", "Segoe UI", Tahoma, Arial, sans-serif';
 }
 
+export function commentFontStack(text: string) {
+  return detectTextDirection(text) === "rtl"
+    ? stickyNoteFontStack()
+    : 'var(--font-inter), "Segoe UI", Tahoma, Arial, sans-serif';
+}
+
 export const DEFAULT_COMMENT_WIDTH = 200;
 export const DEFAULT_COMMENT_HEIGHT = 72;
 export const MIN_COMMENT_WIDTH = 140;

@@ -4,7 +4,6 @@ import fontkit from "@pdf-lib/fontkit";
 import {
   PDFDocument,
   LineCapStyle,
-  StandardFonts,
   rgb,
   type PDFFont,
   type PDFPage,
@@ -28,6 +27,14 @@ const NOTE_FONT_TTF_PATH = path.join(
   process.cwd(),
   "assets/fonts/NotoSansArabic-Regular.ttf",
 );
+const NOTE_FONT_LATIN_WOFF_PATH = path.join(
+  process.cwd(),
+  "node_modules/@fontsource/noto-sans-arabic/files/noto-sans-arabic-latin-400-normal.woff",
+);
+const NOTE_FONT_LATIN_WOFF2_PATH = path.join(
+  process.cwd(),
+  "node_modules/@fontsource/noto-sans-arabic/files/noto-sans-arabic-latin-400-normal.woff2",
+);
 /** Arabic script only — Latin letters need {@link NoteFonts.latin}. */
 const ARABIC_RE = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/;
 const LATIN_LETTER_RE = /[A-Za-z]/;
@@ -38,6 +45,16 @@ type NoteFonts = {
 };
 
 let cachedArabicFontBytes: Uint8Array | null = null;
+let cachedLatinFontBytes: Uint8Array | null = null;
+
+function readFontBytes(candidates: string[], label: string) {
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      return new Uint8Array(fs.readFileSync(candidate));
+    }
+  }
+  throw new Error(`${label} font not found. Tried: ${candidates.join(", ")}`);
+}
 
 function parseHexColor(hex: string): RGB {
   const normalized = hex.replace("#", "");
@@ -117,6 +134,26 @@ export function noteFontSizeInPdfPoints(
 ) {
   if (viewport.width <= 0) return fontSize;
   return (fontSize / viewport.width) * pageWidth;
+}
+
+/** Resolve legacy screen-pixel comment sizes when exporting older notes. */
+export function resolveExportNoteFontSize(
+  position: NotePosition,
+  viewport: { width: number; height: number },
+  pageWidth: number,
+) {
+  let pageFontSize = position.fontSize ?? DEFAULT_NOTE_FONT_SIZE;
+
+  if (
+    position.commentFontScreen &&
+    position.viewportWidth &&
+    position.viewportWidth > 0 &&
+    viewport.width > 0
+  ) {
+    pageFontSize *= viewport.width / position.viewportWidth;
+  }
+
+  return noteFontSizeInPdfPoints(pageFontSize, viewport, pageWidth);
 }
 
 /** Clip note bounds to the page canvas so export matches on-page content only. */
@@ -315,12 +352,12 @@ function drawStickyNoteOnPage(
   const header = parseRgbaColor(palette.header);
   const fold = parseRgbaColor(palette.fold);
   const border = parseRgbaColor(palette.fold);
-  const headerHeight = Math.min(rect.height * 0.18, noteFontSizeInPdfPoints(14, viewport, page.getWidth()) * 1.8);
-  const fontSize = noteFontSizeInPdfPoints(
-    position.fontSize ?? DEFAULT_NOTE_FONT_SIZE,
+  const headerHeight = Math.min(rect.height * 0.18, resolveExportNoteFontSize(
+    { ...position, fontSize: 14 },
     viewport,
     page.getWidth(),
-  );
+  ) * 1.8);
+  const fontSize = resolveExportNoteFontSize(position, viewport, page.getWidth());
   const text = noteBody(note);
   if (!text) return;
 
@@ -388,11 +425,7 @@ function drawCommentOnPage(
   const text = noteBody(note);
   if (!text) return;
 
-  const fontSize = noteFontSizeInPdfPoints(
-    position.fontSize ?? DEFAULT_NOTE_FONT_SIZE,
-    viewport,
-    page.getWidth(),
-  );
+  const fontSize = resolveExportNoteFontSize(position, viewport, page.getWidth());
   const padding = Math.max(4, fontSize * 0.45);
   const textWidth = Math.min(
     (position.width / viewport.width) * page.getWidth(),
@@ -470,16 +503,19 @@ function drawNotesOnPage(
 
 async function loadNoteFonts(pdfDoc: PDFDocument): Promise<NoteFonts> {
   pdfDoc.registerFontkit(fontkit);
-  if (!fs.existsSync(NOTE_FONT_TTF_PATH)) {
-    throw new Error(`Arabic note export font not found at ${NOTE_FONT_TTF_PATH}`);
-  }
 
   if (!cachedArabicFontBytes) {
-    cachedArabicFontBytes = new Uint8Array(fs.readFileSync(NOTE_FONT_TTF_PATH));
+    cachedArabicFontBytes = readFontBytes([NOTE_FONT_TTF_PATH], "Arabic");
+  }
+  if (!cachedLatinFontBytes) {
+    cachedLatinFontBytes = readFontBytes(
+      [NOTE_FONT_LATIN_WOFF_PATH, NOTE_FONT_LATIN_WOFF2_PATH],
+      "Latin",
+    );
   }
 
   const arabic = await pdfDoc.embedFont(cachedArabicFontBytes, { subset: true });
-  const latin = await pdfDoc.embedStandardFont(StandardFonts.Helvetica);
+  const latin = await pdfDoc.embedFont(cachedLatinFontBytes, { subset: true });
 
   return { arabic, latin };
 }
