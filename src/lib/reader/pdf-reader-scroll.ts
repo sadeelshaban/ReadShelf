@@ -62,3 +62,27 @@ export function resolveVisiblePage(
 
   return bestPage;
 }
+
+/** Pages with any pixels visible in the viewer (used for read-progress tracking). */
+export function collectVisiblePages(
+  viewer: HTMLDivElement,
+  pageWraps: Map<number, HTMLElement>,
+  maxPage: number,
+) {
+  const viewerRect = viewer.getBoundingClientRect();
+  const visible: number[] = [];
+
+  for (let pageNumber = 1; pageNumber <= maxPage; pageNumber += 1) {
+    const wrap = pageWraps.get(pageNumber);
+    if (!wrap) continue;
+
+    const rect = wrap.getBoundingClientRect();
+    const visibleTop = Math.max(rect.top, viewerRect.top);
+    const visibleBottom = Math.min(rect.bottom, viewerRect.bottom);
+    if (visibleBottom > visibleTop) {
+      visible.push(pageNumber);
+    }
+  }
+
+  return visible;
+}

@@ -34,7 +34,10 @@ import {
   flushSyncQueue,
   removeSyncItemsForRecord,
 } from "@/lib/offline/sync-queue";
-import { computeProgress } from "@/lib/pdf";
+import {
+  computeProgressFromVisitedPages,
+  mergeVisitedPages,
+} from "@/lib/books/reading-progress";
 import { getCachedBook } from "@/lib/offline/books-store";
 
 function newId() {
@@ -94,14 +97,21 @@ export async function saveReadingProgress(
   currentPage: number,
   totalPages: number | null,
   position?: { scrollY: number; zoom: number },
+  visitedPages?: number[],
 ) {
-  const progressPercent = computeProgress(currentPage, totalPages);
   const existing = await getCachedBook(bookId);
+  const pagesVisited = mergeVisitedPages(
+    existing?.pages_visited,
+    visitedPages ?? [currentPage],
+    totalPages,
+  );
+  const progressPercent = computeProgressFromVisitedPages(pagesVisited, totalPages);
   const previousProgress = existing?.progress_percent ?? 0;
   const readCount = existing?.read_count ?? 0;
   const payload = {
     last_page: currentPage,
     progress_percent: progressPercent,
+    pages_visited: pagesVisited,
     last_opened_at: new Date().toISOString(),
     read_count:
       progressPercent >= 100 && previousProgress < 100 ? readCount + 1 : readCount,
@@ -128,6 +138,7 @@ export async function resetBookForReread(bookId: string) {
   const payload = {
     last_page: 1,
     progress_percent: 0,
+    pages_visited: [] as number[],
     last_opened_at: new Date().toISOString(),
     read_count: existing?.read_count ?? 0,
     reading_scroll_y: 0,

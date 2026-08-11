@@ -125,6 +125,7 @@ export async function updateCachedBookProgress(
     | "progress_percent"
     | "last_opened_at"
     | "read_count"
+    | "pages_visited"
     | "reading_scroll_y"
     | "reading_zoom"
   >,

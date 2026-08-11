@@ -1,4 +1,14 @@
-export function isBookFinished(progressPercent: number) {
+export function isBookFinished(
+  progressPercent: number,
+  pagesVisited?: number[] | null,
+  totalPages?: number | null,
+) {
+  if (totalPages != null && totalPages > 0 && pagesVisited != null) {
+    const unique = new Set(
+      pagesVisited.filter((page) => page >= 1 && page <= totalPages),
+    );
+    return unique.size >= totalPages;
+  }
   return progressPercent >= 100;
 }
 

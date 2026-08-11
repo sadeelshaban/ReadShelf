@@ -4,7 +4,9 @@ import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import type { Bookmark, Highlight, Note } from "@/types";
 import { isBookFinished } from "@/lib/books/reading-stats";
+import { inferInitialPagesVisited } from "@/lib/books/reading-progress";
 import { MAX_ZOOM, MIN_ZOOM } from "@/lib/reader/pdf-reader-config";
+import { shouldShowReadingResumePrompt } from "@/lib/reader/reading-session";
 import { PdfReader } from "@/components/reader/PdfReader";
 
 type ReaderWrapperProps = {
@@ -14,9 +16,11 @@ type ReaderWrapperProps = {
   initialPage: number;
   initialScrollY: number | null;
   initialZoom: number | null;
+  lastOpenedAt: string | null;
   canResume: boolean;
   progressPercent: number;
   readCount: number;
+  pagesVisited: number[];
   totalPages: number | null;
   initialHighlights: Highlight[];
   initialNotes: Note[];
@@ -36,7 +40,18 @@ function ReaderWithPageParam(props: ReaderWrapperProps) {
   const hasScrollParam = Number.isFinite(parsedScroll) && parsedScroll >= 0;
   const hasZoomParam =
     Number.isFinite(parsedZoom) && parsedZoom >= MIN_ZOOM && parsedZoom <= MAX_ZOOM;
-  const isFinished = isBookFinished(props.progressPercent);
+  const visitedPages = inferInitialPagesVisited(
+    props.pagesVisited,
+    props.initialPage,
+    props.progressPercent,
+    props.totalPages,
+  );
+  const isFinished = isBookFinished(
+    props.progressPercent,
+    visitedPages,
+    props.totalPages,
+  );
+  const mayPrompt = shouldShowReadingResumePrompt(props.bookId, props.lastOpenedAt);
 
   const startPage = hasPageParam ? parsedPage : props.initialPage;
   const restoreScroll =
@@ -57,13 +72,14 @@ function ReaderWithPageParam(props: ReaderWrapperProps) {
   return (
     <PdfReader
       {...props}
+      initialPagesVisited={visitedPages}
       initialPage={startPage}
       initialScrollY={startScrollY}
       initialZoom={startZoom}
       focusNoteId={noteParam && noteParam.length > 0 ? noteParam : null}
       restoreScrollPosition={restoreScroll || hasScrollParam}
-      showResumePrompt={props.canResume && restoreScroll && !hasPageParam}
-      showReadAgainPrompt={props.canResume && !hasPageParam && isFinished}
+      showResumePrompt={mayPrompt && props.canResume && restoreScroll && !hasPageParam}
+      showReadAgainPrompt={mayPrompt && props.canResume && !hasPageParam && isFinished}
     />
   );
 }

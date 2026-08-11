@@ -77,6 +77,7 @@ import {
   type TimestampedHistoryAction,
 } from "@/lib/reader/pdf-reader-history";
 import {
+  collectVisiblePages,
   mergeRenderedPages,
   resolveVisiblePage,
   scrollViewerToPage,
@@ -164,6 +165,8 @@ import {
   fetchReaderDarkModePreference,
   syncReaderDarkModePreference,
 } from "@/lib/reader/reader-preferences-api";
+import { markResumePromptHandled } from "@/lib/reader/reading-session";
+import { mergeVisitedPages } from "@/lib/books/reading-progress";
 import { cn } from "@/lib/utils";
 
 type PdfReaderProps = {
@@ -178,6 +181,7 @@ type PdfReaderProps = {
   showResumePrompt: boolean;
   showReadAgainPrompt: boolean;
   readCount: number;
+  initialPagesVisited: number[];
   totalPages: number | null;
   initialHighlights: Highlight[];
   initialNotes: Note[];
@@ -197,6 +201,7 @@ export function PdfReader({
   showResumePrompt,
   showReadAgainPrompt,
   readCount,
+  initialPagesVisited,
   totalPages,
   initialHighlights,
   initialNotes,
@@ -279,6 +284,7 @@ export function PdfReader({
   const idleProgressTimerRef = useRef<number | null>(null);
   const programmaticScrollTimerRef = useRef<number | null>(null);
   const seekRafRef = useRef<number | null>(null);
+  const visitedPagesRef = useRef<number[]>(initialPagesVisited);
   const saveProgressRef = useRef<(currentPage: number) => Promise<void>>(async () => {});
   const zoomAnchorRef = useRef<ZoomAnchor | null>(null);
   const zoomMultiplierRef = useRef(initialZoom ?? DEFAULT_ZOOM);
@@ -428,8 +434,20 @@ export function PdfReader({
           mergeRenderedPages(prev, visible, maxPageRef.current),
         );
       }
+
+      const total = totalPages ?? pdfNumPages;
+      const visiblePages = collectVisiblePages(
+        viewer,
+        pageWrapRefs.current,
+        maxPageRef.current,
+      );
+      visitedPagesRef.current = mergeVisitedPages(
+        visitedPagesRef.current,
+        visiblePages,
+        total,
+      );
     },
-    [loading],
+    [loading, pdfNumPages, totalPages],
   );
 
   const scheduleScrollSync = useCallback(() => {
@@ -931,10 +949,36 @@ export function PdfReader({
   const saveProgress = useCallback(
     async (currentPage: number) => {
       const viewer = viewerRef.current;
-      await saveReadingProgress(bookId, currentPage, totalPages ?? pdfNumPages, {
-        scrollY: viewer?.scrollTop ?? 0,
-        zoom: zoomMultiplierRef.current,
-      });
+      const total = totalPages ?? pdfNumPages;
+      if (viewer) {
+        const visiblePages = collectVisiblePages(
+          viewer,
+          pageWrapRefs.current,
+          maxPageRef.current,
+        );
+        visitedPagesRef.current = mergeVisitedPages(
+          visitedPagesRef.current,
+          visiblePages,
+          total,
+        );
+      } else {
+        visitedPagesRef.current = mergeVisitedPages(
+          visitedPagesRef.current,
+          [currentPage],
+          total,
+        );
+      }
+
+      await saveReadingProgress(
+        bookId,
+        currentPage,
+        total,
+        {
+          scrollY: viewer?.scrollTop ?? 0,
+          zoom: zoomMultiplierRef.current,
+        },
+        visitedPagesRef.current,
+      );
     },
     [bookId, totalPages, pdfNumPages],
   );
@@ -3070,11 +3114,13 @@ export function PdfReader({
             page={initialPage}
             zoomPercent={Math.round((initialZoom ?? zoomMultiplier) * 100)}
             onContinue={() => {
+              markResumePromptHandled(bookId);
               resumeActionRef.current = "continue";
               setShowResumeOverlay(false);
               setResumeReady(true);
             }}
             onStartOver={() => {
+              markResumePromptHandled(bookId);
               resumeActionRef.current = "start-over";
               setShowResumeOverlay(false);
               setResumeReady(true);
@@ -3086,7 +3132,9 @@ export function PdfReader({
           <ReadAgainPrompt
             readCount={readCount}
             onReadAgain={() => {
+              markResumePromptHandled(bookId);
               void resetBookForReread(bookId).then(() => {
+                visitedPagesRef.current = [];
                 setShowReadAgainOverlay(false);
                 setResumeReady(true);
                 setPage(1);
@@ -3094,6 +3142,7 @@ export function PdfReader({
               });
             }}
             onOpenLastPage={() => {
+              markResumePromptHandled(bookId);
               setShowReadAgainOverlay(false);
               setResumeReady(true);
               scrollToPage(initialPage, "auto");

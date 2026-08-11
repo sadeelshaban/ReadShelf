@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useState, Suspense } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { markFreshLoginSession } from "@/lib/reader/reading-session";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -81,6 +82,7 @@ function LoginForm() {
           ? redirectParam
           : (dest.path as string);
 
+      markFreshLoginSession();
       router.push(path);
       router.refresh();
     } catch (err) {
