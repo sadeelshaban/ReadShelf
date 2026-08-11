@@ -4,6 +4,7 @@ import fontkit from "@pdf-lib/fontkit";
 import {
   PDFDocument,
   LineCapStyle,
+  StandardFonts,
   rgb,
   type PDFFont,
   type PDFPage,
@@ -27,23 +28,16 @@ const NOTE_FONT_TTF_PATH = path.join(
   process.cwd(),
   "assets/fonts/NotoSansArabic-Regular.ttf",
 );
-const NOTE_FONT_WOFF2_PATH = path.join(
-  process.cwd(),
-  "node_modules/@fontsource/noto-sans-arabic/files/noto-sans-arabic-arabic-400-normal.woff2",
-);
-const NOTE_FONT_WOFF_PATH = path.join(
-  process.cwd(),
-  "node_modules/@fontsource/noto-sans-arabic/files/noto-sans-arabic-arabic-400-normal.woff",
-);
+/** Arabic script only — Latin letters need {@link NoteFonts.latin}. */
+const ARABIC_RE = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/;
+const LATIN_LETTER_RE = /[A-Za-z]/;
 
-let cachedNoteFontBytes: Uint8Array | null = null;
+type NoteFonts = {
+  arabic: PDFFont;
+  latin: PDFFont;
+};
 
-function resolveNoteFontPath() {
-  if (fs.existsSync(NOTE_FONT_TTF_PATH)) return NOTE_FONT_TTF_PATH;
-  if (fs.existsSync(NOTE_FONT_WOFF2_PATH)) return NOTE_FONT_WOFF2_PATH;
-  if (fs.existsSync(NOTE_FONT_WOFF_PATH)) return NOTE_FONT_WOFF_PATH;
-  return NOTE_FONT_TTF_PATH;
-}
+let cachedArabicFontBytes: Uint8Array | null = null;
 
 function parseHexColor(hex: string): RGB {
   const normalized = hex.replace("#", "");
@@ -218,24 +212,94 @@ function drawHighlightsOnPage(
   }
 }
 
+type ScriptRun = { text: string; script: "latin" | "arabic" | "neutral" };
+
+export function splitNoteScriptRuns(text: string): ScriptRun[] {
+  const runs: ScriptRun[] = [];
+  let buffer = "";
+  let script: "latin" | "arabic" | "neutral" | null = null;
+
+  for (const char of text) {
+    let charScript: ScriptRun["script"] = "neutral";
+    if (ARABIC_RE.test(char)) charScript = "arabic";
+    else if (LATIN_LETTER_RE.test(char)) charScript = "latin";
+
+    if (script === null) {
+      buffer = char;
+      script = charScript === "neutral" ? "latin" : charScript;
+      continue;
+    }
+
+    if (charScript === "neutral" || charScript === script) {
+      buffer += char;
+      continue;
+    }
+
+    runs.push({ text: buffer, script });
+    buffer = char;
+    script = charScript;
+  }
+
+  if (buffer) {
+    runs.push({ text: buffer, script: script ?? "latin" });
+  }
+
+  return runs;
+}
+
+export function noteTextUsesMixedScripts(text: string) {
+  return ARABIC_RE.test(text) && LATIN_LETTER_RE.test(text);
+}
+
+function fontForScript(script: ScriptRun["script"], fonts: NoteFonts): PDFFont {
+  return script === "arabic" ? fonts.arabic : fonts.latin;
+}
+
+export function measureNoteTextWidth(text: string, size: number, fonts: NoteFonts) {
+  if (!noteTextUsesMixedScripts(text)) {
+    const font = ARABIC_RE.test(text) ? fonts.arabic : fonts.latin;
+    return font.widthOfTextAtSize(text, size);
+  }
+
+  return splitNoteScriptRuns(text).reduce(
+    (width, run) => width + fontForScript(run.script, fonts).widthOfTextAtSize(run.text, size),
+    0,
+  );
+}
+
 function drawWrappedNoteText(
   page: PDFPage,
   text: string,
   rect: { x: number; y: number; width: number; height: number },
   size: number,
-  font: PDFFont,
+  fonts: NoteFonts,
   color: RGB,
   padding: number,
 ) {
-  page.drawText(text, {
-    x: rect.x + padding,
-    y: rect.y + rect.height - padding - size,
-    size,
-    font,
-    color,
-    maxWidth: Math.max(8, rect.width - padding * 2),
-    lineHeight: size * 1.25,
-  });
+  const x = rect.x + padding;
+  const y = rect.y + rect.height - padding - size;
+  const maxWidth = Math.max(8, rect.width - padding * 2);
+
+  if (!noteTextUsesMixedScripts(text)) {
+    const font = ARABIC_RE.test(text) ? fonts.arabic : fonts.latin;
+    page.drawText(text, {
+      x,
+      y,
+      size,
+      font,
+      color,
+      maxWidth,
+      lineHeight: size * 1.25,
+    });
+    return;
+  }
+
+  let cursorX = x;
+  for (const run of splitNoteScriptRuns(text)) {
+    const font = fontForScript(run.script, fonts);
+    page.drawText(run.text, { x: cursorX, y, size, font, color });
+    cursorX += font.widthOfTextAtSize(run.text, size);
+  }
 }
 
 function drawStickyNoteOnPage(
@@ -243,7 +307,7 @@ function drawStickyNoteOnPage(
   note: Note,
   position: NotePosition,
   viewport: { width: number; height: number },
-  noteFont: PDFFont,
+  fonts: NoteFonts,
 ) {
   const palette = stickyPaperPalette(note.text_color);
   const rect = toPdfRect(position, viewport, page);
@@ -293,7 +357,7 @@ function drawStickyNoteOnPage(
     x: rect.x + 6,
     y: rect.y + rect.height - headerHeight + headerHeight * 0.28,
     size: Math.max(7, fontSize * 0.72),
-    font: noteFont,
+    font: fonts.latin,
     color: noteColorToRgb(note.text_color ?? "yellow"),
     opacity: 0.75,
   });
@@ -308,7 +372,7 @@ function drawStickyNoteOnPage(
       height: rect.height - headerHeight,
     },
     Math.max(8, fontSize * 0.92),
-    noteFont,
+    fonts,
     noteColorToRgb(note.text_color ?? "yellow"),
     8,
   );
@@ -319,7 +383,7 @@ function drawCommentOnPage(
   note: Note,
   position: NotePosition,
   viewport: { width: number; height: number },
-  noteFont: PDFFont,
+  fonts: NoteFonts,
 ) {
   const text = noteBody(note);
   if (!text) return;
@@ -332,7 +396,7 @@ function drawCommentOnPage(
   const padding = Math.max(4, fontSize * 0.45);
   const textWidth = Math.min(
     (position.width / viewport.width) * page.getWidth(),
-    noteFont.widthOfTextAtSize(text, fontSize) + padding * 2,
+    measureNoteTextWidth(text, fontSize, fonts) + padding * 2,
   );
   const lineCount = Math.max(1, text.split(/\r?\n/).length);
   const textHeight = lineCount * fontSize * 1.25 + padding * 2;
@@ -372,7 +436,7 @@ function drawCommentOnPage(
     text,
     rect,
     fontSize,
-    noteFont,
+    fonts,
     noteColorToRgb(note.text_color ?? "yellow"),
     padding,
   );
@@ -382,7 +446,7 @@ function drawNotesOnPage(
   page: PDFPage,
   pageNotes: Note[],
   pageFallback: { width: number; height: number },
-  noteFont: PDFFont,
+  fonts: NoteFonts,
 ) {
   for (const note of pageNotes) {
     if (!note.position || !noteHasContent(note)) continue;
@@ -394,9 +458,9 @@ function drawNotesOnPage(
 
     try {
       if (isCommentNote(note)) {
-        drawCommentOnPage(page, note, clipped, viewport, noteFont);
+        drawCommentOnPage(page, note, clipped, viewport, fonts);
       } else {
-        drawStickyNoteOnPage(page, note, clipped, viewport, noteFont);
+        drawStickyNoteOnPage(page, note, clipped, viewport, fonts);
       }
     } catch (error) {
       console.error("Failed to draw note on exported PDF:", note.id, error);
@@ -404,18 +468,20 @@ function drawNotesOnPage(
   }
 }
 
-async function loadNoteFont(pdfDoc: PDFDocument): Promise<PDFFont> {
+async function loadNoteFonts(pdfDoc: PDFDocument): Promise<NoteFonts> {
   pdfDoc.registerFontkit(fontkit);
-  const fontPath = resolveNoteFontPath();
-  if (!fs.existsSync(fontPath)) {
-    throw new Error(`Note export font not found at ${fontPath}`);
+  if (!fs.existsSync(NOTE_FONT_TTF_PATH)) {
+    throw new Error(`Arabic note export font not found at ${NOTE_FONT_TTF_PATH}`);
   }
 
-  if (!cachedNoteFontBytes) {
-    cachedNoteFontBytes = fs.readFileSync(fontPath);
+  if (!cachedArabicFontBytes) {
+    cachedArabicFontBytes = new Uint8Array(fs.readFileSync(NOTE_FONT_TTF_PATH));
   }
 
-  return pdfDoc.embedFont(cachedNoteFontBytes, { subset: true });
+  const arabic = await pdfDoc.embedFont(cachedArabicFontBytes, { subset: true });
+  const latin = await pdfDoc.embedStandardFont(StandardFonts.Helvetica);
+
+  return { arabic, latin };
 }
 
 export async function buildAnnotatedPdf(
@@ -427,8 +493,8 @@ export async function buildAnnotatedPdf(
   const exportableNotes = notes.filter(
     (note) => noteHasContent(note) && note.position && isNoteOnPage(note.position),
   );
-  const noteFont =
-    exportableNotes.length > 0 ? await loadNoteFont(pdfDoc) : null;
+  const noteFonts =
+    exportableNotes.length > 0 ? await loadNoteFonts(pdfDoc) : null;
   const pages = pdfDoc.getPages();
   const pageNumbers = new Set<number>([
     ...highlights.map((h) => h.page_number),
@@ -446,12 +512,12 @@ export async function buildAnnotatedPdf(
       highlights.filter((h) => h.page_number === pageNumber),
       pageFallback,
     );
-    if (noteFont) {
+    if (noteFonts) {
       drawNotesOnPage(
         page,
         notes.filter((n) => n.page_number === pageNumber),
         pageFallback,
-        noteFont,
+        noteFonts,
       );
     }
   }
