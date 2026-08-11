@@ -18,7 +18,7 @@ import type {
   ShapeKind,
 } from "@/types";
 import { createClient } from "@/lib/supabase/client";
-import { canvasPointFromClient, migrateCommentToPageAnchored, type ViewportSize } from "@/lib/reader/coordinates";
+import { canvasPointFromClient, migrateCommentToPageAnchored, pageFontSizeFromDisplaySize, type ViewportSize } from "@/lib/reader/coordinates";
 import {
   DEFAULT_NOTE_FONT_SIZE,
   MAX_NOTE_FONT_SIZE,
@@ -2584,7 +2584,7 @@ export function PdfReader({
       y: Math.max(8, point.y - 20),
       width: isComment ? DEFAULT_COMMENT_WIDTH : DEFAULT_STICKY_WIDTH,
       height: isComment ? DEFAULT_COMMENT_HEIGHT : DEFAULT_STICKY_HEIGHT,
-      fontSize: noteFontSize,
+      fontSize: pageFontSizeFromDisplaySize(noteFontSize, canvas),
       title: "",
       rotation: 0,
       kind: isComment ? "comment" : "sticky",

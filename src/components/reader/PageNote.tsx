@@ -4,6 +4,7 @@ import {
   useEffect,
   useRef,
   useState,
+  type CSSProperties,
   type PointerEvent as ReactPointerEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type FocusEvent as ReactFocusEvent,
@@ -70,18 +71,19 @@ function applyResize(
 
 const RESIZE_HANDLES: Array<{
   id: ResizeHandle;
-  className: string;
+  edgeClassName: string;
+  style: CSSProperties;
   cursor: string;
   label: string;
 }> = [
-  { id: "n", className: "left-2 right-2 top-0 h-2", cursor: "ns-resize", label: "Resize top edge" },
-  { id: "s", className: "bottom-0 left-2 right-2 h-2", cursor: "ns-resize", label: "Resize bottom edge" },
-  { id: "w", className: "bottom-2 left-0 top-2 w-2", cursor: "ew-resize", label: "Resize left edge" },
-  { id: "e", className: "bottom-2 right-0 top-2 w-2", cursor: "ew-resize", label: "Resize right edge" },
-  { id: "nw", className: "left-0 top-0 h-3 w-3", cursor: "nwse-resize", label: "Resize top-left corner" },
-  { id: "ne", className: "right-0 top-0 h-3 w-3", cursor: "nesw-resize", label: "Resize top-right corner" },
-  { id: "sw", className: "bottom-0 left-0 h-3 w-3", cursor: "nesw-resize", label: "Resize bottom-left corner" },
-  { id: "se", className: "bottom-0 right-0 h-3 w-3", cursor: "nwse-resize", label: "Resize bottom-right corner" },
+  { id: "n", edgeClassName: "left-[0.5em] right-[0.5em] top-0", style: { height: "0.45em" }, cursor: "ns-resize", label: "Resize top edge" },
+  { id: "s", edgeClassName: "bottom-0 left-[0.5em] right-[0.5em]", style: { height: "0.45em" }, cursor: "ns-resize", label: "Resize bottom edge" },
+  { id: "w", edgeClassName: "bottom-[0.5em] left-0 top-[0.5em]", style: { width: "0.45em" }, cursor: "ew-resize", label: "Resize left edge" },
+  { id: "e", edgeClassName: "bottom-[0.5em] right-0 top-[0.5em]", style: { width: "0.45em" }, cursor: "ew-resize", label: "Resize right edge" },
+  { id: "nw", edgeClassName: "left-0 top-0", style: { width: "0.65em", height: "0.65em" }, cursor: "nwse-resize", label: "Resize top-left corner" },
+  { id: "ne", edgeClassName: "right-0 top-0", style: { width: "0.65em", height: "0.65em" }, cursor: "nesw-resize", label: "Resize top-right corner" },
+  { id: "sw", edgeClassName: "bottom-0 left-0", style: { width: "0.65em", height: "0.65em" }, cursor: "nesw-resize", label: "Resize bottom-left corner" },
+  { id: "se", edgeClassName: "bottom-0 right-0", style: { width: "0.65em", height: "0.65em" }, cursor: "nwse-resize", label: "Resize bottom-right corner" },
 ];
 
 export type StickyNoteDraft = {
@@ -159,7 +161,7 @@ export function PageNote({
       return;
     }
     setLocalPos(displayRectFromPagePosition(note.position, canvas));
-  }, [note.position, pageViewport, canvasRef]);
+  }, [note.position, pageViewport, canvasDisplayWidth, canvasRef]);
 
   useEffect(() => {
     setRotation(noteRotation(note));
@@ -381,6 +383,7 @@ export function PageNote({
         top: localPos.y,
         width: localPos.width,
         height: localPos.height,
+        fontSize,
         transform: `rotate(${rotation}deg)`,
         transformOrigin: "center center",
         fontFamily,
@@ -397,8 +400,10 @@ export function PageNote({
         }}
       >
         <div
-          className="pointer-events-none absolute right-0 top-0 h-7 w-7"
+          className="pointer-events-none absolute right-0 top-0"
           style={{
+            width: "1.75em",
+            height: "1.75em",
             background: `linear-gradient(225deg, transparent 48%, ${palette.fold} 50%)`,
             boxShadow: `-1px 1px 2px rgba(0,0,0,0.12)`,
           }}
@@ -406,8 +411,10 @@ export function PageNote({
         />
 
         <div
-          className="flex items-center gap-1 border-b px-1.5 py-1"
+          className="flex items-center border-b"
           style={{
+            gap: "0.25em",
+            padding: "0.35em 0.5em",
             borderColor: "rgba(0,0,0,0.06)",
             background: palette.header,
           }}
@@ -417,10 +424,11 @@ export function PageNote({
           onPointerCancel={handleDragEnd}
         >
           <span
-            className="flex h-5 w-5 cursor-grab items-center justify-center rounded text-[10px] opacity-70 active:cursor-grabbing"
+            className="flex cursor-grab items-center justify-center rounded opacity-70 active:cursor-grabbing"
+            style={{ width: "1.25em", height: "1.25em", fontSize: "0.85em" }}
             aria-hidden
           >
-            <svg viewBox="0 0 16 16" className="h-3 w-3">
+            <svg viewBox="0 0 16 16" style={{ width: "1em", height: "1em" }}>
               <circle cx="5" cy="4" r="1.1" fill="currentColor" />
               <circle cx="11" cy="4" r="1.1" fill="currentColor" />
               <circle cx="5" cy="8" r="1.1" fill="currentColor" />
@@ -429,21 +437,25 @@ export function PageNote({
               <circle cx="11" cy="12" r="1.1" fill="currentColor" />
             </svg>
           </span>
-          <span className="flex-1 truncate text-[10px] font-semibold tracking-wide opacity-70">
+          <span
+            className="flex-1 truncate font-semibold tracking-wide opacity-70"
+            style={{ fontSize: "0.72em" }}
+          >
             Note
           </span>
           <button
             type="button"
             title="Rotate left"
             aria-label="Rotate left"
-            className="flex h-5 w-5 items-center justify-center rounded opacity-70 hover:bg-black/5 hover:opacity-100"
+            className="flex items-center justify-center rounded opacity-70 hover:bg-black/5 hover:opacity-100"
+            style={{ width: "1.25em", height: "1.25em" }}
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation();
               bumpRotation(-STICKY_ROTATION_STEP);
             }}
           >
-            <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none" aria-hidden>
+            <svg viewBox="0 0 16 16" style={{ width: "1em", height: "1em" }} fill="none" aria-hidden>
               <path
                 d="M3.5 7.5a4.5 4.5 0 1 1 1.2 3.1"
                 stroke="currentColor"
@@ -457,14 +469,15 @@ export function PageNote({
             type="button"
             title="Rotate right"
             aria-label="Rotate right"
-            className="flex h-5 w-5 items-center justify-center rounded opacity-70 hover:bg-black/5 hover:opacity-100"
+            className="flex items-center justify-center rounded opacity-70 hover:bg-black/5 hover:opacity-100"
+            style={{ width: "1.25em", height: "1.25em" }}
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation();
               bumpRotation(STICKY_ROTATION_STEP);
             }}
           >
-            <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none" aria-hidden>
+            <svg viewBox="0 0 16 16" style={{ width: "1em", height: "1em" }} fill="none" aria-hidden>
               <path
                 d="M12.5 7.5a4.5 4.5 0 1 0-1.2 3.1"
                 stroke="currentColor"
@@ -478,27 +491,32 @@ export function PageNote({
             type="button"
             title="Delete"
             aria-label="Delete sticky note"
-            className="flex h-5 w-5 items-center justify-center rounded opacity-70 hover:bg-black/5 hover:opacity-100"
+            className="flex items-center justify-center rounded opacity-70 hover:bg-black/5 hover:opacity-100"
+            style={{ width: "1.25em", height: "1.25em" }}
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation();
               onDelete(note.id);
             }}
           >
-            <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none" aria-hidden>
+            <svg viewBox="0 0 16 16" style={{ width: "1em", height: "1em" }} fill="none" aria-hidden>
               <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
             </svg>
           </button>
         </div>
 
         {editing ? (
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-2.5 pt-2" onBlur={handleBlur}>
+          <div
+            className="flex min-h-0 flex-1 flex-col overflow-hidden"
+            style={{ padding: "0.65em 0.75em 0.5em" }}
+            onBlur={handleBlur}
+          >
             <textarea
               ref={bodyInputRef}
-              className="h-full min-h-0 w-full flex-1 resize-none overflow-y-auto bg-transparent text-[12px] leading-snug outline-none placeholder:opacity-45"
+              className="h-full min-h-0 w-full flex-1 resize-none overflow-y-auto bg-transparent leading-snug outline-none placeholder:opacity-45"
               style={{
                 color: palette.ink,
-                fontSize: Math.max(11, fontSize - 1),
+                fontSize: "0.92em",
                 touchAction: "manipulation",
               }}
               dir="auto"
@@ -516,7 +534,8 @@ export function PageNote({
         ) : (
           <button
             type="button"
-            className="flex min-h-0 flex-1 flex-col items-stretch overflow-y-auto p-3 pt-2.5 text-start"
+            className="flex min-h-0 flex-1 flex-col items-stretch overflow-y-auto text-start"
+            style={{ padding: "0.75em 0.85em 0.65em" }}
             onClick={(e) => {
               e.stopPropagation();
               if (isDraggingRef.current || isResizingRef.current) return;
@@ -525,14 +544,14 @@ export function PageNote({
           >
             {savedBody ? (
               <p
-                className="whitespace-pre-wrap text-[12px] leading-snug"
-                style={{ fontSize: Math.max(11, fontSize - 1) }}
+                className="whitespace-pre-wrap leading-snug"
+                style={{ fontSize: "0.92em" }}
                 dir="auto"
               >
                 {savedBody}
               </p>
             ) : (
-              <p className="text-[12px] opacity-50" style={{ fontSize: Math.max(11, fontSize - 1) }}>
+              <p className="opacity-50" style={{ fontSize: "0.92em" }}>
                 Click to write
               </p>
             )}
@@ -545,8 +564,8 @@ export function PageNote({
             type="button"
             aria-label={handle.label}
             title={handle.label}
-            className={`absolute z-30 touch-none opacity-0 ${handle.className}`}
-            style={{ cursor: handle.cursor }}
+            className={`absolute z-30 touch-none opacity-0 ${handle.edgeClassName}`}
+            style={{ cursor: handle.cursor, ...handle.style }}
             onPointerDown={(e) => handleResizeStart(handle.id, e)}
             onPointerMove={handleResizeMove}
             onPointerUp={handleResizeEnd}

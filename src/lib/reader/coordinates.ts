@@ -85,6 +85,15 @@ export function displayFontSizeFromLayout(
   return (pageFontSize * displayWidth) / refW;
 }
 
+/** Store toolbar/display font sizes in page coordinates (same space as highlights). */
+export function pageFontSizeFromDisplaySize(
+  displayFontSize: number,
+  canvas: HTMLCanvasElement,
+) {
+  const rect = canvas.getBoundingClientRect();
+  return displayFontSize * (canvas.width / Math.max(rect.width, 1));
+}
+
 /** Comments scale with the page like sticky notes, highlights, and pen strokes. */
 export function displayCommentFromPagePosition(
   pos: NotePosition,

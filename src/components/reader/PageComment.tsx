@@ -85,7 +85,7 @@ export function PageComment({
     const canvas = canvasRef.current;
     if (!canvas || !note.position || dragRef.current || isDraggingRef.current) return;
     setLocalPos(displayCommentFromPagePosition(note.position, canvas));
-  }, [note.position, pageViewport, canvasRef]);
+  }, [note.position, pageViewport, canvasDisplayWidth, canvasRef]);
 
   useEffect(() => {
     if (!editing) return;
@@ -205,10 +205,11 @@ export function PageComment({
       ref={rootRef}
       data-note-id={note.id}
       data-note-kind="comment"
-      className="note-root group/comment absolute z-20 max-w-[min(360px,70vw)]"
+      className="note-root group/comment absolute z-20 w-max max-w-full"
       style={{
         left: localPos.x,
         top: localPos.y,
+        maxWidth: "18em",
         fontFamily: stickyNoteFontStack(),
         fontSize,
       }}
@@ -220,18 +221,26 @@ export function PageComment({
       dir={dir}
     >
       {(showActions || editing) && (
-        <div className="absolute -top-8 left-0 z-30 flex items-center gap-1 rounded-lg border border-white/50 bg-white/90 px-1 py-0.5 shadow-sm backdrop-blur-sm">
+        <div
+          className="absolute left-0 z-30 flex items-center rounded-lg border border-white/50 bg-white/90 shadow-sm backdrop-blur-sm"
+          style={{
+            top: "-2.2em",
+            gap: "0.25em",
+            padding: "0.15em 0.35em",
+          }}
+        >
           <button
             type="button"
             aria-label="Move comment"
             title="Drag to move"
-            className="flex h-6 w-6 cursor-grab items-center justify-center rounded text-[#5b4028]/80 active:cursor-grabbing hover:bg-[#fff1dc]"
+            className="flex cursor-grab items-center justify-center rounded text-[#5b4028]/80 active:cursor-grabbing hover:bg-[#fff1dc]"
+            style={{ width: "1.5em", height: "1.5em" }}
             onPointerDown={handleDragStart}
             onPointerMove={handleDragMove}
             onPointerUp={handleDragEnd}
             onPointerCancel={handleDragEnd}
           >
-            <svg viewBox="0 0 16 16" className="h-3 w-3" aria-hidden>
+            <svg viewBox="0 0 16 16" style={{ width: "0.85em", height: "0.85em" }} aria-hidden>
               <circle cx="5" cy="4" r="1.1" fill="currentColor" />
               <circle cx="11" cy="4" r="1.1" fill="currentColor" />
               <circle cx="5" cy="8" r="1.1" fill="currentColor" />
@@ -244,13 +253,14 @@ export function PageComment({
             type="button"
             aria-label="Delete comment"
             title="Delete"
-            className="flex h-6 w-6 items-center justify-center rounded text-red-600/80 hover:bg-red-50"
+            className="flex items-center justify-center rounded text-red-600/80 hover:bg-red-50"
+            style={{ width: "1.5em", height: "1.5em" }}
             onClick={(e) => {
               e.stopPropagation();
               onDelete(note.id);
             }}
           >
-            <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none" aria-hidden>
+            <svg viewBox="0 0 16 16" style={{ width: "0.85em", height: "0.85em" }} fill="none" aria-hidden>
               <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
             </svg>
           </button>
@@ -264,10 +274,11 @@ export function PageComment({
         )}
       >
         <span
-          className="pointer-events-none absolute -left-1.5 top-2 text-primary/55"
+          className="pointer-events-none absolute text-primary/55"
+          style={{ left: "-0.35em", top: "0.35em" }}
           aria-hidden
         >
-          <svg viewBox="0 0 12 12" className="h-3 w-3">
+          <svg viewBox="0 0 12 12" style={{ width: "0.85em", height: "0.85em" }}>
             <path
               d="M1 6c2.5-1 4-3.2 5.2-5.5L8 6H1z"
               fill="currentColor"
@@ -279,8 +290,13 @@ export function PageComment({
         {editing ? (
           <textarea
             ref={textareaRef}
-            className="min-h-[1.5em] w-[min(320px,65vw)] resize-none rounded-lg bg-[rgba(255,248,241,0.35)] px-2.5 py-2 leading-snug text-[#2a1c12] outline-none placeholder:text-[#6f4528]/40"
-            style={{ fontSize: "inherit" }}
+            className="min-h-[1.5em] max-w-full resize-none rounded-lg bg-[rgba(255,248,241,0.35)] leading-snug text-[#2a1c12] outline-none placeholder:text-[#6f4528]/40"
+            style={{
+              fontSize: "inherit",
+              width: "18em",
+              maxWidth: "100%",
+              padding: "0.55em 0.65em",
+            }}
             dir="auto"
             maxLength={MAX_STICKY_NOTE_CHARS}
             placeholder="Write a comment..."
@@ -296,8 +312,11 @@ export function PageComment({
         ) : (
           <button
             type="button"
-            className="block w-max max-w-full rounded-lg bg-[rgba(255,248,241,0.28)] px-2.5 py-2 text-start leading-snug text-[#2a1c12] hover:bg-[rgba(255,248,241,0.45)]"
-            style={{ fontSize: "inherit" }}
+            className="block w-max max-w-full rounded-lg bg-[rgba(255,248,241,0.28)] text-start leading-snug text-[#2a1c12] hover:bg-[rgba(255,248,241,0.45)]"
+            style={{
+              fontSize: "inherit",
+              padding: "0.55em 0.65em",
+            }}
             dir="auto"
             onClick={(e) => {
               e.stopPropagation();
