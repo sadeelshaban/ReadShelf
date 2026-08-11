@@ -83,7 +83,6 @@ export const MIN_STICKY_HEIGHT = 120;
 export const MAX_STICKY_WIDTH = 360;
 export const MAX_STICKY_HEIGHT = 420;
 export const MAX_STICKY_NOTE_CHARS = 250;
-export const STICKY_SIZE_STEP = 16;
 export const STICKY_ROTATION_STEP = 15;
 
 export function normalizeStickyColor(color: string | null | undefined): BookmarkColorId {
@@ -236,10 +235,6 @@ export function clampStickySize(width: number, height: number) {
     width: Math.min(MAX_STICKY_WIDTH, Math.max(MIN_STICKY_WIDTH, width)),
     height: Math.min(MAX_STICKY_HEIGHT, Math.max(MIN_STICKY_HEIGHT, height)),
   };
-}
-
-export function bumpStickySize(width: number, height: number, delta: number) {
-  return clampStickySize(width + delta, height + Math.round(delta * 0.84));
 }
 
 export function normalizeRotation(degrees: number) {

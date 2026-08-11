@@ -17,22 +17,72 @@ import {
 } from "@/lib/reader/coordinates";
 import { DEFAULT_NOTE_FONT_SIZE } from "@/lib/reader/constants";
 import {
-  bumpStickySize,
   clampStickySize,
   detectTextDirection,
-  MAX_STICKY_HEIGHT,
   MAX_STICKY_NOTE_CHARS,
-  MAX_STICKY_WIDTH,
-  MIN_STICKY_HEIGHT,
-  MIN_STICKY_WIDTH,
   noteBody,
   noteRotation,
   normalizeRotation,
   stickyNoteFontStack,
   stickyPaperPalette,
   STICKY_ROTATION_STEP,
-  STICKY_SIZE_STEP,
 } from "@/lib/reader/sticky-notes";
+
+type ResizeHandle = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
+
+function applyResize(
+  handle: ResizeHandle,
+  origin: { x: number; y: number; width: number; height: number },
+  dx: number,
+  dy: number,
+) {
+  let x = origin.x;
+  let y = origin.y;
+  let width = origin.width;
+  let height = origin.height;
+
+  if (handle.includes("e")) width = origin.width + dx;
+  if (handle.includes("w")) {
+    width = origin.width - dx;
+    x = origin.x + dx;
+  }
+  if (handle.includes("s")) height = origin.height + dy;
+  if (handle.includes("n")) {
+    height = origin.height - dy;
+    y = origin.y + dy;
+  }
+
+  const clamped = clampStickySize(width, height);
+  if (handle.includes("w")) {
+    x = origin.x + origin.width - clamped.width;
+  }
+  if (handle.includes("n")) {
+    y = origin.y + origin.height - clamped.height;
+  }
+
+  return {
+    x,
+    y,
+    width: clamped.width,
+    height: clamped.height,
+  };
+}
+
+const RESIZE_HANDLES: Array<{
+  id: ResizeHandle;
+  className: string;
+  cursor: string;
+  label: string;
+}> = [
+  { id: "n", className: "left-2 right-2 top-0 h-2", cursor: "ns-resize", label: "Resize top edge" },
+  { id: "s", className: "bottom-0 left-2 right-2 h-2", cursor: "ns-resize", label: "Resize bottom edge" },
+  { id: "w", className: "bottom-2 left-0 top-2 w-2", cursor: "ew-resize", label: "Resize left edge" },
+  { id: "e", className: "bottom-2 right-0 top-2 w-2", cursor: "ew-resize", label: "Resize right edge" },
+  { id: "nw", className: "left-0 top-0 h-3 w-3", cursor: "nwse-resize", label: "Resize top-left corner" },
+  { id: "ne", className: "right-0 top-0 h-3 w-3", cursor: "nesw-resize", label: "Resize top-right corner" },
+  { id: "sw", className: "bottom-0 left-0 h-3 w-3", cursor: "nesw-resize", label: "Resize bottom-left corner" },
+  { id: "se", className: "bottom-0 right-0 h-3 w-3", cursor: "nwse-resize", label: "Resize bottom-right corner" },
+];
 
 export type StickyNoteDraft = {
   title: string;
@@ -78,7 +128,14 @@ export function PageNote({
     origin: { x: number; y: number; width: number; height: number; fontSize: number };
     dragging: boolean;
   } | null>(null);
+  const resizeRef = useRef<{
+    handle: ResizeHandle;
+    startX: number;
+    startY: number;
+    origin: { x: number; y: number; width: number; height: number; fontSize: number };
+  } | null>(null);
   const isDraggingRef = useRef(false);
+  const isResizingRef = useRef(false);
   const bodyInputRef = useRef<HTMLTextAreaElement>(null);
   const noteRootRef = useRef<HTMLDivElement>(null);
 
@@ -98,7 +155,7 @@ export function PageNote({
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !note.position || dragRef.current || isDraggingRef.current) {
+    if (!canvas || !note.position || dragRef.current || resizeRef.current || isDraggingRef.current) {
       return;
     }
     setLocalPos(displayRectFromPagePosition(note.position, canvas));
@@ -182,6 +239,53 @@ export function PageNote({
     );
   }
 
+  function handleResizeStart(handle: ResizeHandle, e: ReactPointerEvent<HTMLElement>) {
+    e.stopPropagation();
+    e.preventDefault();
+    isResizingRef.current = true;
+    resizeRef.current = {
+      handle,
+      startX: e.clientX,
+      startY: e.clientY,
+      origin: localPos!,
+    };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+
+  function handleResizeMove(e: ReactPointerEvent<HTMLElement>) {
+    if (!resizeRef.current) return;
+    e.stopPropagation();
+    e.preventDefault();
+    const dx = e.clientX - resizeRef.current.startX;
+    const dy = e.clientY - resizeRef.current.startY;
+    const next = applyResize(resizeRef.current.handle, resizeRef.current.origin, dx, dy);
+    setLocalPos({
+      ...resizeRef.current.origin,
+      ...next,
+    });
+  }
+
+  function handleResizeEnd(e: ReactPointerEvent<HTMLElement>) {
+    if (!resizeRef.current) return;
+    e.stopPropagation();
+    const dx = e.clientX - resizeRef.current.startX;
+    const dy = e.clientY - resizeRef.current.startY;
+    const next = applyResize(resizeRef.current.handle, resizeRef.current.origin, dx, dy);
+    const nextDisplay = {
+      ...resizeRef.current.origin,
+      ...next,
+    };
+    onDraftChange(note.id, buildDraft(body, nextDisplay));
+    persistPosition(nextDisplay);
+    resizeRef.current = null;
+    window.setTimeout(() => {
+      isResizingRef.current = false;
+    }, 0);
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+  }
+
   function handleDragStart(e: ReactPointerEvent<HTMLElement>) {
     e.stopPropagation();
     e.preventDefault();
@@ -252,14 +356,6 @@ export function PageNote({
     onRotate(note.id, next);
   }
 
-  function bumpSize(delta: number) {
-    const next = bumpStickySize(localPos!.width, localPos!.height, delta);
-    const nextDisplay = { ...localPos!, ...next };
-    setLocalPos(nextDisplay);
-    onDraftChange(note.id, buildDraft(body, nextDisplay));
-    persistPosition(nextDisplay);
-  }
-
   function handleBodyKeyDown(e: ReactKeyboardEvent<HTMLTextAreaElement>) {
     if ((e.ctrlKey || e.metaKey) && (e.code === "KeyY" || (e.code === "KeyZ" && e.shiftKey))) {
       e.preventDefault();
@@ -274,8 +370,6 @@ export function PageNote({
   }
 
   const fontFamily = stickyNoteFontStack();
-  const atMinSize = localPos.width <= MIN_STICKY_WIDTH && localPos.height <= MIN_STICKY_HEIGHT;
-  const atMaxSize = localPos.width >= MAX_STICKY_WIDTH && localPos.height >= MAX_STICKY_HEIGHT;
 
   return (
     <div
@@ -294,50 +388,6 @@ export function PageNote({
       onPointerDown={(e) => e.stopPropagation()}
       dir={dir}
     >
-      <button
-        type="button"
-        title="Smaller"
-        aria-label="Make note smaller"
-        disabled={atMinSize}
-        className="absolute left-0 top-1/2 z-30 flex h-7 w-5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-sm opacity-80 shadow-sm transition hover:opacity-100 disabled:pointer-events-none disabled:opacity-25"
-        style={{
-          background: palette.header,
-          color: palette.ink,
-          border: `1px solid ${palette.fold}`,
-        }}
-        onPointerDown={(e) => e.stopPropagation()}
-        onClick={(e) => {
-          e.stopPropagation();
-          bumpSize(-STICKY_SIZE_STEP);
-        }}
-      >
-        <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none" aria-hidden>
-          <path d="M10 4 6 8l4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </button>
-
-      <button
-        type="button"
-        title="Larger"
-        aria-label="Make note larger"
-        disabled={atMaxSize}
-        className="absolute right-0 top-1/2 z-30 flex h-7 w-5 translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-sm opacity-80 shadow-sm transition hover:opacity-100 disabled:pointer-events-none disabled:opacity-25"
-        style={{
-          background: palette.header,
-          color: palette.ink,
-          border: `1px solid ${palette.fold}`,
-        }}
-        onPointerDown={(e) => e.stopPropagation()}
-        onClick={(e) => {
-          e.stopPropagation();
-          bumpSize(STICKY_SIZE_STEP);
-        }}
-      >
-        <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none" aria-hidden>
-          <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </button>
-
       <div
         className="relative flex h-full min-h-full flex-col overflow-hidden rounded-sm shadow-[0_6px_18px_rgba(40,24,8,0.16)] backdrop-blur-[2px]"
         style={{
@@ -469,7 +519,7 @@ export function PageNote({
             className="flex min-h-0 flex-1 flex-col items-stretch overflow-y-auto p-3 pt-2.5 text-start"
             onClick={(e) => {
               e.stopPropagation();
-              if (isDraggingRef.current) return;
+              if (isDraggingRef.current || isResizingRef.current) return;
               onStartEdit(note.id);
             }}
           >
@@ -488,6 +538,21 @@ export function PageNote({
             )}
           </button>
         )}
+
+        {RESIZE_HANDLES.map((handle) => (
+          <button
+            key={handle.id}
+            type="button"
+            aria-label={handle.label}
+            title={handle.label}
+            className={`absolute z-30 touch-none opacity-0 ${handle.className}`}
+            style={{ cursor: handle.cursor }}
+            onPointerDown={(e) => handleResizeStart(handle.id, e)}
+            onPointerMove={handleResizeMove}
+            onPointerUp={handleResizeEnd}
+            onPointerCancel={handleResizeEnd}
+          />
+        ))}
       </div>
     </div>
   );
