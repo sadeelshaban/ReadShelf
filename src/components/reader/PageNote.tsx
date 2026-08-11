@@ -17,17 +17,21 @@ import {
 } from "@/lib/reader/coordinates";
 import { DEFAULT_NOTE_FONT_SIZE } from "@/lib/reader/constants";
 import {
+  bumpStickySize,
   clampStickySize,
   detectTextDirection,
+  MAX_STICKY_HEIGHT,
   MAX_STICKY_NOTE_CHARS,
+  MAX_STICKY_WIDTH,
+  MIN_STICKY_HEIGHT,
+  MIN_STICKY_WIDTH,
   noteBody,
   noteRotation,
   normalizeRotation,
   stickyNoteFontStack,
   stickyPaperPalette,
-  STICKY_NOTE_BODY_PADDING,
-  STICKY_NOTE_HEADER_HEIGHT,
   STICKY_ROTATION_STEP,
+  STICKY_SIZE_STEP,
 } from "@/lib/reader/sticky-notes";
 
 export type StickyNoteDraft = {
@@ -52,41 +56,6 @@ export type PageNoteProps = {
   canvasDisplayWidth: number;
   pageViewport: ViewportSize;
 };
-
-function measureStickyHeight(body: string, width: number, fontSize: number) {
-  if (typeof document === "undefined") {
-    return STICKY_NOTE_HEADER_HEIGHT + STICKY_NOTE_BODY_PADDING + 48;
-  }
-
-  const probe = document.createElement("textarea");
-  probe.value = body || " ";
-  probe.readOnly = true;
-  probe.tabIndex = -1;
-  probe.setAttribute("aria-hidden", "true");
-  probe.style.position = "fixed";
-  probe.style.left = "-9999px";
-  probe.style.top = "0";
-  probe.style.visibility = "hidden";
-  probe.style.pointerEvents = "none";
-  probe.style.boxSizing = "border-box";
-  probe.style.width = `${Math.max(80, width - STICKY_NOTE_BODY_PADDING)}px`;
-  probe.style.padding = "0";
-  probe.style.border = "0";
-  probe.style.margin = "0";
-  probe.style.overflow = "hidden";
-  probe.style.whiteSpace = "pre-wrap";
-  probe.style.wordBreak = "break-word";
-  probe.style.lineHeight = "1.35";
-  probe.style.fontSize = `${Math.max(11, fontSize - 1)}px`;
-  probe.style.fontFamily = stickyNoteFontStack();
-
-  document.body.appendChild(probe);
-  probe.style.height = "0px";
-  const contentHeight = Math.max(48, probe.scrollHeight);
-  document.body.removeChild(probe);
-
-  return STICKY_NOTE_HEADER_HEIGHT + STICKY_NOTE_BODY_PADDING + contentHeight;
-}
 
 export function PageNote({
   note,
@@ -168,46 +137,20 @@ export function PageNote({
         )
       : (localPos?.fontSize ?? DEFAULT_NOTE_FONT_SIZE);
 
-  useEffect(() => {
-    if (!editing || !localPos) return;
-    const measuredHeight = measureStickyHeight(body, localPos.width, fontSize);
-    const clamped = clampStickySize(localPos.width, measuredHeight);
-    setLocalPos((prev) =>
-      prev && prev.height !== clamped.height ? { ...prev, height: clamped.height } : prev,
-    );
-  }, [body, editing, fontSize, localPos?.width]);
-
-  useEffect(() => {
-    if (editing || !localPos) return;
-    const measuredHeight = measureStickyHeight(savedBody, localPos.width, fontSize);
-    const clamped = clampStickySize(localPos.width, measuredHeight);
-    setLocalPos((prev) =>
-      prev && Math.abs(prev.height - clamped.height) > 1
-        ? { ...prev, height: clamped.height }
-        : prev,
-    );
-  }, [editing, savedBody, fontSize, localPos?.width]);
-
   if (!localPos || !note.position) return null;
 
   function buildDraft(nextBody: string, display = localPos!) {
-    const measuredHeight = measureStickyHeight(nextBody, display.width, fontSize);
-    const clamped = clampStickySize(display.width, measuredHeight);
+    const clamped = clampStickySize(display.width, display.height);
     return {
-      draft: {
-        title: "",
-        body: nextBody,
-        width: clamped.width,
-        height: clamped.height,
-      },
+      title: "",
+      body: nextBody,
+      width: clamped.width,
       height: clamped.height,
     };
   }
 
   function emitDraft(nextBody: string) {
-    const { draft, height } = buildDraft(nextBody);
-    onDraftChange(note.id, draft);
-    setLocalPos((prev) => (prev ? { ...prev, height } : prev));
+    onDraftChange(note.id, buildDraft(nextBody));
   }
 
   function persistPosition(display: {
@@ -292,8 +235,7 @@ export function PageNote({
   }
 
   function handleFinish() {
-    const { draft } = buildDraft(body);
-    onFinish(note.id, draft);
+    onFinish(note.id, buildDraft(body));
   }
 
   function handleBlur(e: ReactFocusEvent<HTMLElement>) {
@@ -310,6 +252,14 @@ export function PageNote({
     onRotate(note.id, next);
   }
 
+  function bumpSize(delta: number) {
+    const next = bumpStickySize(localPos!.width, localPos!.height, delta);
+    const nextDisplay = { ...localPos!, ...next };
+    setLocalPos(nextDisplay);
+    onDraftChange(note.id, buildDraft(body, nextDisplay));
+    persistPosition(nextDisplay);
+  }
+
   function handleBodyKeyDown(e: ReactKeyboardEvent<HTMLTextAreaElement>) {
     if ((e.ctrlKey || e.metaKey) && (e.code === "KeyY" || (e.code === "KeyZ" && e.shiftKey))) {
       e.preventDefault();
@@ -324,7 +274,8 @@ export function PageNote({
   }
 
   const fontFamily = stickyNoteFontStack();
-  const displayHeight = localPos.height;
+  const atMinSize = localPos.width <= MIN_STICKY_WIDTH && localPos.height <= MIN_STICKY_HEIGHT;
+  const atMaxSize = localPos.width >= MAX_STICKY_WIDTH && localPos.height >= MAX_STICKY_HEIGHT;
 
   return (
     <div
@@ -335,7 +286,7 @@ export function PageNote({
         left: localPos.x,
         top: localPos.y,
         width: localPos.width,
-        height: displayHeight,
+        height: localPos.height,
         transform: `rotate(${rotation}deg)`,
         transformOrigin: "center center",
         fontFamily,
@@ -343,6 +294,50 @@ export function PageNote({
       onPointerDown={(e) => e.stopPropagation()}
       dir={dir}
     >
+      <button
+        type="button"
+        title="Smaller"
+        aria-label="Make note smaller"
+        disabled={atMinSize}
+        className="absolute left-0 top-1/2 z-30 flex h-7 w-5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-sm opacity-80 shadow-sm transition hover:opacity-100 disabled:pointer-events-none disabled:opacity-25"
+        style={{
+          background: palette.header,
+          color: palette.ink,
+          border: `1px solid ${palette.fold}`,
+        }}
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          bumpSize(-STICKY_SIZE_STEP);
+        }}
+      >
+        <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none" aria-hidden>
+          <path d="M10 4 6 8l4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+
+      <button
+        type="button"
+        title="Larger"
+        aria-label="Make note larger"
+        disabled={atMaxSize}
+        className="absolute right-0 top-1/2 z-30 flex h-7 w-5 translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-sm opacity-80 shadow-sm transition hover:opacity-100 disabled:pointer-events-none disabled:opacity-25"
+        style={{
+          background: palette.header,
+          color: palette.ink,
+          border: `1px solid ${palette.fold}`,
+        }}
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          bumpSize(STICKY_SIZE_STEP);
+        }}
+      >
+        <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none" aria-hidden>
+          <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+
       <div
         className="relative flex h-full min-h-full flex-col overflow-hidden rounded-sm shadow-[0_6px_18px_rgba(40,24,8,0.16)] backdrop-blur-[2px]"
         style={{
@@ -447,15 +442,14 @@ export function PageNote({
         </div>
 
         {editing ? (
-          <div className="flex min-h-0 flex-1 flex-col p-2.5 pt-2" onBlur={handleBlur}>
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-2.5 pt-2" onBlur={handleBlur}>
             <textarea
               ref={bodyInputRef}
-              className="w-full resize-none bg-transparent text-[12px] leading-snug outline-none placeholder:opacity-45"
+              className="h-full min-h-0 w-full flex-1 resize-none overflow-y-auto bg-transparent text-[12px] leading-snug outline-none placeholder:opacity-45"
               style={{
                 color: palette.ink,
                 fontSize: Math.max(11, fontSize - 1),
                 touchAction: "manipulation",
-                minHeight: 48,
               }}
               dir="auto"
               maxLength={MAX_STICKY_NOTE_CHARS}
@@ -472,7 +466,7 @@ export function PageNote({
         ) : (
           <button
             type="button"
-            className="flex min-h-0 flex-1 flex-col items-stretch p-3 pt-2.5 text-start"
+            className="flex min-h-0 flex-1 flex-col items-stretch overflow-y-auto p-3 pt-2.5 text-start"
             onClick={(e) => {
               e.stopPropagation();
               if (isDraggingRef.current) return;
