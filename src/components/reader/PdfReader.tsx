@@ -18,7 +18,7 @@ import type {
   ShapeKind,
 } from "@/types";
 import { createClient } from "@/lib/supabase/client";
-import { canvasPointFromClient, type ViewportSize } from "@/lib/reader/coordinates";
+import { canvasPointFromClient, commentFontSizeToScreen, normalizeCommentPosition, type ViewportSize } from "@/lib/reader/coordinates";
 import {
   DEFAULT_NOTE_FONT_SIZE,
   MAX_NOTE_FONT_SIZE,
@@ -265,6 +265,7 @@ export function PdfReader({
   const toolRef = useRef<ReaderTool>("read");
   const editingNoteIdRef = useRef<string | null>(null);
   const creatingNoteRef = useRef(false);
+  const commentsMigratedRef = useRef<Set<string>>(new Set());
   const maxPageRef = useRef(initialPage);
   const goToPrevPageRef = useRef<() => void>(() => {});
   const goToNextPageRef = useRef<() => void>(() => {});
@@ -285,6 +286,7 @@ export function PdfReader({
   const committedZoomRef = useRef(initialZoom ?? DEFAULT_ZOOM);
   const liveZoomRef = useRef(initialZoom ?? DEFAULT_ZOOM);
   const zoomPreviewRef = useRef(1);
+  const [zoomPreview, setZoomPreview] = useState(1);
   const zoomPointerRef = useRef<{ clientX: number; clientY: number } | null>(null);
   const zoomSpacerRef = useRef<HTMLDivElement>(null);
   const zoomLayerRef = useRef<HTMLDivElement>(null);
@@ -553,6 +555,7 @@ export function PdfReader({
       viewer.scrollLeft = contentX * nextPreview - ox;
       viewer.scrollTop = contentY * nextPreview - oy;
       zoomPreviewRef.current = nextPreview;
+      setZoomPreview(nextPreview);
     },
     [],
   );
@@ -619,6 +622,7 @@ export function PdfReader({
     spacer.style.width = "";
     spacer.style.height = "";
     zoomPreviewRef.current = 1;
+    setZoomPreview(1);
     committedZoomRef.current = live;
     zoomMultiplierRef.current = live;
 
@@ -679,6 +683,7 @@ export function PdfReader({
       if (!zoomLayerRef.current || !zoomSpacerRef.current) {
         committedZoomRef.current = clamped;
         zoomPreviewRef.current = 1;
+        setZoomPreview(1);
         setZoomMultiplier(clamped);
         setZoomPercentUi(Math.round(clamped * 100));
         return;
@@ -1278,6 +1283,42 @@ export function PdfReader({
     skipHighlightRedrawRef.current.clear();
   }, [highlights, renderedPages]);
 
+  useEffect(() => {
+    if (loading || !fitScaleReady) return;
+
+    const updates: { id: string; position: NotePosition }[] = [];
+
+    for (const note of notesRef.current) {
+      if (!isCommentNote(note) || !note.position) continue;
+      if (commentsMigratedRef.current.has(note.id)) continue;
+      const canvas = canvasRefs.current.get(note.page_number);
+      if (!canvas || !renderedPages.has(note.page_number)) continue;
+
+      const normalized = normalizeCommentPosition(note.position, canvas);
+      commentsMigratedRef.current.add(note.id);
+
+      if (
+        normalized.fontSize !== note.position.fontSize ||
+        normalized.commentFontScreen !== note.position.commentFontScreen
+      ) {
+        updates.push({ id: note.id, position: normalized });
+      }
+    }
+
+    if (updates.length === 0) return;
+
+    setNotes((prev) =>
+      prev.map((n) => {
+        const update = updates.find((entry) => entry.id === n.id);
+        return update ? { ...n, position: update.position } : n;
+      }),
+    );
+
+    for (const update of updates) {
+      void updateNoteFontSizeApi(update.id, update.position);
+    }
+  }, [loading, fitScaleReady, renderedPages, zoomMultiplier]);
+
   function getDrawBackup(pageNumber: number) {
     const drawLayer = drawLayerRefs.current.get(pageNumber);
     if (!drawLayer) return null;
@@ -1803,7 +1844,16 @@ export function PdfReader({
     const note = notes.find((entry) => entry.id === id);
     if (note) {
       setNoteTextColor(normalizeStickyColor(note.text_color));
-      setNoteFontSize(note.position?.fontSize ?? DEFAULT_NOTE_FONT_SIZE);
+      if (isCommentNote(note) && note.position) {
+        const canvas = canvasRefs.current.get(note.page_number);
+        setNoteFontSize(
+          canvas
+            ? commentFontSizeToScreen(note.position, canvas)
+            : note.position.fontSize ?? DEFAULT_NOTE_FONT_SIZE,
+        );
+      } else {
+        setNoteFontSize(note.position?.fontSize ?? DEFAULT_NOTE_FONT_SIZE);
+      }
       editingDraftRef.current = {
         title: noteTitle(note),
         body: note.note_text,
@@ -1847,11 +1897,21 @@ export function PdfReader({
     setNotes((prev) => {
       const note = prev.find((entry) => entry.id === editingNoteId);
       if (note?.position) {
-        void updateNoteFontSize(editingNoteId, { ...note.position, fontSize: next });
+        const nextPosition = isCommentNote(note)
+          ? { ...note.position, fontSize: next, commentFontScreen: true as const }
+          : { ...note.position, fontSize: next };
+        void updateNoteFontSize(editingNoteId, nextPosition);
       }
       return prev.map((n) => {
         if (n.id !== editingNoteId || !n.position) return n;
-        return { ...n, position: { ...n.position, fontSize: next } };
+        return {
+          ...n,
+          position: {
+            ...n.position,
+            fontSize: next,
+            ...(isCommentNote(n) ? { commentFontScreen: true as const } : {}),
+          },
+        };
       });
     });
   }
@@ -2507,6 +2567,7 @@ export function PdfReader({
       title: "",
       rotation: 0,
       kind: isComment ? "comment" : "sticky",
+      ...(isComment ? { commentFontScreen: true as const } : {}),
       viewportWidth: canvas.width,
       viewportHeight: canvas.height,
     };
@@ -3167,6 +3228,7 @@ export function PdfReader({
                               key={note.id}
                               note={note}
                               editing={editingNoteId === note.id}
+                              zoomPreview={zoomPreview}
                               liveFontSize={
                                 editingNoteId === note.id ? noteFontSize : undefined
                               }

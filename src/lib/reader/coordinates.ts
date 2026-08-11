@@ -1,5 +1,9 @@
 import type { HighlightStroke, NotePosition } from "@/types";
-import { DEFAULT_NOTE_FONT_SIZE } from "@/lib/reader/constants";
+import {
+  DEFAULT_NOTE_FONT_SIZE,
+  MAX_NOTE_FONT_SIZE,
+  MIN_NOTE_FONT_SIZE,
+} from "@/lib/reader/constants";
 import {
   DEFAULT_COMMENT_HEIGHT,
   DEFAULT_COMMENT_WIDTH,
@@ -85,6 +89,54 @@ export function displayFontSizeFromLayout(
   return (pageFontSize * displayWidth) / refW;
 }
 
+function clampCommentFontSize(size: number) {
+  return Math.min(
+    MAX_NOTE_FONT_SIZE,
+    Math.max(MIN_NOTE_FONT_SIZE, Math.round(size)),
+  );
+}
+
+function commentDisplayScale(pos: NotePosition, canvas: HTMLCanvasElement) {
+  const refW = pos.viewportWidth ?? canvas.width;
+  const rect = canvas.getBoundingClientRect();
+  return rect.width / Math.max(refW, 1);
+}
+
+/** Screen-pixel font size for a comment (ignores page zoom scaling). */
+export function commentFontSizeToScreen(
+  pos: NotePosition,
+  canvas: HTMLCanvasElement,
+): number {
+  const raw = pos.fontSize ?? DEFAULT_NOTE_FONT_SIZE;
+  if (pos.commentFontScreen) {
+    return clampCommentFontSize(raw);
+  }
+
+  const sx = commentDisplayScale(pos, canvas);
+  const fromLegacy = raw / Math.max(sx, 0.0001);
+  // Values saved as screen px after the first fix lack the flag; do not shrink them.
+  if (fromLegacy < MIN_NOTE_FONT_SIZE && raw >= MIN_NOTE_FONT_SIZE) {
+    return clampCommentFontSize(raw);
+  }
+  return clampCommentFontSize(fromLegacy);
+}
+
+/** One-time migration for comments saved before screen-pixel fontSize. */
+export function normalizeCommentPosition(
+  pos: NotePosition,
+  canvas: HTMLCanvasElement,
+): NotePosition {
+  const fontSize = commentFontSizeToScreen(pos, canvas);
+  if (pos.commentFontScreen && fontSize === pos.fontSize) {
+    return pos;
+  }
+  return {
+    ...pos,
+    fontSize,
+    commentFontScreen: true,
+  };
+}
+
 /** Comment text uses a zoom-independent CSS pixel size chosen by the reader. */
 export function displayCommentFromPagePosition(
   pos: NotePosition,
@@ -93,7 +145,7 @@ export function displayCommentFromPagePosition(
   const layout = displayRectFromPagePosition(pos, canvas);
   return {
     ...layout,
-    fontSize: pos.fontSize ?? DEFAULT_NOTE_FONT_SIZE,
+    fontSize: commentFontSizeToScreen(pos, canvas),
   };
 }
 
@@ -123,6 +175,7 @@ export function pageCommentPositionFromDisplay(
   return {
     ...scaled,
     fontSize: display.fontSize ?? previous?.fontSize ?? DEFAULT_NOTE_FONT_SIZE,
+    commentFontScreen: true,
   };
 }
 

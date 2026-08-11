@@ -26,6 +26,8 @@ export type PageCommentProps = {
   note: Note;
   editing: boolean;
   liveFontSize?: number;
+  /** Live CSS zoom preview on the pages layer (counter-scales text). */
+  zoomPreview?: number;
   onFinish: (id: string, text: string) => void;
   onDelete: (id: string) => void;
   onMove: (id: string, position: NotePosition) => void;
@@ -39,6 +41,7 @@ export function PageComment({
   note,
   editing,
   liveFontSize,
+  zoomPreview = 1,
   onFinish,
   onDelete,
   onMove,
@@ -70,6 +73,7 @@ export function PageComment({
   const display = note.note_text.trim();
   const fontSize =
     editing && liveFontSize != null ? liveFontSize : (localPos?.fontSize ?? DEFAULT_NOTE_FONT_SIZE);
+  const screenFontSize = fontSize / Math.max(zoomPreview, 0.0001);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -200,7 +204,7 @@ export function PageComment({
         left: localPos.x,
         top: localPos.y,
         fontFamily: stickyNoteFontStack(),
-        fontSize,
+        fontSize: screenFontSize,
       }}
       onPointerDown={(e) => e.stopPropagation()}
       onMouseEnter={() => setShowActions(true)}
