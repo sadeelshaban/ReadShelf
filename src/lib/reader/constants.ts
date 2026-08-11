@@ -180,7 +180,7 @@ export const MIN_STROKE_WIDTH = 0;
 export const MAX_STROKE_WIDTH = 50;
 export const DEFAULT_HIGHLIGHT_STROKE_WIDTH = 28;
 export const DEFAULT_PEN_STROKE_WIDTH = 3;
-export const DEFAULT_ERASER_STROKE_WIDTH = 20;
+export const DEFAULT_ERASER_STROKE_WIDTH = 40;
 
 export const HIGHLIGHT_STROKE_WIDTH_KEY = "readshelf-highlight-stroke-width";
 export const PEN_STROKE_WIDTH_KEY = "readshelf-pen-stroke-width";
