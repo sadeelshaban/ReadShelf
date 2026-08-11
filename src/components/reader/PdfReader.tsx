@@ -248,12 +248,12 @@ export function PdfReader({
   >(undefined);
   const highlightsRef = useRef(initialHighlights);
   const notesRef = useRef(initialNotes);
-  const editingDraftRef = useRef<{ title: string; body: string }>({
+  const editingDraftRef = useRef<StickyNoteDraft>({
     title: "",
     body: "",
   });
   const noteHadContentRef = useRef(false);
-  const finishNoteRef = useRef<(id: string, draft: { title: string; body: string }) => void>(
+  const finishNoteRef = useRef<(id: string, draft: StickyNoteDraft) => void>(
     () => {},
   );
   const toolRef = useRef<ReaderTool>("read");
