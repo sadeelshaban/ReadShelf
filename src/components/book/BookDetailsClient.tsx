@@ -30,6 +30,7 @@ import { cacheBook } from "@/lib/offline/books-store";
 import { purgeBookFromLocalCache } from "@/lib/offline/purge-book-cache";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { BookAnnotationListRow } from "@/components/book/BookAnnotationListRow";
 import { BookTabEmptyState } from "@/components/book/BookTabEmptyState";
 import {
   TabBookmarkIcon,
@@ -115,75 +116,8 @@ function highlightColorLabel(color: string) {
   return preset ? `${preset.name} highlight` : "Highlight";
 }
 
-function NoteAnnotationCard({
-  href,
-  pageNumber,
-  note,
-  onDelete,
-  deleting,
-}: {
-  href: string;
-  pageNumber: number;
-  note: Note;
-  onDelete: () => void;
-  deleting?: boolean;
-}) {
-  const palette = stickyPaperPalette(note.text_color);
-  const preview = notePreviewLabel(note);
-
-  return (
-    <div className="flex items-stretch gap-2 rounded-xl border border-[#eadbc8]/70 bg-[#fff8f1] transition duration-200 hover:border-primary/30 hover:bg-[#fffdf9] hover:shadow-[0_8px_20px_rgba(31,22,16,0.08)]">
-      <Link
-        href={href}
-        className="flex min-w-0 flex-1 items-start justify-between gap-4 px-4 py-3.5"
-      >
-        <div className="min-w-0 flex-1">
-          <span className="flex items-center gap-2 text-sm font-semibold text-[#3c2a21]">
-            <PageIcon />
-            Page {pageNumber}
-          </span>
-          <p
-            className="mt-1.5 pl-6 text-sm leading-snug text-[#5b4028]"
-            dir="auto"
-            style={{ fontFamily: '"Noto Sans Arabic", "Segoe UI", Tahoma, Arial, sans-serif' }}
-          >
-            {preview}
-          </p>
-        </div>
-        <span
-          className="mt-1 h-3.5 w-3.5 shrink-0 rounded-sm border border-[#eadbc8]/90 shadow-sm"
-          style={{ backgroundColor: palette.brand }}
-          aria-hidden
-        />
-      </Link>
-      <button
-        type="button"
-        onClick={onDelete}
-        disabled={deleting}
-        className="shrink-0 px-3 text-xs font-medium text-red-600/80 transition hover:bg-red-50 hover:text-red-700 disabled:opacity-50"
-        aria-label="Delete note"
-      >
-        {deleting ? "..." : "Delete"}
-      </button>
-    </div>
-  );
-}
-
-function PageIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={cn("h-4 w-4 shrink-0 text-[#8B6F52]", className)}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.75"
-      aria-hidden
-    >
-      <path strokeLinecap="round" strokeLinejoin="round" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6Z" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M14 2v6h6" />
-    </svg>
-  );
-}
+const NOTE_LABEL_FONT =
+  '"Noto Sans Arabic", "Segoe UI", Tahoma, Arial, sans-serif';
 
 function MetaPill({ icon, children }: { icon: ReactNode; children: ReactNode }) {
   return (
@@ -225,47 +159,6 @@ function ActionButton({
     >
       {children}
     </button>
-  );
-}
-
-function AnnotationCard({
-  href,
-  pageNumber,
-  subtitle,
-  colors,
-  colorLabel,
-}: {
-  href: string;
-  pageNumber: number;
-  subtitle?: string;
-  colors: string[];
-  colorLabel: (color: string) => string;
-}) {
-  return (
-    <Link
-      href={href}
-      className="flex items-center justify-between gap-4 rounded-xl border border-[#eadbc8]/70 bg-[#fff8f1] px-4 py-3.5 transition duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:bg-[#fffdf9] hover:shadow-[0_8px_20px_rgba(31,22,16,0.08)]"
-    >
-      <div className="min-w-0">
-        <span className="flex items-center gap-2 text-sm font-semibold text-[#3c2a21]">
-          <PageIcon />
-          Page {pageNumber}
-        </span>
-        {subtitle && (
-          <p className="mt-1 pl-6 text-xs font-medium text-[#8a7968]">{subtitle}</p>
-        )}
-      </div>
-      <div className="flex shrink-0 items-center gap-2">
-        {colors.map((color) => (
-          <span
-            key={`${pageNumber}-${color}`}
-            className="h-3.5 w-3.5 rounded-full border border-[#eadbc8]/90 shadow-sm"
-            style={{ backgroundColor: color }}
-            title={colorLabel(color)}
-          />
-        ))}
-      </div>
-    </Link>
   );
 }
 
@@ -673,8 +566,8 @@ export function BookDetailsClient({
         </div>
       </div>
 
-      <section className="overflow-hidden rounded-3xl border border-[#eadbc8]/70 bg-white shadow-[0_8px_24px_rgba(31,22,16,0.06)]">
-        <div className="flex gap-1 border-b border-[#eadbc8]/70 px-4 pt-1 sm:px-6">
+      <section className="overflow-hidden rounded-2xl border border-[#eadbc8]/70 bg-white shadow-[0_4px_16px_rgba(31,22,16,0.05)]">
+        <div className="flex gap-0.5 border-b border-[#eadbc8]/70 px-3 sm:px-4">
           {(
             [
               { id: "bookmarks" as const, label: "Bookmarks", count: displayBookmarks.length },
@@ -687,10 +580,10 @@ export function BookDetailsClient({
               type="button"
               onClick={() => setTab(item.id)}
               className={cn(
-                "flex items-center gap-2 border-b-[3px] px-4 py-3 text-sm font-medium transition duration-[250ms]",
+                "flex items-center gap-1.5 border-b-2 px-2.5 py-2 text-sm font-medium transition sm:gap-2 sm:px-3",
                 tab === item.id
                   ? "border-primary text-primary"
-                  : "border-transparent text-[#8a7968] hover:border-[#eadbc8] hover:text-[#5b4028]",
+                  : "border-transparent text-[#8a7968] hover:text-[#5b4028]",
               )}
             >
               {item.id === "bookmarks" ? (
@@ -701,33 +594,39 @@ export function BookDetailsClient({
                 <TabNoteIcon active={tab === item.id} />
               )}
               {item.label}
-              <span className="rounded-full bg-[#fff8f1] px-2 py-0.5 text-xs font-semibold text-[#5b4028] ring-1 ring-[#eadbc8]/80">
+              <span
+                className={cn(
+                  "min-w-[1.125rem] rounded px-1 py-px text-center text-[10px] font-medium tabular-nums leading-tight",
+                  tab === item.id
+                    ? "bg-primary/10 text-primary"
+                    : "bg-[#fff8f1]/80 text-[#8a7968]",
+                )}
+              >
                 {item.count}
               </span>
             </button>
           ))}
         </div>
 
-        <div key={tab} className="book-tab-panel max-h-[28rem] overflow-y-auto overscroll-contain readshelf-scroll">
+        <div key={tab} className="book-tab-panel max-h-[22rem] overflow-y-auto overscroll-contain readshelf-scroll">
           {tab === "highlights" &&
             (highlightGroups.length === 0 ? (
               <BookTabEmptyState variant="highlights" bookId={book.id} />
             ) : (
-              <ul className="space-y-3 p-4 sm:p-6">
+              <ul>
                 {highlightGroups.map((group) => (
-                  <li key={group.pageNumber}>
-                    <AnnotationCard
-                      href={`/book/${book.id}/read?page=${group.pageNumber}&zoom=0.5`}
-                      pageNumber={group.pageNumber}
-                      subtitle={
-                        group.highlightIds.length > 1
-                          ? `${group.highlightIds.length} highlights`
-                          : undefined
-                      }
-                      colors={group.colors}
-                      colorLabel={highlightColorLabel}
-                    />
-                  </li>
+                  <BookAnnotationListRow
+                    key={group.pageNumber}
+                    href={`/book/${book.id}/read?page=${group.pageNumber}&zoom=0.5`}
+                    pageNumber={group.pageNumber}
+                    label={
+                      group.highlightIds.length > 1
+                        ? `${group.highlightIds.length} highlights`
+                        : highlightColorLabel(group.colors[0] ?? "#FFEB3B")
+                    }
+                    colors={group.colors}
+                    colorTitle={highlightColorLabel}
+                  />
                 ))}
               </ul>
             ))}
@@ -736,19 +635,23 @@ export function BookDetailsClient({
             (noteCount === 0 ? (
               <BookTabEmptyState variant="notes" bookId={book.id} />
             ) : (
-              <ul className="space-y-3 p-4 sm:p-6">
+              <ul>
                 {noteGroups.flatMap((group) =>
-                  group.notes.map((note) => (
-                    <li key={note.id}>
-                      <NoteAnnotationCard
+                  group.notes.map((note) => {
+                    const palette = stickyPaperPalette(note.text_color);
+                    return (
+                      <BookAnnotationListRow
+                        key={note.id}
                         href={`/book/${book.id}/read?page=${group.pageNumber}&zoom=0.5&note=${note.id}`}
                         pageNumber={group.pageNumber}
-                        note={note}
+                        label={notePreviewLabel(note)}
+                        labelStyle={{ fontFamily: NOTE_LABEL_FONT }}
+                        colors={[palette.brand]}
                         onDelete={() => void handleDeleteNote(note.id)}
                         deleting={deletingNoteId === note.id}
                       />
-                    </li>
-                  )),
+                    );
+                  }),
                 )}
               </ul>
             ))}
@@ -757,29 +660,16 @@ export function BookDetailsClient({
             (displayBookmarks.length === 0 ? (
               <BookTabEmptyState variant="bookmarks" bookId={book.id} />
             ) : (
-              <ul className="space-y-3 p-4 sm:p-6">
+              <ul>
                 {displayBookmarks.map((bookmark) => (
-                  <li key={bookmark.id}>
-                    <Link
-                      href={`/book/${book.id}/read?page=${bookmark.page_number}&zoom=0.5`}
-                      className="flex items-start justify-between gap-4 rounded-xl border border-[#eadbc8]/70 bg-[#fff8f1] px-4 py-3.5 transition duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:bg-[#fffdf9] hover:shadow-[0_8px_20px_rgba(31,22,16,0.08)]"
-                    >
-                      <div className="min-w-0">
-                        <p className="flex items-center gap-2 text-sm font-semibold text-[#3c2a21]">
-                          <PageIcon />
-                          {bookmark.label || `Page ${bookmark.page_number}`}
-                        </p>
-                        <p className="mt-1 pl-6 text-xs text-[#8a7968]">
-                          Page {bookmark.page_number}
-                        </p>
-                      </div>
-                      <span
-                        className="mt-0.5 h-3.5 w-3.5 shrink-0 rounded-full border border-[#eadbc8]/90 shadow-sm"
-                        style={{ backgroundColor: bookmarkColorHex(bookmark.color) }}
-                        title={`${bookmark.color} bookmark`}
-                      />
-                    </Link>
-                  </li>
+                  <BookAnnotationListRow
+                    key={bookmark.id}
+                    href={`/book/${book.id}/read?page=${bookmark.page_number}&zoom=0.5`}
+                    pageNumber={bookmark.page_number}
+                    label={bookmark.label || "Bookmark"}
+                    colors={[bookmarkColorHex(bookmark.color)]}
+                    colorTitle={(color) => `${bookmark.color} bookmark`}
+                  />
                 ))}
               </ul>
             ))}
