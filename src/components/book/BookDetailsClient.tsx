@@ -15,7 +15,7 @@ import {
   normalizeHex,
 } from "@/lib/reader/constants";
 import {
-  isCommentNote,
+  isDisplayableStickyNote,
   noteHasContent,
   notePreviewLabel,
   stickyPaperPalette,
@@ -87,7 +87,7 @@ function groupNotesByPage(notes: Note[]): PageNoteGroup[] {
   const map = new Map<number, Note[]>();
 
   for (const note of notes) {
-    if (!noteHasContent(note)) continue;
+    if (!isDisplayableStickyNote(note)) continue;
     const list = map.get(note.page_number) ?? [];
     list.push(note);
     map.set(note.page_number, list);
@@ -152,7 +152,7 @@ function NoteAnnotationCard({
         </div>
         <span
           className="mt-1 h-3.5 w-3.5 shrink-0 rounded-sm border border-[#eadbc8]/90 shadow-sm"
-          style={{ backgroundColor: isCommentNote(note) ? "#c9952a" : palette.brand }}
+          style={{ backgroundColor: palette.brand }}
           aria-hidden
         />
       </Link>
@@ -280,7 +280,7 @@ export function BookDetailsClient({
   const [book, setBook] = useState(initialBook);
   const [displayHighlights, setDisplayHighlights] = useState(serverHighlights);
   const [displayNotes, setDisplayNotes] = useState(() =>
-    serverNotes.filter((note) => noteHasContent(note)),
+    serverNotes.filter(isDisplayableStickyNote),
   );
   const [displayBookmarks, setDisplayBookmarks] = useState(serverBookmarks);
   const [tab, setTab] = useState<Tab>("bookmarks");
@@ -304,7 +304,7 @@ export function BookDetailsClient({
       (h) => h.highlight_type !== "pen" && !h.highlight_type.startsWith("shape_"),
     );
     const mergedNotes = mergeAnnotationsById(local.notes, serverNotes);
-    const notes = mergedNotes.filter((note) => noteHasContent(note));
+    const notes = mergedNotes.filter(isDisplayableStickyNote);
     const bookmarks = mergeAnnotationsById(localBookmarks, serverBookmarks);
 
     // Drop empty leftovers that still inflate the Notes count.

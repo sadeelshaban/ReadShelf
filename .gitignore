@@ -26,6 +26,7 @@
 *.pem
 .cursor/
 supabase/.temp/
+reference.md
 
 # debug
 npm-debug.log*

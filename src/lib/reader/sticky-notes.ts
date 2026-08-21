@@ -147,6 +147,11 @@ export function isCommentNote(note: Note | null | undefined) {
   return noteKind(note) === "comment";
 }
 
+/** Sticky notes shown in the book details Notes tab (comments are excluded). */
+export function isDisplayableStickyNote(note: Note | null | undefined) {
+  return isStickyNote(note) && noteHasContent(note);
+}
+
 export function noteKindLabel(note: Note): string {
   return isCommentNote(note) ? "Comment" : "Note";
 }

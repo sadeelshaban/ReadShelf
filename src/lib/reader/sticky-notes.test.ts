@@ -3,6 +3,7 @@ import type { Note } from "@/types";
 import {
   detectTextDirection,
   isCommentNote,
+  isDisplayableStickyNote,
   isStickyNote,
   normalizeStickyColor,
   noteHasContent,
@@ -92,6 +93,9 @@ describe("sticky note content helpers", () => {
       },
     });
     expect(isStickyNote(sticky)).toBe(true);
+    expect(isDisplayableStickyNote(sticky)).toBe(false);
+    expect(isDisplayableStickyNote(makeNote({ note_text: "Pressure reading" }))).toBe(true);
+    expect(isDisplayableStickyNote(comment)).toBe(false);
     expect(isCommentNote(comment)).toBe(true);
     expect(noteKindLabel(comment)).toBe("Comment");
     expect(notePreviewLabel(comment)).toBe("تعليق قصير");
