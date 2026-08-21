@@ -99,52 +99,57 @@ export function BookAnnotationListRow({
           >
             {label}
           </span>
-          {colors.length > 0 && (
-            <span className="flex shrink-0 items-center gap-1">
-              {colors.slice(0, 3).map((color, index) => (
-                <span
-                  key={`${color}-${index}`}
-                  className="h-2.5 w-2.5 rounded-full border border-[#eadbc8]/90"
-                  style={{ backgroundColor: color }}
-                  title={colorTitle?.(color)}
-                  aria-hidden
-                />
-              ))}
-            </span>
-          )}
         </Link>
 
-        {onDelete && (
-          <div className="relative shrink-0">
-            <button
-              type="button"
-              aria-label="Note actions"
-              aria-haspopup="menu"
-              aria-expanded={menuOpen}
-              aria-controls={menuOpen ? menuId : undefined}
-              disabled={deleting}
-              onClick={() => setMenuOpen((open) => !open)}
-              className="flex h-8 w-8 items-center justify-center rounded-md text-[#8a7968] transition hover:bg-[#fff8f1] hover:text-[#5b4028] disabled:opacity-50"
-            >
-              <MoreIcon />
-            </button>
-            {menuOpen && (
-              <div
-                id={menuId}
-                role="menu"
-                className="absolute right-0 top-full z-20 mt-1 min-w-[7.5rem] overflow-hidden rounded-lg border border-[#eadbc8]/80 bg-white py-1 shadow-[0_8px_20px_rgba(31,22,16,0.1)]"
-              >
+        {(colors.length > 0 || onDelete) && (
+          <div className="flex shrink-0 items-center gap-3 sm:gap-3.5">
+            {colors.length > 0 && (
+              <span className="flex items-center gap-1 px-0.5">
+                {colors.slice(0, 3).map((color, index) => (
+                  <span
+                    key={`${color}-${index}`}
+                    className="h-2.5 w-2.5 rounded-full border border-[#eadbc8]/90"
+                    style={{ backgroundColor: color }}
+                    title={colorTitle?.(color)}
+                    aria-hidden
+                  />
+                ))}
+              </span>
+            )}
+
+            {onDelete && (
+              <div className="relative">
                 <button
                   type="button"
-                  role="menuitem"
-                  className="block w-full px-3 py-2 text-left text-sm text-red-600 transition hover:bg-red-50"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    onDelete();
-                  }}
+                  aria-label="Note actions"
+                  aria-haspopup="menu"
+                  aria-expanded={menuOpen}
+                  aria-controls={menuOpen ? menuId : undefined}
+                  disabled={deleting}
+                  onClick={() => setMenuOpen((open) => !open)}
+                  className="flex h-9 w-9 items-center justify-center rounded-md text-[#8a7968] transition hover:bg-[#fff8f1] hover:text-[#5b4028] disabled:opacity-50"
                 >
-                  {deleting ? "Deleting..." : "Delete"}
+                  <MoreIcon />
                 </button>
+                {menuOpen && (
+                  <div
+                    id={menuId}
+                    role="menu"
+                    className="absolute right-0 top-full z-20 mt-1 min-w-[7.5rem] overflow-hidden rounded-lg border border-[#eadbc8]/80 bg-white py-1 shadow-[0_8px_20px_rgba(31,22,16,0.1)]"
+                  >
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="block w-full px-3 py-2 text-left text-sm text-red-600 transition hover:bg-red-50"
+                      onClick={() => {
+                        setMenuOpen(false);
+                        onDelete();
+                      }}
+                    >
+                      {deleting ? "Deleting..." : "Delete"}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
