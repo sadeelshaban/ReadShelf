@@ -79,8 +79,10 @@ import {
 import {
   collectVisiblePages,
   mergeRenderedPages,
+  noteFocusAnchorRatio,
   resolveVisiblePage,
   scrollViewerToPage,
+  scrollViewerToPageAnchor,
 } from "@/lib/reader/pdf-reader-scroll";
 import {
   applyZoomAnchor,
@@ -353,6 +355,7 @@ export function PdfReader({
   const [infoToast, setInfoToast] = useState<string | null>(null);
   const infoToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const focusedNoteRef = useRef(false);
+  const noteFocusAnchorRef = useRef<{ page: number; anchor: number } | null>(null);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [noteTextColor, setNoteTextColor] = useState(DEFAULT_STICKY_COLOR);
   const [noteFontSize, setNoteFontSize] = useState(DEFAULT_NOTE_FONT_SIZE);
@@ -1603,9 +1606,15 @@ export function PdfReader({
     if (target == null || loading || !fitScaleReady) return;
     const viewer = viewerRef.current;
     const pageWrap = pageWrapRefs.current.get(target);
-    if (viewer && pageWrap) {
-      scrollViewerToPage(viewer, pageWrap, "auto");
+    if (!viewer || !pageWrap) return;
+
+    const pendingNoteFocus = noteFocusAnchorRef.current;
+    if (pendingNoteFocus && pendingNoteFocus.page === target) {
+      scrollViewerToPageAnchor(viewer, pageWrap, pendingNoteFocus.anchor, "auto");
+      return;
     }
+
+    scrollViewerToPage(viewer, pageWrap, "auto");
   }, [zoomMultiplier, pageSlotSize, fitScale, fitScaleReady, loading]);
 
   useEffect(() => {
@@ -1614,9 +1623,22 @@ export function PdfReader({
     const target = notesRef.current.find((entry) => entry.id === focusNoteId);
     // Only jump to the note's page when the note still exists; otherwise stay on ?page=.
     if (target && noteHasContent(target)) {
+      if (target.position) {
+        noteFocusAnchorRef.current = {
+          page: target.page_number,
+          anchor: noteFocusAnchorRatio({
+            y: target.position.y,
+            height: target.position.height ?? 0,
+            viewportHeight: target.position.viewportHeight ?? 0,
+          }),
+        };
+      } else {
+        noteFocusAnchorRef.current = null;
+      }
       scrollToPage(target.page_number, "auto");
     } else {
       focusedNoteRef.current = true;
+      noteFocusAnchorRef.current = null;
       return;
     }
 
@@ -1624,25 +1646,37 @@ export function PdfReader({
     let timer: ReturnType<typeof setTimeout> | null = null;
     let cancelled = false;
 
+    const applyNoteFocusScroll = () => {
+      const viewer = viewerRef.current;
+      const pageWrap = pageWrapRefs.current.get(target.page_number);
+      const pending = noteFocusAnchorRef.current;
+      if (viewer && pageWrap && pending && pending.page === target.page_number) {
+        scrollViewerToPageAnchor(viewer, pageWrap, pending.anchor, "auto");
+      }
+    };
+
     const tryFocus = () => {
       if (cancelled || focusedNoteRef.current) return;
-      // Wait until the page seek finishes so scrollIntoView can't yank us mid-jump.
+      // Wait until the page seek finishes so note scroll can't yank us mid-jump.
       if (programmaticScrollTargetRef.current != null) {
         attempts += 1;
         if (attempts < 80) {
           timer = setTimeout(tryFocus, 40);
         } else {
           focusedNoteRef.current = true;
+          noteFocusAnchorRef.current = null;
         }
         return;
       }
+
+      applyNoteFocusScroll();
 
       const el = document.querySelector(
         `[data-note-id="${CSS.escape(focusNoteId)}"]`,
       );
       if (el instanceof HTMLElement) {
         focusedNoteRef.current = true;
-        el.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
+        noteFocusAnchorRef.current = null;
         el.classList.add("reader-note-focus");
         window.setTimeout(() => el.classList.remove("reader-note-focus"), 1800);
         return;
@@ -1653,6 +1687,7 @@ export function PdfReader({
       } else {
         // Note missing from the reader — keep the page seek, don't wander.
         focusedNoteRef.current = true;
+        noteFocusAnchorRef.current = null;
       }
     };
 

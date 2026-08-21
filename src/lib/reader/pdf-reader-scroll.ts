@@ -30,6 +30,41 @@ export function scrollViewerToPage(
   viewer.scrollTo({ top: Math.max(0, nextTop), behavior });
 }
 
+export type NoteFocusPosition = {
+  y: number;
+  height: number;
+  viewportHeight: number;
+};
+
+/** Vertical anchor on the page (0–1) for deep-link note jumps at 50% zoom. */
+export function noteFocusAnchorRatio(position: NoteFocusPosition): number {
+  const vh = position.viewportHeight;
+  if (vh <= 0) return 0.5;
+
+  const centerY = position.y + Math.max(0, position.height) / 2;
+  const ratio = centerY / vh;
+
+  if (ratio < 0.45) return 0.25;
+  if (ratio > 0.55) return 0.75;
+  return 0.5;
+}
+
+/** Scroll so the given page anchor sits near the viewport center. */
+export function scrollViewerToPageAnchor(
+  viewer: HTMLDivElement,
+  pageWrap: HTMLElement,
+  anchorRatio: number,
+  behavior: ScrollBehavior = "smooth",
+) {
+  const clamped = Math.min(1, Math.max(0, anchorRatio));
+  const viewerRect = viewer.getBoundingClientRect();
+  const pageRect = pageWrap.getBoundingClientRect();
+  const pageTop = viewer.scrollTop + (pageRect.top - viewerRect.top);
+  const anchorY = pageTop + clamped * pageRect.height;
+  const nextTop = anchorY - viewer.clientHeight / 2;
+  viewer.scrollTo({ top: Math.max(0, nextTop), behavior });
+}
+
 export function resolveVisiblePage(
   viewer: HTMLDivElement,
   pageWraps: Map<number, HTMLElement>,
