@@ -20,8 +20,7 @@ export default function SetupPage() {
           Supabase setup
         </h1>
         <p className="mt-3 text-text/75">
-          Use your account email:{" "}
-          <strong>sadeelshabanmedia@gmail.com</strong>
+          Sign in with the same email you use for this app.
         </p>
 
         <div className="mt-8 rounded-2xl border border-accent/40 bg-card p-6 shadow-sm">

@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { readingListBookCountLabel } from "@/lib/reading-lists/names";
 import type { ReadingListPreviewBook, ReadingListWithPreview } from "@/types";
 import { cn } from "@/lib/utils";
@@ -97,29 +98,53 @@ export function ReadingListCard({
   onCoverError,
 }: ReadingListCardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const previews = list.preview_books.slice(0, 3);
 
   useEffect(() => {
     if (!menuOpen) return;
+
+    function placeMenu() {
+      const card = cardRef.current?.getBoundingClientRect();
+      if (!card) return;
+      setMenuPos({
+        top: card.bottom + 6,
+        right: Math.max(8, window.innerWidth - card.right),
+      });
+    }
+
     function onPointerDown(e: PointerEvent) {
-      if (menuRef.current?.contains(e.target as Node)) return;
+      const target = e.target as Node;
+      if (menuRef.current?.contains(target) || buttonRef.current?.contains(target)) return;
       setMenuOpen(false);
     }
+
+    placeMenu();
     window.addEventListener("pointerdown", onPointerDown);
-    return () => window.removeEventListener("pointerdown", onPointerDown);
+    window.addEventListener("resize", placeMenu);
+    window.addEventListener("scroll", placeMenu, true);
+    return () => {
+      window.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("resize", placeMenu);
+      window.removeEventListener("scroll", placeMenu, true);
+    };
   }, [menuOpen]);
 
   return (
     <article
+      ref={cardRef}
       className={cn(
         "group relative overflow-hidden rounded-xl border border-[#eadbc8]/90 bg-white shadow-sm transition duration-200",
         "hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md",
         entering && "list-card-enter",
       )}
     >
-      <div className="absolute right-1.5 top-1.5 z-20" ref={menuRef}>
+      <div className="absolute right-1.5 top-1.5 z-20">
         <button
+          ref={buttonRef}
           type="button"
           aria-label="List options"
           className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/95 text-text-muted shadow-sm ring-1 ring-black/5 hover:bg-white hover:text-text"
@@ -135,8 +160,15 @@ export function ReadingListCard({
             <circle cx="8" cy="12.5" r="1.15" fill="currentColor" />
           </svg>
         </button>
-        {menuOpen && (
-          <div className="absolute right-0 mt-1 min-w-[8.5rem] overflow-hidden rounded-xl border border-[#eadbc8] bg-white py-1 shadow-lg">
+      </div>
+      {menuOpen &&
+        menuPos &&
+        createPortal(
+          <div
+            ref={menuRef}
+            className="fixed z-50 min-w-[8.5rem] overflow-hidden rounded-xl border border-[#eadbc8] bg-white py-1 shadow-lg"
+            style={{ top: menuPos.top, right: menuPos.right }}
+          >
             <button
               type="button"
               className="block w-full px-3 py-2 text-left text-sm text-text hover:bg-[#fff8f1]"
@@ -157,9 +189,9 @@ export function ReadingListCard({
             >
               Delete
             </button>
-          </div>
+          </div>,
+          document.body,
         )}
-      </div>
 
       <Link href={`/lists/${list.id}`} className="block p-2.5 sm:p-3">
         {/* dir fixed so Arabic names don't flip the cover stack */}

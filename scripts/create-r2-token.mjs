@@ -3,9 +3,6 @@ import { readFileSync, existsSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 
-const ACCOUNT_ID = "a94399fb61e383048e9aaaeed235dec5";
-const BUCKET_NAME = "readshelf";
-const TOKEN_NAME = "readshelf-app";
 const ENV_FILE = join(process.cwd(), ".env.local");
 const WRANGLER_CONFIG = join(
   homedir(),
@@ -16,6 +13,31 @@ const WRANGLER_CONFIG = join(
   "config",
   "default.toml",
 );
+
+function loadEnvFile() {
+  if (!existsSync(ENV_FILE)) return;
+  for (const line of readFileSync(ENV_FILE, "utf8").split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const eq = trimmed.indexOf("=");
+    if (eq === -1) continue;
+    const key = trimmed.slice(0, eq).trim();
+    let value = trimmed.slice(eq + 1).trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+    if (!process.env[key]) process.env[key] = value;
+  }
+}
+
+loadEnvFile();
+
+const ACCOUNT_ID = process.env.R2_ACCOUNT_ID?.trim() ?? "";
+const BUCKET_NAME = process.env.R2_BUCKET_NAME?.trim() || "readshelf";
+const TOKEN_NAME = "readshelf-app";
 
 function readWranglerOAuthToken() {
   if (!existsSync(WRANGLER_CONFIG)) {
@@ -55,6 +77,11 @@ function upsertEnvVar(name, value) {
   const filtered = lines.filter((line) => !line.startsWith(`${name}=`));
   filtered.push(`${name}=${value}`);
   writeFileSync(ENV_FILE, filtered.join("\n"), "utf8");
+}
+
+if (!ACCOUNT_ID) {
+  console.error("Set R2_ACCOUNT_ID in .env.local before creating an R2 token.");
+  process.exit(1);
 }
 
 const oauthToken = readWranglerOAuthToken();
@@ -123,5 +150,3 @@ upsertEnvVar("R2_BUCKET_NAME", BUCKET_NAME);
 upsertEnvVar("STORAGE_PROVIDER", "r2");
 
 console.log("Saved R2 credentials to .env.local");
-console.log(`Access Key ID: ${accessKeyId}`);
-console.log("Secret Access Key: saved (not printed)");

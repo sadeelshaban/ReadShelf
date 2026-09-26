@@ -1,6 +1,6 @@
 /**
  * Create or update the admin user (confirmed email, no signup flow).
- * Usage: node scripts/create-admin-user.mjs [email] [password]
+ * Usage: node scripts/create-admin-user.mjs <email> <password>
  */
 
 import { readFileSync, existsSync } from "node:fs";
@@ -35,10 +35,10 @@ loadEnvFile();
 const email = (process.argv[2] ?? process.env.ADMIN_EMAILS?.split(",")[0] ?? "")
   .trim()
   .toLowerCase();
-const password = process.argv[3] ?? "admin123";
+const password = process.argv[3] ?? "";
 
-if (!email) {
-  console.error("Usage: node scripts/create-admin-user.mjs <email> [password]");
+if (!email || !password) {
+  console.error("Usage: node scripts/create-admin-user.mjs <email> <password>");
   process.exit(1);
 }
 

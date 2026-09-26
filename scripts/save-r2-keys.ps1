@@ -4,7 +4,6 @@
 $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path | Split-Path -Parent
 $EnvFile = Join-Path $Root ".env.local"
-$AccountId = "a94399fb61e383048e9aaaeed235dec5"
 $BucketName = "readshelf"
 
 Set-Location $Root
@@ -21,9 +20,9 @@ function Set-EnvVar {
 
 Write-Host ""
 Write-Host "=== Save R2 keys ===" -ForegroundColor Cyan
-Write-Host "Account ID (pre-filled): $AccountId" -ForegroundColor DarkGray
 Write-Host ""
 
+$AccountId = Read-Host "Paste R2 Account ID"
 $accessKeyId = Read-Host "Paste Access Key ID"
 $secretKey = Read-Host "Paste Secret Access Key" -AsSecureString
 $plainSecret = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
