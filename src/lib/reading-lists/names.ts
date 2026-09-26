@@ -17,11 +17,6 @@ export function readingListBookCountLabel(count: number) {
   return `${count} Books`;
 }
 
-export type ReadingListMembership = {
-  list: ReadingList;
-  bookIds: string[];
-};
-
 export type ReadingListDetail = {
   list: ReadingList;
   books: BookWithCounts[];

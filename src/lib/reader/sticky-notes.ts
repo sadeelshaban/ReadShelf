@@ -238,8 +238,6 @@ export function commentFontStack(text: string) {
 
 export const DEFAULT_COMMENT_WIDTH = 200;
 export const DEFAULT_COMMENT_HEIGHT = 72;
-export const MIN_COMMENT_WIDTH = 140;
-export const MIN_COMMENT_HEIGHT = 48;
 
 export function clampStickySize(width: number, height: number) {
   return {

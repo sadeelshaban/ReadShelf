@@ -8,11 +8,6 @@ export function markFreshLoginSession() {
   sessionStorage.setItem(FRESH_LOGIN_KEY, "1");
 }
 
-export function clearFreshLoginSession() {
-  if (typeof window === "undefined") return;
-  sessionStorage.removeItem(FRESH_LOGIN_KEY);
-}
-
 export function isFreshLoginSession() {
   if (typeof window === "undefined") return false;
   return sessionStorage.getItem(FRESH_LOGIN_KEY) === "1";

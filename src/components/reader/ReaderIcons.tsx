@@ -5,14 +5,6 @@ type IconProps = {
   color?: string;
 };
 
-export function MenuIcon({ className }: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className={cn("h-[18px] w-[18px]", className)} aria-hidden>
-      <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
-    </svg>
-  );
-}
-
 export function HomeIcon({ className }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={cn("h-[18px] w-[18px]", className)} aria-hidden>
@@ -26,94 +18,10 @@ export function HomeIcon({ className }: IconProps) {
   );
 }
 
-export function SaveIcon({ className }: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className={cn("h-[18px] w-[18px]", className)} aria-hidden>
-      <path
-        d="M5 5h12l2 2v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinejoin="round"
-      />
-      <path d="M8 5V3h8v2M8 13h8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-    </svg>
-  );
-}
-
 export function CursorIcon({ className }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" className={cn("h-[18px] w-[18px]", className)} aria-hidden>
       <path d="M5.5 3.21l12.02 9.36-5.4 1.02 2.18 6.38-2.67 1.01-2.18-6.38-5.15 3.79z" />
-    </svg>
-  );
-}
-
-export function HandIcon({ className }: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className={cn("h-[18px] w-[18px]", className)} aria-hidden>
-      <path
-        d="M8 11V6.5a1.5 1.5 0 0 1 3 0V11M11 11V5.5a1.5 1.5 0 0 1 3 0V11M14 11V6.5a1.5 1.5 0 0 1 3 0V12a5 5 0 0 1-4.5 4.98L9 20.5"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-/** Acrobat-style chisel marker — highlighter tool */
-export function HighlighterIcon({ className, color = "#29B6F6" }: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className={cn("h-[18px] w-[18px]", className)} aria-hidden>
-      <path
-        d="M9.25 3.5h4.5l3.25 14.25-4.5 3-4.5-3L9.25 3.5z"
-        stroke="currentColor"
-        strokeWidth="1.45"
-        strokeLinejoin="round"
-      />
-      <path d="M9.75 4.25h3.5l2.75 12.75-3.5 2.35-3.5-2.35L9.75 4.25z" fill={color} />
-      <path
-        d="M8.25 17.25 12 20.75 15.75 17.25 13.75 15.75 10.25 15.75z"
-        fill={color}
-        stroke="currentColor"
-        strokeWidth="1.1"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-/** Acrobat-style fine nib — pen / ink drawing */
-export function PenIcon({ className, color = "#EC407A" }: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className={cn("h-[18px] w-[18px]", className)} aria-hidden>
-      <path
-        d="M12.25 3.25 13.35 4.35 5.85 20.15 4.35 19.35z"
-        stroke="currentColor"
-        strokeWidth="1.45"
-        strokeLinejoin="round"
-      />
-      <path d="M12.45 3.85 13.05 4.55 5.55 19.55 4.95 18.85z" fill={color} />
-      <path d="M4.35 19.35 3.35 20.85" stroke={color} strokeWidth="2.1" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-/** Block eraser on a page line — eraser tool */
-export function EraserIcon({ className }: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className={cn("h-[18px] w-[18px]", className)} aria-hidden>
-      <path
-        d="M5.25 15.75 12.25 8.25 18.25 14.25 11.25 21.75z"
-        stroke="currentColor"
-        strokeWidth="1.55"
-        strokeLinejoin="round"
-        fill="currentColor"
-        fillOpacity="0.16"
-      />
-      <path d="M4 21.25h16" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
-      <path d="M8.25 17.75 13.25 12.75" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" opacity="0.5" />
     </svg>
   );
 }
@@ -188,20 +96,6 @@ export function ShapeArrowIcon({ className }: IconProps) {
   );
 }
 
-export function NoteIcon({ className }: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className={cn("h-[18px] w-[18px]", className)} aria-hidden>
-      <path
-        d="M6 4.5h10a1.5 1.5 0 0 1 1.5 1.5V19l-2.8-2.2L12 19l-2.7-2.2L6.5 19V6a1.5 1.5 0 0 1-0.5-1.5z"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinejoin="round"
-      />
-      <path d="M8.5 9h6M8.5 12h4.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-    </svg>
-  );
-}
-
 /** Speech bubble — distinct from sticky note (paper) icon. */
 export function CommentIcon({ className }: IconProps) {
   return (
@@ -217,33 +111,6 @@ export function CommentIcon({ className }: IconProps) {
         stroke="currentColor"
         strokeWidth="1.35"
         strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
-export function BookmarkIcon({ className }: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className={cn("h-[18px] w-[18px]", className)} aria-hidden>
-      <path
-        d="M8 4.5h8a1 1 0 0 1 1 1v12.8l-3.2-2.2-2.8 2.2-2.8-2.2L7 18.3V5.5a1 1 0 0 1 1-1z"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-export function BookmarkFilledIcon({ className }: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" className={cn("h-[18px] w-[18px]", className)} aria-hidden>
-      <path
-        d="M8 4.5h8a1 1 0 0 1 1 1v12.8l-3.2-2.2-2.8 2.2-2.8-2.2L7 18.3V5.5a1 1 0 0 1 1-1z"
-        fill="currentColor"
-        stroke="currentColor"
-        strokeWidth="1.2"
-        strokeLinejoin="round"
       />
     </svg>
   );
@@ -332,22 +199,6 @@ export function GripIcon({ className }: IconProps) {
       <circle cx="15" cy="12" r="1.1" />
       <circle cx="9" cy="17" r="1.1" />
       <circle cx="15" cy="17" r="1.1" />
-    </svg>
-  );
-}
-
-export function ChevronUpIcon({ className }: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className={cn("h-4 w-4", className)} aria-hidden>
-      <path d="M6 14l6-6 6 6" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-export function ChevronDownIcon({ className }: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className={cn("h-4 w-4", className)} aria-hidden>
-      <path d="M6 10l6 6 6-6" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

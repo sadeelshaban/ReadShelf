@@ -166,12 +166,6 @@ export function hexToRgba(hex: string, alpha = HIGHLIGHT_DRAW_ALPHA) {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-export const NOTE_TEXT_COLORS = [
-  { name: "Yellow", value: "yellow", css: "rgba(247, 231, 161, 0.42)" },
-  { name: "Red", value: "red", css: "rgba(243, 197, 204, 0.42)" },
-  { name: "Blue", value: "blue", css: "rgba(197, 216, 247, 0.42)" },
-] as const;
-
 export const DEFAULT_NOTE_FONT_SIZE = 14;
 export const MIN_NOTE_FONT_SIZE = 10;
 export const MAX_NOTE_FONT_SIZE = 32;
@@ -189,8 +183,6 @@ export const ERASER_STROKE_WIDTH_KEY = "readshelf-eraser-stroke-width";
 export const SHAPE_KIND_KEY = "readshelf-shape-kind";
 export const SHAPE_FILLED_KEY = "readshelf-shape-filled";
 
-export const READER_THEME_PRIMARY = "#6f4528";
-export const READER_THEME_ACCENT = "#c9952a";
 export const READER_ERASER_RING = "rgba(201, 149, 42, 0.55)";
 export const READER_ERASER_STROKE = "#6f4528";
 export const READER_ERASER_HALO = "rgba(255, 252, 247, 0.92)";
@@ -249,19 +241,4 @@ export function loadShapeFilled() {
 
 export function saveShapeFilled(filled: boolean) {
   localStorage.setItem(SHAPE_FILLED_KEY, filled ? "1" : "0");
-}
-
-export function eraserCursorDataUri(size = 28) {
-  const center = size / 2;
-  const radius = size * 0.34;
-  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${size}' height='${size}' viewBox='0 0 ${size} ${size}'><circle cx='${center}' cy='${center}' r='${radius + 2.2}' fill='none' stroke='${READER_ERASER_HALO}' stroke-width='2.4'/><circle cx='${center}' cy='${center}' r='${radius}' fill='${READER_ERASER_RING}' stroke='${READER_ERASER_STROKE}' stroke-width='1.8'/></svg>`;
-  return `url("data:image/svg+xml,${encodeURIComponent(svg)}") ${center} ${center}, crosshair`;
-}
-
-export function noteTextCss(color: string) {
-  const match = NOTE_TEXT_COLORS.find((c) => c.value === color);
-  if (match) return match.css;
-  // Legacy ink colors → sticky paper defaults
-  if (color === "black") return NOTE_TEXT_COLORS[0].css;
-  return NOTE_TEXT_COLORS[0].css;
 }

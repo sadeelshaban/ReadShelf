@@ -247,17 +247,3 @@ export async function removeBookFromReadingListClient(
     .eq("id", listId)
     .eq("user_id", auth.userId);
 }
-
-export async function fetchReadingListBookIdsClient(
-  listId: string,
-): Promise<string[]> {
-  const auth = await requireUserId();
-  if (!auth) return [];
-
-  const { data } = await auth.supabase
-    .from("reading_list_books")
-    .select("book_id")
-    .eq("list_id", listId);
-
-  return (data ?? []).map((row) => row.book_id);
-}

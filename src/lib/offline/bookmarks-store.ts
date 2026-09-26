@@ -1,5 +1,5 @@
 import type { Bookmark } from "@/types";
-import { idbDelete, idbGet, idbGetAllByIndex, idbPut } from "@/lib/offline/db";
+import { idbDelete, idbGetAllByIndex, idbPut } from "@/lib/offline/db";
 import { isOnline } from "@/lib/offline/online";
 
 export async function getLocalBookmarks(bookId: string) {
@@ -12,10 +12,6 @@ export async function putLocalBookmark(bookmark: Bookmark) {
 
 export async function deleteLocalBookmark(id: string) {
   await idbDelete("bookmarks", id);
-}
-
-export async function getLocalBookmarkById(id: string) {
-  return idbGet<Bookmark>("bookmarks", id);
 }
 
 export async function seedBookBookmarks(bookId: string, bookmarks: Bookmark[]) {

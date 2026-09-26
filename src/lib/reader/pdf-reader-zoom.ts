@@ -73,24 +73,3 @@ export function applyZoomAnchor(
   viewer.scrollLeft += pointX - anchor.clientX;
   viewer.scrollTop += pointY - anchor.clientY;
 }
-
-/** Scale absolutely-positioned note roots inside a page after live CSS zoom. */
-export function scaleNoteRoots(pageWrap: HTMLElement, ratio: number) {
-  if (Math.abs(ratio - 1) < 0.0001) return;
-  for (const note of pageWrap.querySelectorAll<HTMLElement>(".note-root")) {
-    const left = Number.parseFloat(note.style.left);
-    const top = Number.parseFloat(note.style.top);
-    const width = Number.parseFloat(note.style.width);
-    const height = Number.parseFloat(note.style.height);
-    const minHeight = Number.parseFloat(note.style.minHeight);
-    if (Number.isFinite(left)) note.style.left = `${left * ratio}px`;
-    if (Number.isFinite(top)) note.style.top = `${top * ratio}px`;
-    if (Number.isFinite(width)) note.style.width = `${width * ratio}px`;
-    if (Number.isFinite(height) && note.style.height) {
-      note.style.height = `${height * ratio}px`;
-    }
-    if (Number.isFinite(minHeight) && note.style.minHeight) {
-      note.style.minHeight = `${minHeight * ratio}px`;
-    }
-  }
-}

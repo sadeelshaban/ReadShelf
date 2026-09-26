@@ -3,7 +3,6 @@ import type {
   Bookmark,
   Highlight,
   HighlightPosition,
-  HighlightStroke,
   Note,
   NotePosition,
 } from "@/types";
@@ -20,7 +19,6 @@ import {
 } from "@/lib/offline/annotations-store";
 import {
   deleteLocalBookmark,
-  getLocalBookmarkById,
   loadBookBookmarks,
   putLocalBookmark,
   seedBookBookmarks,
@@ -632,55 +630,6 @@ export async function insertBookmark(input: {
   return row;
 }
 
-export async function updateBookmark(
-  id: string,
-  patch: Partial<Pick<Bookmark, "label" | "note_text" | "color">>,
-) {
-  const existing = await getLocalBookmarkById(id);
-  if (!existing) throw new Error("Bookmark not found");
-
-  const updated: Bookmark = {
-    ...existing,
-    ...patch,
-    updated_at: new Date().toISOString(),
-  };
-  await putLocalBookmark(updated);
-
-  const payload = {
-    label: updated.label,
-    note_text: updated.note_text,
-    color: updated.color,
-    updated_at: updated.updated_at,
-  };
-
-  if (isOnline()) {
-    const supabase = createClient();
-    const { error } = await supabase.from("bookmarks").update(payload).eq("id", id);
-    if (error) {
-      await enqueueSync({
-        id: newId(),
-        entity: "bookmark",
-        op: "update",
-        recordId: id,
-        payload,
-        createdAt: new Date().toISOString(),
-      });
-    }
-    await syncIfOnline();
-    return updated;
-  }
-
-  await enqueueSync({
-    id: newId(),
-    entity: "bookmark",
-    op: "update",
-    recordId: id,
-    payload,
-    createdAt: new Date().toISOString(),
-  });
-  return updated;
-}
-
 export async function deleteBookmark(id: string) {
   await removeSyncItemsForRecord(id);
   await deleteLocalBookmark(id);
@@ -709,29 +658,5 @@ export async function deleteBookmark(id: string) {
     recordId: id,
     payload: {},
     createdAt: new Date().toISOString(),
-  });
-}
-
-export async function saveHighlightStroke(input: {
-  bookId: string;
-  userId: string;
-  pageNumber: number;
-  color: string;
-  stroke: HighlightStroke;
-  viewport: { viewportWidth?: number; viewportHeight?: number };
-  highlightType?: "freeform" | "pen";
-}) {
-  const position: HighlightPosition = {
-    strokes: [input.stroke],
-    viewportWidth: input.viewport.viewportWidth,
-    viewportHeight: input.viewport.viewportHeight,
-  };
-  return insertHighlight({
-    bookId: input.bookId,
-    userId: input.userId,
-    pageNumber: input.pageNumber,
-    color: input.color,
-    position,
-    highlightType: input.highlightType,
   });
 }

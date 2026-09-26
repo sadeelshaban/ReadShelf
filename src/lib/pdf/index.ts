@@ -76,8 +76,3 @@ export function getReadButtonLabel(book: {
   if (book.progress_percent >= 100) return "Read Again";
   return book.last_opened_at ? "Continue Reading" : "Start Reading";
 }
-
-export function computeProgress(lastPage: number, totalPages: number | null) {
-  if (!totalPages || totalPages <= 0) return 0;
-  return Math.min(100, Math.round((lastPage / totalPages) * 100));
-}

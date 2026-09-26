@@ -52,7 +52,3 @@ export function isNoteTextTarget(target: EventTarget | null) {
   }
   return Boolean(target.closest("#reader-status-bar"));
 }
-
-export function isEditableChromeTarget(target: EventTarget | null) {
-  return isNoteTextTarget(target);
-}

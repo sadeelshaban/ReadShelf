@@ -138,8 +138,3 @@ export async function updateCachedBookProgress(
     cachedAt: new Date().toISOString(),
   });
 }
-
-export async function listCachedPdfBookIds(): Promise<string[]> {
-  const rows = await idbGetAll<{ bookId: string }>("pdfs");
-  return rows.map((row) => row.bookId);
-}
